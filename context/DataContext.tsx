@@ -117,7 +117,7 @@ export const ROLE_DEFINITIONS: Record<string, UserPermissions> = {
 
 export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   // Configurações Globais
-  const [companyName, setCompanyName] = useState("JS ENGENHARIA LTD");
+  const [companyName, setCompanyName] = useState("JS ENGENHARIA LTDA");
   const [companyLogo, setCompanyLogo] = useState<string | null>(null);
 
   const [companyCNPJ, setCompanyCNPJ] = useState("00.000.000/0001-00");
