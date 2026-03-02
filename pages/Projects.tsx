@@ -263,7 +263,17 @@ const Projects: React.FC = () => {
                   <select
                     required
                     value={formData.clientId}
-                    onChange={(e) => setFormData({ ...formData, clientId: e.target.value })}
+                    onChange={(e) => {
+                      const selectedClientId = e.target.value;
+                      const selectedClient = clients.find(c => c.id === selectedClientId);
+                      setFormData({
+                        ...formData,
+                        clientId: selectedClientId,
+                        clientName: selectedClient?.name || '',
+                        // Auto-fill address se for nova obra e o cliente tiver endereço
+                        address: (!selectedProject && selectedClient?.address) ? selectedClient.address : formData.address
+                      });
+                    }}
                     className="w-full border border-slate-300 rounded-lg p-2.5 bg-white focus:ring-2 focus:ring-[#c79229] outline-none"
                   >
                     <option value="">Selecione...</option>

@@ -340,19 +340,44 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   // --- PROJECTS ---
   const addProject = async (project: Project) => {
-    const { data, error } = await supabase.from('projects').insert([{
-      title: project.title,
-      client_id: project.clientId,
-      address: project.address,
-      status: project.status,
-      start_date: project.startDate,
-      end_date: project.endDate,
-      budget: project.budget,
-      progress: project.progress
-    }]).select().single();
+    try {
+      const { data, error } = await supabase.from('projects').insert([{
+        title: project.title,
+        client_id: project.clientId,
+        address: project.address,
+        status: project.status,
+        start_date: project.startDate,
+        end_date: project.endDate,
+        budget: project.budget,
+        progress: project.progress
+      }]).select().single();
 
-    if (!error && data) {
-      setProjects(prev => [...prev, { ...project, id: data.id }]);
+      if (error) {
+        console.error('Error adding project:', error);
+        throw new Error(`Erro ao salvar projeto: ${error.message}`);
+      }
+
+      if (data) {
+        const newProject = { ...project, id: data.id };
+        setProjects(prev => [...prev, newProject]);
+
+        // Registro Financeiro Automático (Receita Pendente)
+        if (newProject.budget > 0) {
+          await addFinancialRecord({
+            id: '', // será gerado pelo backend mas precisa tipagem local inicial
+            type: 'Receita',
+            description: `Recebimento Obra: ${newProject.title}`,
+            amount: newProject.budget,
+            date: newProject.startDate,
+            status: Status.PENDING,
+            category: 'Serviços',
+            projectId: newProject.id
+          });
+        }
+      }
+    } catch (err) {
+      console.error('Falha inesperada em addProject:', err);
+      throw err;
     }
   };
 
