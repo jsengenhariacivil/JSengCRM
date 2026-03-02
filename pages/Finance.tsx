@@ -64,8 +64,6 @@ const Finance: React.FC = () => {
   };
 
   const handleOpenNew = () => {
-    if (filterType === 'All') return;
-
     setEditingId(null);
     const defaultType = filterType === 'Despesa' ? 'Despesa' : 'Receita';
 
@@ -139,12 +137,7 @@ const Finance: React.FC = () => {
           </button>
           <button
             onClick={handleOpenNew}
-            disabled={filterType === 'All'}
-            title={filterType === 'All' ? "Selecione a aba Receitas ou Despesas para adicionar" : "Nova Transação"}
-            className={`flex items-center space-x-2 px-4 py-2 rounded-lg font-bold shadow-sm transition-colors ${filterType === 'All'
-                ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
-                : 'bg-[#c79229] text-[#181418] hover:bg-[#a67922]'
-              }`}
+            className="flex items-center space-x-2 px-4 py-2 rounded-lg font-bold shadow-sm transition-colors bg-[#c79229] text-[#181418] hover:bg-[#a67922]"
           >
             <Plus size={18} />
             <span>Nova Transação</span>
@@ -159,8 +152,8 @@ const Finance: React.FC = () => {
             key={type}
             onClick={() => setFilterType(type as any)}
             className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${filterType === type
-                ? 'bg-white text-[#c79229] shadow-sm font-bold'
-                : 'text-slate-600 hover:text-slate-900'
+              ? 'bg-white text-[#c79229] shadow-sm font-bold'
+              : 'text-slate-600 hover:text-slate-900'
               }`}
           >
             {type === 'All' ? 'Todas' : type === 'Receita' ? 'Receitas' : 'Despesas'}

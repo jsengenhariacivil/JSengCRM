@@ -138,7 +138,7 @@ const PrintPreviewModal = ({ proposal, onClose, clients }: { proposal: Proposal,
               </div>
               <div className="text-center md:text-right w-full md:w-auto">
                 <h2 className="font-bold text-white text-xl">Proposta Comercial</h2>
-                <p className="text-[#c79229] font-mono font-bold">#{proposal.id.padStart(6, '0')}</p>
+                <p className="text-[#c79229] font-mono font-bold">#{proposal.id.substring(0, 8).toUpperCase()}</p>
                 <div className="mt-2 text-sm text-slate-300">
                   <p className="max-w-[250px] truncate mx-auto md:mx-0">{companyAddress}</p>
                   <p>{companyEmail}</p>

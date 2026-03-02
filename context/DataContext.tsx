@@ -28,6 +28,7 @@ interface DataContextType {
   projects: Project[];
   addProject: (project: Project) => Promise<void>;
   updateProject: (project: Project) => Promise<void>;
+  deleteProject: (id: string) => Promise<void>;
 
   financials: FinancialRecord[];
   addFinancialRecord: (record: FinancialRecord) => Promise<void>;
@@ -61,7 +62,7 @@ interface DataContextType {
   users: UserData[];
   addUser: (user: UserData) => Promise<void>;
   updateUser: (user: UserData) => Promise<void>;
-  deleteUser: (id: number) => Promise<void>;
+  deleteUser: (id: string) => Promise<void>;
 
   loading: boolean;
   refreshData: () => Promise<void>;
@@ -142,140 +143,144 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     try {
       setLoading(true);
 
-      // Carregar clientes
-      const { data: clientsData } = await supabase.from('clients').select('*');
-      if (clientsData) {
-        setClients(clientsData.map(c => ({
-          id: c.id,
-          name: c.name,
-          document: c.document,
-          email: c.email,
-          phone: c.phone,
-          address: c.address,
-          type: c.type as 'Pessoa Física' | 'Pessoa Jurídica'
-        })));
-      }
+      const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('refreshData Timeout')), 8000));
 
-      // Carregar projetos
-      const { data: projectsData } = await supabase.from('projects').select('*, clients(name)');
-      if (projectsData) {
-        setProjects(projectsData.map(p => ({
-          id: p.id,
-          title: p.title,
-          clientId: p.client_id,
-          clientName: p.clients?.name || '',
-          address: p.address,
-          status: p.status as Status,
-          startDate: p.start_date,
-          endDate: p.end_date,
-          budget: parseFloat(p.budget),
-          progress: p.progress
-        })));
-      }
+      const loadAllData = async () => {
+        const [
+          clientsData, projectsData, financialsData, servicesData,
+          proposalsData, suppliersData, teamData, paymentsData, usersData
+        ] = await Promise.all([
+          supabase.from('clients').select('*'),
+          supabase.from('projects').select('*, clients(name)'),
+          supabase.from('financial_records').select('*').order('date', { ascending: false }),
+          supabase.from('services').select('*'),
+          supabase.from('proposals').select('*, clients(name), proposal_items(*)'),
+          supabase.from('suppliers').select('*'),
+          supabase.from('team_members').select('*'),
+          supabase.from('payment_records').select('*'),
+          supabase.from('users').select('*')
+        ]);
 
-      // Carregar registros financeiros
-      const { data: financialsData } = await supabase.from('financial_records').select('*').order('date', { ascending: false });
-      if (financialsData) {
-        setFinancials(financialsData.map(f => ({
-          id: f.id,
-          type: f.type as 'Receita' | 'Despesa',
-          description: f.description,
-          amount: parseFloat(f.amount),
-          date: f.date,
-          status: f.status as Status,
-          category: f.category,
-          projectId: f.project_id
-        })));
-      }
+        if (clientsData.data) {
+          setClients(clientsData.data.map(c => ({
+            id: c.id,
+            name: c.name,
+            document: c.document,
+            email: c.email,
+            phone: c.phone,
+            address: c.address,
+            type: c.type as 'Pessoa Física' | 'Pessoa Jurídica'
+          })));
+        }
 
-      // Carregar serviços
-      const { data: servicesData } = await supabase.from('services').select('*');
-      if (servicesData) {
-        setServices(servicesData.map(s => ({
-          id: s.id,
-          name: s.name,
-          description: s.description,
-          basePrice: parseFloat(s.base_price),
-          unit: s.unit
-        })));
-      }
+        if (projectsData.data) {
+          setProjects(projectsData.data.map(p => ({
+            id: p.id,
+            title: p.title,
+            clientId: p.client_id,
+            clientName: p.clients?.name || '',
+            address: p.address,
+            status: p.status as Status,
+            startDate: p.start_date,
+            endDate: p.end_date,
+            budget: parseFloat(p.budget),
+            progress: p.progress
+          })));
+        }
 
-      // Carregar propostas
-      const { data: proposalsData } = await supabase.from('proposals').select('*, clients(name), proposal_items(*)');
-      if (proposalsData) {
-        setProposals(proposalsData.map(p => ({
-          id: p.id,
-          clientId: p.client_id,
-          clientName: p.clients?.name || '',
-          items: p.proposal_items?.map((item: any) => ({
-            serviceId: item.service_id,
-            name: item.name,
-            quantity: parseFloat(item.quantity),
-            unitPrice: parseFloat(item.unit_price)
-          })) || [],
-          total: parseFloat(p.total),
-          status: p.status as Status,
-          date: p.date
-        })));
-      }
+        if (financialsData.data) {
+          setFinancials(financialsData.data.map(f => ({
+            id: f.id,
+            type: f.type as 'Receita' | 'Despesa',
+            description: f.description,
+            amount: parseFloat(f.amount),
+            date: f.date,
+            status: f.status as Status,
+            category: f.category,
+            projectId: f.project_id
+          })));
+        }
 
-      // Carregar fornecedores
-      const { data: suppliersData } = await supabase.from('suppliers').select('*');
-      if (suppliersData) {
-        setSuppliers(suppliersData.map(s => ({
-          id: s.id,
-          name: s.name,
-          document: s.document,
-          email: s.email,
-          phone: s.phone,
-          category: s.category
-        })));
-      }
+        if (servicesData.data) {
+          setServices(servicesData.data.map(s => ({
+            id: s.id,
+            name: s.name,
+            description: s.description,
+            basePrice: parseFloat(s.base_price),
+            unit: s.unit
+          })));
+        }
 
-      // Carregar membros da equipe
-      const { data: teamData } = await supabase.from('team_members').select('*');
-      if (teamData) {
-        setTeamMembers(teamData.map(t => ({
-          id: t.id,
-          name: t.name,
-          role: t.role,
-          type: t.type,
-          email: t.email,
-          phone: t.phone,
-          status: t.status
-        })));
-      }
+        if (proposalsData.data) {
+          setProposals(proposalsData.data.map(p => ({
+            id: p.id,
+            clientId: p.client_id,
+            clientName: p.clients?.name || '',
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            items: p.proposal_items?.map((item: any) => ({
+              serviceId: item.service_id,
+              name: item.name,
+              quantity: parseFloat(item.quantity),
+              unitPrice: parseFloat(item.unit_price)
+            })) || [],
+            total: parseFloat(p.total),
+            status: p.status as Status,
+            date: p.date
+          })));
+        }
 
-      // Carregar pagamentos
-      const { data: paymentsData } = await supabase.from('payment_records').select('*');
-      if (paymentsData) {
-        setPayments(paymentsData.map(p => ({
-          id: p.id,
-          name: p.name,
-          reference: p.reference,
-          date: p.date,
-          value: parseFloat(p.value),
-          status: p.status
-        })));
-      }
+        if (suppliersData.data) {
+          setSuppliers(suppliersData.data.map(s => ({
+            id: s.id,
+            name: s.name,
+            document: s.document,
+            email: s.email,
+            phone: s.phone,
+            category: s.category
+          })));
+        }
 
-      // Carregar usuários
-      const { data: usersData } = await supabase.from('users').select('*');
-      if (usersData) {
-        setUsers(usersData.map(u => ({
-          id: parseInt(u.id),
-          name: u.name,
-          email: u.email,
-          role: u.role,
-          permissions: {
-            viewFinancial: u.view_financial,
-            editFinancial: u.edit_financial,
-            viewProjects: u.view_projects,
-            editProjects: u.edit_projects,
-            manageSettings: u.manage_settings
-          }
-        })));
-      }
+        if (teamData.data) {
+          setTeamMembers(teamData.data.map(t => ({
+            id: t.id,
+            name: t.name,
+            role: t.role,
+            type: t.type,
+            email: t.email,
+            phone: t.phone,
+            status: t.status
+          })));
+        }
+
+        if (paymentsData.data) {
+          setPayments(paymentsData.data.map(p => ({
+            id: p.id,
+            name: p.name,
+            reference: p.reference,
+            date: p.date,
+            value: parseFloat(p.value),
+            status: p.status
+          })));
+        }
+
+        if (usersData.data) {
+          setUsers(usersData.data.map(u => ({
+            id: u.id,
+            name: u.name,
+            email: u.email,
+            role: u.role,
+            permissions: {
+              viewFinancial: u.view_financial,
+              editFinancial: u.edit_financial,
+              viewProjects: u.view_projects,
+              editProjects: u.edit_projects,
+              manageSettings: u.manage_settings
+            }
+          })));
+        }
+      };
+
+      await Promise.race([loadAllData(), timeoutPromise]);
 
     } catch (error) {
       console.error('Error loading data:', error);
@@ -300,7 +305,12 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       type: client.type
     }]).select().single();
 
-    if (!error && data) {
+    if (error) {
+      console.error('Error adding client:', error);
+      throw new Error(`Erro ao salvar cliente: ${error.message}`);
+    }
+
+    if (data) {
       setClients(prev => [...prev, { ...client, id: data.id }]);
     }
   };
@@ -354,6 +364,11 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }).eq('id', project.id);
 
     setProjects(prev => prev.map(p => p.id === project.id ? project : p));
+  };
+
+  const deleteProject = async (id: string) => {
+    await supabase.from('projects').delete().eq('id', id);
+    setProjects(prev => prev.filter(p => p.id !== id));
   };
 
   // --- FINANCIAL RECORDS ---
@@ -593,8 +608,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setUsers(prev => prev.map(u => u.id === user.id ? user : u));
   };
 
-  const deleteUser = async (id: number) => {
-    await supabase.from('users').delete().eq('id', id.toString());
+  const deleteUser = async (id: string) => {
+    await supabase.from('users').delete().eq('id', id);
     setUsers(prev => prev.filter(u => u.id !== id));
   };
 
@@ -607,7 +622,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       companyAddress, setCompanyAddress,
       companyEmail, setCompanyEmail,
       clients, addClient, updateClient, deleteClient,
-      projects, addProject, updateProject,
+      projects, addProject, updateProject, deleteProject,
       financials, addFinancialRecord, updateFinancialRecord,
       services, addService, updateService, deleteService,
       proposals, addProposal, updateProposalStatus,

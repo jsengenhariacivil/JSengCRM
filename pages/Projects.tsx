@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Plus, MapPin, Calendar, DollarSign, Clock, X, Save, Building, User } from 'lucide-react';
+import { Plus, MapPin, Calendar, DollarSign, Clock, X, Save, Building, User, Trash2 } from 'lucide-react';
 import { useData } from '../context/DataContext';
 import { Status, Project } from '../types';
 
@@ -8,9 +8,10 @@ interface ProjectCardProps {
   project: Project;
   onDetails: (p: Project) => void;
   onEdit: (p: Project) => void;
+  onDelete: (id: string) => void;
 }
 
-const ProjectCard: React.FC<ProjectCardProps> = ({ project, onDetails, onEdit }) => {
+const ProjectCard: React.FC<ProjectCardProps> = ({ project, onDetails, onEdit, onDelete }) => {
   const getStatusColor = (s: string) => {
     switch (s) {
       case Status.IN_PROGRESS: return 'bg-[#c79229]/20 text-[#c79229]';
@@ -71,13 +72,20 @@ const ProjectCard: React.FC<ProjectCardProps> = ({ project, onDetails, onEdit })
         >
           Gerenciar
         </button>
+        <button
+          onClick={() => onDelete(project.id)}
+          className="py-2 px-3 text-sm font-medium text-red-500 bg-red-50 hover:bg-red-100 rounded-lg border border-red-100"
+          title="Excluir Obra"
+        >
+          <Trash2 size={16} />
+        </button>
       </div>
     </div>
   );
 };
 
 const Projects: React.FC = () => {
-  const { projects, addProject, updateProject, clients } = useData();
+  const { projects, addProject, updateProject, deleteProject, clients } = useData();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
@@ -115,8 +123,8 @@ const Projects: React.FC = () => {
     setSelectedProject(project);
     setFormData({
       ...project,
-      startDate: project.startDate.split('T')[0], // Ensure format for date input
-      endDate: project.endDate.split('T')[0]
+      startDate: project.startDate?.split('T')[0] || '', // Ensure format for date input
+      endDate: project.endDate?.split('T')[0] || ''
     });
     setIsFormOpen(true);
   };
@@ -205,6 +213,11 @@ const Projects: React.FC = () => {
             project={project}
             onDetails={handleDetails}
             onEdit={handleEdit}
+            onDelete={async (id) => {
+              if (window.confirm('Tem certeza que deseja excluir esta obra? Esta ação não pode ser desfeita.')) {
+                await deleteProject(id);
+              }
+            }}
           />
         ))}
 

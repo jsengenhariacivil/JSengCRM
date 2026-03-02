@@ -20,17 +20,15 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   // Função para buscar dados do usuário do banco
   const fetchUserData = async (userId: string): Promise<UserData | null> => {
     try {
-      const { data, error } = await supabase
-        .from('users')
-        .select('*')
-        .eq('id', userId)
-        .single();
+      const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('fetchUserData Timeout')), 5000));
+      const fetchRequest = supabase.from('users').select('*').eq('id', userId).single();
+      const { data, error } = await Promise.race([fetchRequest, timeoutPromise]) as any;
 
       if (error) throw error;
 
       if (data) {
         return {
-          id: parseInt(data.id),
+          id: data.id,
           name: data.name,
           email: data.email,
           role: data.role,
@@ -44,27 +42,39 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         };
       }
 
+      console.warn('fetchUserData found no user for ID:', userId);
       return null;
-    } catch (error) {
-      console.error('Error fetching user data:', error);
+    } catch (error: any) {
+      console.error('Error fetching user data:', error.message || error);
       return null;
     }
   };
 
   // Verifica sessão ao iniciar
   useEffect(() => {
+    let mounted = true;
+
     const initAuth = async () => {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
+        const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Auth Timeout')), 5000));
 
-        if (session?.user) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const authRequest: any = supabase.auth.getSession();
+        const { data: { session }, error: sessionError } = await Promise.race([authRequest, timeoutPromise]) as any;
+
+        if (sessionError) {
+          console.error('Supabase getSession error:', sessionError);
+          throw sessionError;
+        }
+
+        if (session?.user && mounted) {
           const userData = await fetchUserData(session.user.id);
-          setCurrentUser(userData);
+          if (mounted) setCurrentUser(userData);
         }
       } catch (error) {
         console.error('Error initializing auth:', error);
       } finally {
-        setLoading(false);
+        if (mounted) setLoading(false);
       }
     };
 
@@ -81,16 +91,17 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     });
 
     return () => {
+      mounted = false;
       subscription.unsubscribe();
     };
   }, []);
 
   const login = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const result: any = await supabase.auth.signInWithPassword({ email, password });
+      const data = result.data;
+      const error = result.error;
 
       if (error) {
         return { success: false, error: error.message };

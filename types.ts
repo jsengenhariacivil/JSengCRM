@@ -100,7 +100,7 @@ export interface UserPermissions {
 }
 
 export interface UserData {
-  id: number;
+  id: string;
   name: string;
   email: string;
   role: string;
