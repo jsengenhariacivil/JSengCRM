@@ -82,17 +82,66 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     // Listener para mudanças de autenticação
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log('Auth state changed:', event);
       if (event === 'SIGNED_IN' && session?.user) {
-        const userData = await fetchUserData(session.user.id);
-        setCurrentUser(userData);
+        try {
+          const userData = await fetchUserData(session.user.id);
+          if (userData && mounted) {
+            setCurrentUser(userData);
+          }
+        } catch (err) {
+          console.error('Failed to update user session on event', err);
+        }
       } else if (event === 'SIGNED_OUT') {
-        setCurrentUser(null);
+        if (mounted) setCurrentUser(null);
+      } else if (event === 'USER_UPDATED' && session?.user) {
+        try {
+          const userData = await fetchUserData(session.user.id);
+          if (userData && mounted) {
+            setCurrentUser(userData);
+          }
+        } catch (err) {
+          console.error('Failed to update user session on event', err);
+        }
       }
     });
+
+    // Configurando um verificador periódico da sessão (Refresh Token Heartbeat)
+    const sessionHeartbeat = setInterval(async () => {
+      try {
+        if (!mounted) return;
+        const { data: { session }, error } = await supabase.auth.getSession();
+
+        // Verificamos o estado atual via setter funcional para evitar closure stale
+        setCurrentUser(prevUser => {
+          if (error || (!session && prevUser)) {
+            console.warn('Sessão expirada silenciosamente ou erro de heartbeat:', error);
+            return null;
+          } else if (session && !prevUser) {
+            console.log('Restaurando sessão a partir do heartbeat');
+            // Como estamos num recálculo síncrono reativo, não podemos fazer await no prevUser. 
+            // Ao invés disso, delegaremos para fora da closure:
+          }
+          return prevUser;
+        });
+
+        // Verificação assíncrona isolada do setter para não usar dados antigos da closure
+        if (session) {
+          const currentData = await fetchUserData(session.user.id);
+          if (!currentData) {
+            if (mounted) setCurrentUser(null);
+          }
+        }
+
+      } catch (err) {
+        console.error('Falha no heartbeat de sessão', err);
+      }
+    }, 5 * 60 * 1000); // Checa a cada 5 minutos
 
     return () => {
       mounted = false;
       subscription.unsubscribe();
+      clearInterval(sessionHeartbeat);
     };
   }, []);
 

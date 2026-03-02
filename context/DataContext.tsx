@@ -296,22 +296,27 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   // --- CLIENTS ---
   const addClient = async (client: Client) => {
-    const { data, error } = await supabase.from('clients').insert([{
-      name: client.name,
-      document: client.document,
-      email: client.email,
-      phone: client.phone,
-      address: client.address,
-      type: client.type
-    }]).select().single();
+    try {
+      const { data, error } = await supabase.from('clients').insert([{
+        name: client.name,
+        document: client.document,
+        email: client.email,
+        phone: client.phone,
+        address: client.address,
+        type: client.type
+      }]).select().single();
 
-    if (error) {
-      console.error('Error adding client:', error);
-      throw new Error(`Erro ao salvar cliente: ${error.message}`);
-    }
+      if (error) {
+        console.error('Error adding client:', error);
+        throw new Error(`Erro ao salvar cliente: ${error.message}`);
+      }
 
-    if (data) {
-      setClients(prev => [...prev, { ...client, id: data.id }]);
+      if (data) {
+        setClients(prev => [...prev, { ...client, id: data.id }]);
+      }
+    } catch (err) {
+      console.error('Falha inesperada em addClient:', err);
+      throw err;
     }
   };
 
