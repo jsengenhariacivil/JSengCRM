@@ -42,8 +42,12 @@ const Team: React.FC<TeamProps> = ({ view }) => {
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
 
+  React.useEffect(() => {
+    // Check constraints if possible
+  }, []);
+
   // Filtra membros com base na view
-  const employees = teamMembers.filter(m => m.type === 'CLT' || m.type === 'PJ' || m.type === 'Estágio');
+  const employees = teamMembers.filter(m => m.type === 'CLT' || m.type === 'PJ' || m.type === 'Estagio' || m.type === 'Estágio');
   const contractors = teamMembers.filter(m => m.type === 'Prestador' || m.type === 'Empresa');
 
   // Estado para armazenar referências usadas
@@ -435,7 +439,7 @@ const Team: React.FC<TeamProps> = ({ view }) => {
                           <>
                             <option value="CLT">CLT</option>
                             <option value="PJ">PJ</option>
-                            <option value="Estágio">Estágio</option>
+                            <option value="Estagio">Estágio</option>
                           </>
                         ) : (
                           <>
