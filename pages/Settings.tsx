@@ -1,7 +1,8 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Save, User, Building, Bell, Plus, Trash2, Shield, Mail, X, CheckSquare, Square, Key, Upload, Image as ImageIcon, Briefcase, Edit } from 'lucide-react';
+import { Save, User, Building, Bell, Plus, Trash2, Shield, Mail, X, CheckSquare, Square, Key, Upload, Image as ImageIcon, Briefcase, Edit, Loader2 } from 'lucide-react';
 import { useData, ROLE_DEFINITIONS } from '../context/DataContext';
+import { supabase } from '../supabaseClient';
 import { UserData, UserPermissions } from '../types';
 
 const Settings: React.FC = () => {
@@ -17,6 +18,7 @@ const Settings: React.FC = () => {
 
   const [activeTab, setActiveTab] = useState<'company' | 'users' | 'notifications'>('company');
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isUploadingLogo, setIsUploadingLogo] = useState(false);
 
   // Local state for company form
   const [localData, setLocalData] = useState({
@@ -58,14 +60,37 @@ const Settings: React.FC = () => {
     alert('Alterações da empresa salvas com sucesso!');
   };
 
-  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setCompanyLogo(reader.result as string);
-      };
-      reader.readAsDataURL(file);
+    if (!file) return;
+
+    try {
+      setIsUploadingLogo(true);
+      const fileExt = file.name.split('.').pop();
+      const fileName = `company_logo_${Date.now()}.${fileExt}`;
+      const filePath = `${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('logos')
+        .upload(filePath, file);
+
+      if (uploadError) {
+        throw uploadError;
+      }
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('logos')
+        .getPublicUrl(filePath);
+
+      setCompanyLogo(publicUrl);
+    } catch (error: any) {
+      console.error('Error uploading logo:', error.message);
+      alert('Erro ao fazer upload da logo. Verifique se o bucket "logos" foi criado como Público.');
+    } finally {
+      setIsUploadingLogo(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
     }
   };
 
@@ -214,8 +239,8 @@ const Settings: React.FC = () => {
           <button
             onClick={() => setActiveTab('company')}
             className={`px-6 py-4 font-medium text-sm flex items-center gap-2 transition-colors whitespace-nowrap ${activeTab === 'company'
-                ? 'text-[#c79229] border-b-2 border-[#c79229] font-bold'
-                : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'
+              ? 'text-[#c79229] border-b-2 border-[#c79229] font-bold'
+              : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'
               }`}
           >
             <Building size={18} />
@@ -224,8 +249,8 @@ const Settings: React.FC = () => {
           <button
             onClick={() => setActiveTab('users')}
             className={`px-6 py-4 font-medium text-sm flex items-center gap-2 transition-colors whitespace-nowrap ${activeTab === 'users'
-                ? 'text-[#c79229] border-b-2 border-[#c79229] font-bold'
-                : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'
+              ? 'text-[#c79229] border-b-2 border-[#c79229] font-bold'
+              : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'
               }`}
           >
             <User size={18} />
@@ -234,8 +259,8 @@ const Settings: React.FC = () => {
           <button
             onClick={() => setActiveTab('notifications')}
             className={`px-6 py-4 font-medium text-sm flex items-center gap-2 transition-colors whitespace-nowrap ${activeTab === 'notifications'
-                ? 'text-[#c79229] border-b-2 border-[#c79229] font-bold'
-                : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'
+              ? 'text-[#c79229] border-b-2 border-[#c79229] font-bold'
+              : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'
               }`}
           >
             <Bell size={18} />
@@ -273,14 +298,15 @@ const Settings: React.FC = () => {
                 </div>
 
                 <label className="cursor-pointer bg-[#181418] text-[#c79229] px-4 py-2 rounded-lg font-bold shadow-sm hover:bg-black transition-colors flex items-center gap-2">
-                  <Upload size={16} />
-                  <span>{companyLogo ? 'Alterar Logo' : 'Carregar Logo'}</span>
+                  {isUploadingLogo ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}
+                  <span>{isUploadingLogo ? 'Carregando...' : (companyLogo ? 'Alterar Logo' : 'Carregar Logo')}</span>
                   <input
                     type="file"
                     className="hidden"
                     accept="image/*"
                     onChange={handleLogoUpload}
                     ref={fileInputRef}
+                    disabled={isUploadingLogo}
                   />
                 </label>
                 <p className="text-xs text-slate-500 mt-2">Recomendado: PNG ou JPG com fundo transparente. Visualização em fundo escuro.</p>
@@ -384,8 +410,8 @@ const Settings: React.FC = () => {
                         <td className="px-6 py-4 text-slate-600">{user.email}</td>
                         <td className="px-6 py-4">
                           <span className={`px-2 py-1 rounded-full text-xs font-bold ${user.role === 'Administrador' ? 'bg-[#c79229]/20 text-[#c79229]' :
-                              user.role === 'Visitante' ? 'bg-slate-200 text-slate-500' :
-                                'bg-blue-50 text-blue-600'
+                            user.role === 'Visitante' ? 'bg-slate-200 text-slate-500' :
+                              'bg-blue-50 text-blue-600'
                             }`}>
                             {user.role}
                           </span>

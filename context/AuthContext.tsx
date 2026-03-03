@@ -20,9 +20,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   // Função para buscar dados do usuário do banco
   const fetchUserData = async (userId: string): Promise<UserData | null> => {
     try {
-      const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('fetchUserData Timeout')), 5000));
-      const fetchRequest = supabase.from('users').select('*').eq('id', userId).single();
-      const { data, error } = await Promise.race([fetchRequest, timeoutPromise]) as any;
+      const { data, error } = await supabase.from('users').select('*').eq('id', userId).single();
 
       if (error) throw error;
 
@@ -56,11 +54,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     const initAuth = async () => {
       try {
-        const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Auth Timeout')), 5000));
-
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const authRequest: any = supabase.auth.getSession();
-        const { data: { session }, error: sessionError } = await Promise.race([authRequest, timeoutPromise]) as any;
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
 
         if (sessionError) {
           console.error('Supabase getSession error:', sessionError);

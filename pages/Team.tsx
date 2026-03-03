@@ -47,8 +47,8 @@ const Team: React.FC<TeamProps> = ({ view }) => {
   }, []);
 
   // Filtra membros com base na view
-  const employees = teamMembers.filter(m => m.type === 'CLT' || m.type === 'PJ' || m.type === 'Estagio' || m.type === 'Estágio');
-  const contractors = teamMembers.filter(m => m.type === 'Prestador' || m.type === 'Empresa');
+  const employees = teamMembers.filter(m => m.type === 'CLT' || m.type === 'PJ' || m.type === 'Estagio' || m.type === 'Estágio' || m.type === 'Funcionário');
+  const contractors = teamMembers.filter(m => m.type === 'Prestador' || m.type === 'Empresa' || m.type === 'Fornecedor');
 
   // Estado para armazenar referências usadas
   const [savedReferences, setSavedReferences] = useState<string[]>(DEFAULT_PAYMENT_REFS);

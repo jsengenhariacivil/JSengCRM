@@ -118,14 +118,28 @@ export const ROLE_DEFINITIONS: Record<string, UserPermissions> = {
 };
 
 export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  // Configurações Globais
-  const [companyName, setCompanyName] = useState("JS ENGENHARIA LTDA");
-  const [companyLogo, setCompanyLogo] = useState<string | null>(null);
+  // Configurações Globais (com persistência no localStorage)
+  const [companyName, setCompanyName] = useState(() => localStorage.getItem('companyName') || "JS ENGENHARIA LTDA");
+  const [companyLogo, setCompanyLogo] = useState<string | null>(() => localStorage.getItem('companyLogo') || null);
 
-  const [companyCNPJ, setCompanyCNPJ] = useState("00.000.000/0001-00");
-  const [companyPhone, setCompanyPhone] = useState("(11) 99999-9999");
-  const [companyAddress, setCompanyAddress] = useState("Av. Engenheiro Luiz Carlos Berrini, 1000 - São Paulo, SP");
-  const [companyEmail, setCompanyEmail] = useState("contato@jsengenharia.com.br");
+  const [companyCNPJ, setCompanyCNPJ] = useState(() => localStorage.getItem('companyCNPJ') || "00.000.000/0001-00");
+  const [companyPhone, setCompanyPhone] = useState(() => localStorage.getItem('companyPhone') || "(11) 99999-9999");
+  const [companyAddress, setCompanyAddress] = useState(() => localStorage.getItem('companyAddress') || "Av. Engenheiro Luiz Carlos Berrini, 1000 - São Paulo, SP");
+  const [companyEmail, setCompanyEmail] = useState(() => localStorage.getItem('companyEmail') || "contato@jsengenharia.com.br");
+
+  // Salvar no localStorage sempre que houver mudanças
+  useEffect(() => {
+    localStorage.setItem('companyName', companyName);
+    if (companyLogo) {
+      localStorage.setItem('companyLogo', companyLogo);
+    } else {
+      localStorage.removeItem('companyLogo');
+    }
+    localStorage.setItem('companyCNPJ', companyCNPJ);
+    localStorage.setItem('companyPhone', companyPhone);
+    localStorage.setItem('companyAddress', companyAddress);
+    localStorage.setItem('companyEmail', companyEmail);
+  }, [companyName, companyLogo, companyCNPJ, companyPhone, companyAddress, companyEmail]);
 
   // Estados
   const [clients, setClients] = useState<Client[]>([]);
@@ -143,8 +157,6 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const refreshData = async () => {
     try {
       setLoading(true);
-
-      const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('refreshData Timeout')), 8000));
 
       const loadAllData = async () => {
         const [
@@ -281,7 +293,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         }
       };
 
-      await Promise.race([loadAllData(), timeoutPromise]);
+      await loadAllData();
 
     } catch (error) {
       console.error('Error loading data:', error);
