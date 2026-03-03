@@ -36,7 +36,7 @@ const DEFAULT_PAYMENT_REFS = [
 ];
 
 const Team: React.FC<TeamProps> = ({ view }) => {
-  const { teamMembers, addTeamMember, updateTeamMember, deleteTeamMember, payments, addPayment, updatePayment, deletePayment } = useData();
+  const { teamMembers, suppliers, addTeamMember, updateTeamMember, deleteTeamMember, payments, addPayment, updatePayment, deletePayment } = useData();
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
@@ -114,46 +114,50 @@ const Team: React.FC<TeamProps> = ({ view }) => {
     e.preventDefault();
     if (!formData.name) return;
 
-    if (view === 'payments') {
-      const paymentData: PaymentRecord = {
-        id: editingId || (Date.now()).toString(),
-        name: formData.name,
-        reference: formData.reference,
-        date: formData.date,
-        value: Number(formData.value),
-        status: formData.status
-      };
+    try {
+      if (view === 'payments') {
+        const paymentData: PaymentRecord = {
+          id: editingId || (Date.now()).toString(),
+          name: formData.name,
+          reference: formData.reference,
+          date: formData.date,
+          value: Number(formData.value),
+          status: formData.status
+        };
 
-      if (formData.reference && !savedReferences.includes(formData.reference)) {
-        setSavedReferences(prev => [...prev, formData.reference].sort());
-      }
+        if (formData.reference && !savedReferences.includes(formData.reference)) {
+          setSavedReferences(prev => [...prev, formData.reference].sort());
+        }
 
-      if (editingId) {
-        await updatePayment(paymentData);
+        if (editingId) {
+          await updatePayment(paymentData);
+        } else {
+          await addPayment(paymentData);
+        }
+
       } else {
-        await addPayment(paymentData);
+        const memberData: TeamMember = {
+          id: editingId || (Date.now()).toString(),
+          name: formData.name || '',
+          role: formData.role || '',
+          email: formData.email || '',
+          phone: formData.phone || '',
+          type: formData.type || '',
+          status: formData.status || 'Ativo'
+        };
+
+        if (editingId) {
+          await updateTeamMember(memberData);
+        } else {
+          await addTeamMember(memberData);
+        }
       }
 
-    } else {
-      const memberData: TeamMember = {
-        id: editingId || (Date.now()).toString(),
-        name: formData.name || '',
-        role: formData.role || '',
-        email: formData.email || '',
-        phone: formData.phone || '',
-        type: formData.type || '',
-        status: formData.status || 'Ativo'
-      };
-
-      if (editingId) {
-        await updateTeamMember(memberData);
-      } else {
-        await addTeamMember(memberData);
-      }
+      setIsModalOpen(false);
+      setEditingId(null);
+    } catch (error: any) {
+      alert('Erro ao salvar: ' + error.message);
     }
-
-    setIsModalOpen(false);
-    setEditingId(null);
   };
 
   const handleDelete = async (id: string) => {
@@ -489,6 +493,12 @@ const Team: React.FC<TeamProps> = ({ view }) => {
                       <optgroup label="Prestadores">
                         {contractors.map(cont => (
                           <option key={`cont-${cont.id}`} value={cont.name}>{cont.name} ({cont.role})</option>
+                        ))}
+                      </optgroup>
+
+                      <optgroup label="Fornecedores">
+                        {suppliers.map(sup => (
+                          <option key={`sup-${sup.id}`} value={sup.name}>{sup.name} (Fornecedor)</option>
                         ))}
                       </optgroup>
                     </select>

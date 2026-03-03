@@ -33,6 +33,7 @@ interface DataContextType {
   financials: FinancialRecord[];
   addFinancialRecord: (record: FinancialRecord) => Promise<void>;
   updateFinancialRecord: (record: FinancialRecord) => Promise<void>;
+  deleteFinancialRecord: (id: string) => Promise<void>;
 
   services: Service[];
   addService: (service: Service) => Promise<void>;
@@ -432,6 +433,11 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setFinancials(prev => prev.map(f => f.id === record.id ? record : f));
   };
 
+  const deleteFinancialRecord = async (id: string) => {
+    await supabase.from('financial_records').delete().eq('id', id);
+    setFinancials(prev => prev.filter(f => f.id !== id));
+  };
+
   // --- SERVICES ---
   const addService = async (service: Service) => {
     const { data, error } = await supabase.from('services').insert([{
@@ -502,13 +508,14 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       category: supplier.category
     }]).select().single();
 
-    if (!error && data) {
+    if (error) throw new Error(error.message);
+    if (data) {
       setSuppliers(prev => [...prev, { ...supplier, id: data.id }]);
     }
   };
 
   const updateSupplier = async (supplier: Supplier) => {
-    await supabase.from('suppliers').update({
+    const { error } = await supabase.from('suppliers').update({
       name: supplier.name,
       document: supplier.document,
       email: supplier.email,
@@ -516,6 +523,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       category: supplier.category
     }).eq('id', supplier.id);
 
+    if (error) throw new Error(error.message);
     setSuppliers(prev => prev.map(s => s.id === supplier.id ? supplier : s));
   };
 
@@ -535,13 +543,14 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       status: member.status
     }]).select().single();
 
-    if (!error && data) {
+    if (error) throw new Error(error.message);
+    if (data) {
       setTeamMembers(prev => [...prev, { ...member, id: data.id }]);
     }
   };
 
   const updateTeamMember = async (member: TeamMember) => {
-    await supabase.from('team_members').update({
+    const { error } = await supabase.from('team_members').update({
       name: member.name,
       role: member.role,
       type: member.type,
@@ -550,6 +559,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       status: member.status
     }).eq('id', member.id);
 
+    if (error) throw new Error(error.message);
     setTeamMembers(prev => prev.map(m => m.id === member.id ? member : m));
   };
 
@@ -568,7 +578,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       status: payment.status
     }]).select().single();
 
-    if (!error && data) {
+    if (error) throw new Error(error.message);
+    if (data) {
       setPayments(prev => [...prev, { ...payment, id: data.id }]);
 
       // Adicionar registro financeiro correspondente
@@ -586,7 +597,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   const updatePayment = async (payment: PaymentRecord) => {
-    await supabase.from('payment_records').update({
+    const { error } = await supabase.from('payment_records').update({
       name: payment.name,
       reference: payment.reference,
       date: payment.date,
@@ -594,6 +605,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       status: payment.status
     }).eq('id', payment.id);
 
+    if (error) throw new Error(error.message);
     setPayments(prev => prev.map(p => p.id === payment.id ? payment : p));
 
     // Atualizar registro financeiro correspondente
@@ -653,7 +665,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       companyEmail, setCompanyEmail,
       clients, addClient, updateClient, deleteClient,
       projects, addProject, updateProject, deleteProject,
-      financials, addFinancialRecord, updateFinancialRecord,
+      financials, addFinancialRecord, updateFinancialRecord, deleteFinancialRecord,
       services, addService, updateService, deleteService,
       proposals, addProposal, updateProposalStatus,
       suppliers, addSupplier, updateSupplier, deleteSupplier,
