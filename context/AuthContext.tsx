@@ -128,8 +128,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         // Verificação assíncrona isolada do setter para não usar dados antigos da closure
         if (session) {
           const currentData = await fetchUserData(session.user.id);
-          if (!currentData) {
-            if (mounted) setCurrentUser(null);
+          // Se o currentData for null (talvez erro de rede ou user apagado), DEIXAMOS QUETO
+          // O hook onAuthStateChange cuidará se a sessão expirar de fato.
+          if (currentData && mounted) {
+            setCurrentUser(currentData);
           }
         }
 

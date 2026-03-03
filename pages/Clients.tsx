@@ -25,8 +25,8 @@ const Clients: React.FC = () => {
   });
 
   const filteredClients = clients.filter(c =>
-    c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    c.document.includes(searchTerm)
+    (c.name || '').toLowerCase().includes((searchTerm || '').toLowerCase()) ||
+    (c.document || '').includes(searchTerm || '')
   );
 
   // --- Handlers ---

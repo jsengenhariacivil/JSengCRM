@@ -181,9 +181,9 @@ const Team: React.FC<TeamProps> = ({ view }) => {
     const data = view === 'employees' ? employees : contractors;
 
     const filteredData = data.filter(item =>
-      item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.role.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.email.toLowerCase().includes(searchTerm.toLowerCase())
+      (item.name || '').toLowerCase().includes((searchTerm || '').toLowerCase()) ||
+      (item.role || '').toLowerCase().includes((searchTerm || '').toLowerCase()) ||
+      (item.email || '').toLowerCase().includes((searchTerm || '').toLowerCase())
     );
 
     return (
@@ -260,8 +260,8 @@ const Team: React.FC<TeamProps> = ({ view }) => {
   const renderOtherViews = () => {
     if (view === 'payments') {
       const filteredPayments = payments.filter(p =>
-        p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        p.reference.toLowerCase().includes(searchTerm.toLowerCase())
+        (p.name || '').toLowerCase().includes((searchTerm || '').toLowerCase()) ||
+        (p.reference || '').toLowerCase().includes((searchTerm || '').toLowerCase())
       );
 
       return (

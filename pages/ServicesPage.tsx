@@ -19,7 +19,7 @@ const ServicesPage: React.FC = () => {
   });
 
   const filteredServices = services.filter(s =>
-    s.name.toLowerCase().includes(searchTerm.toLowerCase())
+    (s.name || '').toLowerCase().includes((searchTerm || '').toLowerCase())
   );
 
   // --- HANDLERS ---

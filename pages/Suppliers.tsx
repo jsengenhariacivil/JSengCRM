@@ -23,8 +23,8 @@ const Suppliers: React.FC = () => {
   });
 
   const filteredSuppliers = suppliers.filter(s =>
-    s.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    s.document.includes(searchTerm)
+    (s.name || '').toLowerCase().includes((searchTerm || '').toLowerCase()) ||
+    (s.document || '').includes(searchTerm || '')
   );
 
   // --- HANDLERS ---
