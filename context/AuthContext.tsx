@@ -20,9 +20,15 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   // Função para buscar dados do usuário do banco
   const fetchUserData = async (userId: string): Promise<UserData | null> => {
     try {
-      const { data, error } = await supabase.from('users').select('*').eq('id', userId).single();
+      const timeoutPromise = new Promise<{ data: null, error: Error }>((resolve) => setTimeout(() => resolve({ data: null, error: new Error('fetchUserData Timeout') }), 8000));
+      const fetchRequest = supabase.from('users').select('*').eq('id', userId).single();
+      const { data, error } = await Promise.race([fetchRequest, timeoutPromise]) as any;
 
-      if (error) throw error;
+      if (error) {
+        console.warn('Supabase fetch errored or timed out for user', userId, error.message);
+        // We do not throw, we just return null so the app doesn't crash/hang
+        return null;
+      }
 
       if (data) {
         return {
@@ -54,11 +60,15 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     const initAuth = async () => {
       try {
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        const timeoutPromise = new Promise<{ data: { session: null }, error: Error }>((resolve) => setTimeout(() => resolve({ data: { session: null }, error: new Error('Auth Timeout') }), 8000));
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const authRequest: any = supabase.auth.getSession();
+
+        const { data: { session }, error: sessionError } = await Promise.race([authRequest, timeoutPromise]) as any;
 
         if (sessionError) {
-          console.error('Supabase getSession error:', sessionError);
-          throw sessionError;
+          console.error('Supabase getSession error or timeout:', sessionError.message);
+          // Don't throw, just allow the app to finish loading as unauthenticated
         }
 
         if (session?.user && mounted) {
