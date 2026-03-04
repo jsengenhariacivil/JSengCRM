@@ -590,102 +590,6 @@ const CreateProposal = ({ onCancel, onSave }: { onCancel: () => void, onSave: (p
   const [showPasteModal, setShowPasteModal] = useState(false);
   const [pasteData, setPasteData] = useState('');
 
-  const handleDownloadTemplate = () => {
-    const ws = XLSX.utils.aoa_to_sheet([
-      ['Obra', '', 'Bancos', '', 'B.D.I.', '', 'Encargos Sociais'],
-      ['Orçamento Ministério Público', '', 'SINAPI - 01/2026 - Bahia', '', '22,88%', '', 'Desonerado: embutido nos...'],
-      ['', '', '', 'Orçamento Sintético', '', '', '', '', '', ''],
-      ['Item', 'Código', 'Banco', 'Descrição', 'Und', 'Quant.', 'Valor Unit', 'Valor Unit com BDI', 'Total', 'Peso (%)'],
-      ['1', '', '', 'ADMINISTRAÇÃO LOCAL', '', '1', '', '3.334,40', '3.334,40', '42,79 %'],
-      ['1.1', '90777', 'SINAPI', 'ENGENHEIRO CIVIL DE OBRA JUNIOR COM ENCARGOS COMPLEMENTARES', 'H', '20', '135,68', '166,72', '3.334,40', '42,79 %'],
-      ['2', '', '', 'SERVIÇOS PRELIMINARES', '', '1', '', '1.787,94', '1.787,94', '22,94 %'],
-      ['2.1', '97063', 'SINAPI', 'MONTAGEM E DESMONTAGEM DE ANDAIME MODULAR...', 'm2', '27', '24,16', '29,68', '801,36', '10,28 %'],
-      ['3', '', '', 'INSTALAÇÕES SPDA', '', '1', '', '910,02', '910,02', '11,68 %'],
-      ['3.1', '104753', 'SINAPI', 'CONECTOR SPLIT-BOLT...', 'UN', '6', '23,00', '28,26', '169,56', '2,18 %']
-    ]);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Modelo_Proposta");
-    XLSX.writeFile(wb, "Modelo_Importacao_JSeng.xlsx");
-  };
-
-  const handleImportClick = () => {
-    if (fileInputRef.current) fileInputRef.current.click();
-  };
-
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    try {
-      const data = await file.arrayBuffer();
-      const workbook = XLSX.read(data);
-      let headerRowIndex = -1;
-      let headers: string[] = [];
-      let targetRows: any[][] = [];
-      let firstSheetRows: any[][] = [];
-
-      for (const name of workbook.SheetNames) {
-        const worksheet = workbook.Sheets[name];
-        const sheetRows = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' }) as any[][];
-        if (firstSheetRows.length === 0) firstSheetRows = sheetRows.slice(0, 10);
-
-        for (let i = 0; i < Math.min(sheetRows.length, 100); i++) {
-          const row = sheetRows[i];
-          if (!row || !Array.isArray(row)) continue;
-
-          const rowStr = row.map(cell => String(cell || '').trim().toLowerCase());
-
-          let matchCount = 0;
-          if (rowStr.some(c => c.includes('item') || c === 'it')) matchCount++;
-          if (rowStr.some(c => c.includes('cód') || c.includes('cod'))) matchCount++;
-          if (rowStr.some(c => c.includes('descri') || c.includes('servi') || c.includes('espec'))) matchCount++;
-          if (rowStr.some(c => c.includes('und') || c.includes('unid'))) matchCount++;
-          if (rowStr.some(c => c.includes('quant') || c.includes('qtd'))) matchCount++;
-          if (rowStr.some(c => c.includes('valor') || c.includes('preço') || c.includes('preco') || c.includes('custo') || c.includes('total'))) matchCount++;
-
-          if (matchCount >= 2) {
-            headerRowIndex = i;
-            headers = rowStr; // use lowercase string directly
-            targetRows = sheetRows;
-            break;
-          }
-        }
-        if (headerRowIndex !== -1) break; // Found it in this sheet!
-      }
-
-      const rows = targetRows; // Use the rows from the matched sheet
-
-      if (headerRowIndex === -1) {
-        alert("Cabeçalho não encontrado. O Orçafascio pode ter gerado um arquivo XLS incompatível. \n\nDICA: Abra a planilha no seu Excel, copie as células (Ctrl+C) e use o novo botão 'Colar Dados' no sistema!");
-        if (fileInputRef.current) fileInputRef.current.value = '';
-        return;
-      }
-
-      const getColIndex = (names: string[]) => headers.findIndex(h => names.some(n => h.includes(n.toLowerCase())));
-
-      const itemIdx = getColIndex(['item']);
-      const codeIdx = getColIndex(['código', 'codigo']);
-      const bancoIdx = getColIndex(['banco']);
-      const descIdx = getColIndex(['descrição', 'descricao', 'serviço']);
-      const unitIdx = getColIndex(['und', 'unidade']);
-      const quantIdx = getColIndex(['quant', 'qtd']);
-      const unitPriceIdx = getColIndex(['valor unit', 'preço unit']);
-
-      if (itemIdx === -1 || descIdx === -1) {
-        alert("Faltam colunas obrigatórias ('Item' ou 'Descrição').");
-        return;
-      }
-
-      processExtractedRows(rows.slice(headerRowIndex + 1), itemIdx, descIdx, codeIdx, bancoIdx, unitIdx, quantIdx, unitPriceIdx);
-
-    } catch (error) {
-      console.error('Error uploading file:', error);
-      alert('Erro ao processar o arquivo. Utilize o botão "Colar Dados" em vez de upload.');
-    } finally {
-      if (fileInputRef.current) fileInputRef.current.value = '';
-    }
-  };
-
   const processExtractedRows = (
     rows: any[][], itemIdx: number, descIdx: number, codeIdx: number,
     bancoIdx: number, unitIdx: number, quantIdx: number, unitPriceIdx: number
@@ -940,37 +844,13 @@ const CreateProposal = ({ onCancel, onSave }: { onCancel: () => void, onSave: (p
           </button>
 
           <div className="flex gap-2 w-full sm:w-auto">
-            <input
-              type="file"
-              ref={fileInputRef}
-              onChange={handleFileUpload}
-              className="hidden"
-              accept=".xlsx,.xls"
-            />
-            <button
-              onClick={handleImportClick}
-              type="button"
-              className="bg-slate-700 text-white font-medium px-4 py-3 rounded-lg flex items-center justify-center gap-2 hover:bg-slate-600 transition-colors text-sm flex-1 sm:flex-none"
-            >
-              <FileSpreadsheet size={18} />
-              Importar Planilha
-            </button>
             <button
               onClick={() => setShowPasteModal(true)}
               type="button"
-              className="bg-[#c79229] text-[#181418] font-medium px-4 py-3 rounded-lg flex items-center justify-center gap-2 hover:bg-[#a67922] transition-colors text-sm flex-1 sm:flex-none"
+              className="bg-transparent border border-[#c79229] text-[#c79229] font-medium px-4 py-3 rounded-lg flex items-center justify-center gap-2 hover:bg-[#c79229]/10 transition-colors text-sm flex-1 sm:flex-none"
             >
-              <FileText size={18} />
-              Colar Dados (Recomendado)
-            </button>
-            <button
-              onClick={handleDownloadTemplate}
-              type="button"
-              className="bg-transparent border border-slate-600 text-slate-300 font-medium px-4 py-3 rounded-lg flex items-center justify-center gap-2 hover:bg-slate-800 transition-colors text-sm flex-1 sm:flex-none"
-              title="Baixar Modelo"
-            >
-              <Download size={18} />
-              <span className="hidden sm:inline">Modelo</span>
+              <FileSpreadsheet size={18} />
+              Importar do Excel (Ctrl+C V)
             </button>
           </div>
         </div>
