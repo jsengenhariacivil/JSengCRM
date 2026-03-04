@@ -55,10 +55,18 @@ export interface Proposal {
   id: string;
   clientId: string;
   clientName: string;
-  items: { serviceId: string; name: string; quantity: number; unitPrice: number }[];
+  items: { serviceId: string; name: string; quantity: number; unitPrice: number; unit?: string }[];
   total: number;
+  bdi?: number;
   status: Status;
   date: string;
+}
+
+export interface SinapiService {
+  code: string;
+  description: string;
+  unit: string;
+  price: number;
 }
 
 export interface Supplier {

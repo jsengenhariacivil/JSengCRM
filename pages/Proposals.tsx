@@ -22,6 +22,17 @@ const PrintPreviewModal = ({ proposal, onClose, clients }: { proposal: Proposal,
     email: 'email@exemplo.com'
   };
 
+  const proposalBdi = proposal.bdi || 0;
+  const calculateSubtotalDisplay = () => {
+    if (!proposal.items || proposal.items.length === 0) return proposal.total;
+    return proposal.items.reduce((acc, item) => acc + (item.quantity * item.unitPrice), 0);
+  };
+  const calculateTotalDisplay = () => {
+    if (!proposal.items || proposal.items.length === 0) return proposal.total;
+    const subtotal = calculateSubtotalDisplay();
+    return subtotal * (1 + (proposalBdi / 100));
+  };
+
   const handleDownloadPDF = () => {
     setIsGenerating(true);
     const element = document.getElementById('printable-content');
@@ -213,20 +224,31 @@ const PrintPreviewModal = ({ proposal, onClose, clients }: { proposal: Proposal,
               </table>
             </div>
 
-            {/* Totals */}
+            {/* Resumo Financeiro */}
             <div className="flex justify-end mb-20">
-              <div className="w-full md:w-64 bg-[#181418] p-6 rounded-lg text-white">
-                <div className="flex justify-between mb-2 text-[#c79229]/80">
-                  <span>Subtotal</span>
-                  <span>R$ {proposal.total.toLocaleString()}</span>
-                </div>
-                <div className="flex justify-between mb-4 text-[#c79229]/80">
-                  <span>Impostos (0%)</span>
-                  <span>R$ 0,00</span>
-                </div>
-                <div className="flex justify-between pt-4 border-t border-[#c79229] text-xl font-bold text-[#c79229]">
-                  <span>Total Geral</span>
-                  <span>R$ {proposal.total.toLocaleString()}</span>
+              <div className="bg-slate-50 p-6 border-l border-slate-200 w-full lg:w-80 shrink-0">
+                <h3 className="font-bold text-slate-800 mb-6 text-lg border-b pb-2">Resumo</h3>
+
+                <div className="space-y-4 mb-8">
+                  <div className="flex justify-between items-center text-slate-600">
+                    <span>Subtotal (Custo):</span>
+                    <span className="font-medium">R$ {calculateSubtotalDisplay().toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                  </div>
+
+                  <div className="flex justify-between items-center text-slate-600">
+                    <div className="flex items-center gap-1">
+                      <span>BDI e Encargos:</span>
+                      <span className="text-xs bg-[#c79229]/20 text-[#a67922] px-2 py-0.5 rounded-full font-bold">{proposalBdi}%</span>
+                    </div>
+                    <span className="font-medium">R$ {(calculateTotalDisplay() - calculateSubtotalDisplay()).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                  </div>
+
+                  <div className="flex justify-between items-center text-[#181418] pt-4 border-t border-slate-200">
+                    <span className="font-bold">Total Geral:</span>
+                    <span className="font-black text-xl text-[#c79229]">
+                      R$ {calculateTotalDisplay().toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -253,9 +275,10 @@ const PrintPreviewModal = ({ proposal, onClose, clients }: { proposal: Proposal,
 
 // Sub-component for Creating a Proposal
 const CreateProposal = ({ onCancel, onSave }: { onCancel: () => void, onSave: (proposal: Proposal) => void }) => {
-  const { clients, services } = useData(); // Use Global Data
+  const { clients, services, sinapiDatabase } = useData(); // Use Global Data
   const [selectedClient, setSelectedClient] = useState('');
   const [validityDate, setValidityDate] = useState(new Date().toISOString().split('T')[0]);
+  const [bdi, setBdi] = useState(20); // Valor padrão de BDI: 20%
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Local state for items
@@ -280,17 +303,41 @@ const CreateProposal = ({ onCancel, onSave }: { onCancel: () => void, onSave: (p
     }]);
   };
 
-  const handleServiceChange = (index: number, serviceId: string) => {
-    const service = services.find(s => s.id === serviceId);
+  const handleServiceChange = (index: number, serviceIdOrName: string) => {
+    // 1. Tenta achar no SINAPI
+    const sinapiSrv = sinapiDatabase.find(s =>
+      s.code === serviceIdOrName ||
+      s.description === serviceIdOrName ||
+      `${s.code} - ${s.description}` === serviceIdOrName
+    );
+
+    if (sinapiSrv) {
+      setItems(prev => prev.map((item, i) => {
+        if (i === index) {
+          return {
+            ...item,
+            serviceId: sinapiSrv.code,
+            name: sinapiSrv.description,
+            unitPrice: sinapiSrv.price,
+            unit: sinapiSrv.unit
+          };
+        }
+        return item;
+      }));
+      return;
+    }
+
+    // 2. Tenta achar nos serviços próprios
+    const service = services.find(s => s.id === serviceIdOrName || s.name === serviceIdOrName);
 
     setItems(prev => prev.map((item, i) => {
       if (i === index) {
         return {
           ...item,
-          serviceId: serviceId,
-          name: service ? service.name : '', // Se não selecionou nada, limpa o nome
-          unitPrice: service ? service.basePrice : 0,
-          unit: service ? service.unit : 'un'
+          serviceId: service ? service.id : '',
+          name: service ? service.name : serviceIdOrName,
+          unitPrice: service ? service.basePrice : item.unitPrice,
+          unit: service ? service.unit : item.unit
         };
       }
       return item;
@@ -310,8 +357,13 @@ const CreateProposal = ({ onCancel, onSave }: { onCancel: () => void, onSave: (p
     setItems(prev => prev.filter((_, i) => i !== index));
   };
 
-  const calculateTotal = () => {
+  const calculateSubtotal = () => {
     return items.reduce((acc, item) => acc + (item.quantity * item.unitPrice), 0);
+  };
+
+  const calculateTotal = () => {
+    const subtotal = calculateSubtotal();
+    return subtotal * (1 + (bdi / 100)); // Applying BDI
   };
 
   // --- EXCEL IMPORT LOGIC ---
@@ -420,17 +472,19 @@ const CreateProposal = ({ onCancel, onSave }: { onCancel: () => void, onSave: (p
     const total = calculateTotal();
 
     const newProposal: Proposal = {
-      id: Math.floor(Math.random() * 10000).toString(),
+      id: Date.now().toString(),
       clientId: selectedClient,
-      clientName: client ? client.name : 'Cliente',
+      clientName: clients.find(c => c.id === selectedClient)?.name || '',
       date: new Date().toISOString(),
       status: Status.PENDING,
       total: total,
+      bdi: bdi,
       items: validItems.map(item => ({
         serviceId: item.serviceId || 'custom',
         name: item.name,
         quantity: item.quantity,
-        unitPrice: item.unitPrice
+        unitPrice: item.unitPrice,
+        unit: item.unit
       }))
     };
 
@@ -473,6 +527,15 @@ const CreateProposal = ({ onCancel, onSave }: { onCancel: () => void, onSave: (p
             className="w-full border border-slate-300 rounded-lg p-2.5 bg-white text-slate-900 focus:ring-2 focus:ring-[#c79229] outline-none"
           />
         </div>
+        <div>
+          <label className="block text-sm font-medium text-slate-700 mb-1">BDI (%)</label>
+          <input
+            type="number"
+            value={bdi}
+            onChange={(e) => setBdi(parseFloat(e.target.value) || 0)}
+            className="w-full border border-slate-300 rounded-lg p-2.5 bg-white text-slate-900 focus:ring-2 focus:ring-[#c79229] outline-none"
+          />
+        </div>
       </div>
 
       <div className="mb-6">
@@ -510,8 +573,7 @@ const CreateProposal = ({ onCancel, onSave }: { onCancel: () => void, onSave: (p
             <thead className="bg-slate-100 text-slate-600 border-b border-slate-200">
               <tr>
                 <th className="px-4 py-3 w-12"></th>
-                <th className="px-4 py-3 min-w-[200px]">Modelo de Serviço</th>
-                <th className="px-4 py-3 min-w-[250px]">Descrição (Editável)</th>
+                <th className="px-4 py-3 min-w-[450px]" colSpan={2}>Serviço / Descrição (SINAPI ou Editável)</th>
                 <th className="px-4 py-3 w-32 text-center">Qtd.</th>
                 {/* Mantendo o ajuste visual solicitado anteriormente */}
                 <th className="px-4 py-3 min-w-[150px] text-right">Valor Unit.</th>
@@ -528,24 +590,26 @@ const CreateProposal = ({ onCancel, onSave }: { onCancel: () => void, onSave: (p
                     <td className="px-4 py-3 text-center text-slate-400 align-middle">
                       <Package size={18} />
                     </td>
-                    <td className="px-4 py-3 align-middle">
-                      <select
-                        className="w-full p-2.5 border border-slate-300 rounded-lg bg-slate-50 text-slate-700 focus:bg-white focus:border-[#c79229] focus:ring-1 focus:ring-[#c79229] outline-none text-sm cursor-pointer shadow-sm transition-all"
-                        value={item.serviceId}
-                        onChange={(e) => handleServiceChange(idx, e.target.value)}
-                      >
-                        <option value="">Selecione...</option>
-                        {services.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                      </select>
-                    </td>
-                    <td className="px-4 py-3 align-middle">
+                    <td colSpan={2} className="px-4 py-3 align-middle">
                       <input
-                        type="text"
-                        className="w-full p-2.5 border border-slate-300 rounded-lg focus:border-[#c79229] focus:ring-1 focus:ring-[#c79229] bg-white outline-none font-medium text-slate-900 placeholder-slate-400 shadow-sm transition-all"
-                        placeholder="Nome do serviço..."
+                        list={`service-options-${idx}`}
+                        className="w-full p-2.5 border border-slate-300 rounded-lg focus:border-[#c79229] focus:ring-1 focus:ring-[#c79229] bg-white outline-none font-medium text-slate-900 placeholder-slate-400 shadow-sm transition-all text-sm mb-1"
+                        placeholder="Buscar serviço SINAPI ou Próprios..."
                         value={item.name}
-                        onChange={(e) => updateItem(idx, 'name', e.target.value)}
+                        onChange={(e) => handleServiceChange(idx, e.target.value)}
                       />
+                      <datalist id={`service-options-${idx}`}>
+                        {sinapiDatabase.map(s => (
+                          <option key={s.code} value={`${s.code} - ${s.description}`}>
+                            SINAPI ({s.unit}) - R$ {s.price.toFixed(2)}
+                          </option>
+                        ))}
+                        {services.map(s => (
+                          <option key={s.id} value={s.name}>
+                            Próprio ({s.unit}) - R$ {s.basePrice.toFixed(2)}
+                          </option>
+                        ))}
+                      </datalist>
                     </td>
                     <td className="px-4 py-3 align-middle">
                       <div className="flex items-center justify-center gap-2">

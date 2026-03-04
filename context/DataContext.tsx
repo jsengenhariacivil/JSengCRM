@@ -1,9 +1,12 @@
 
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
-import { Client, Project, FinancialRecord, Service, Proposal, Supplier, TeamMember, PaymentRecord, Status, UserData, UserPermissions } from '../types';
+import { Client, Project, FinancialRecord, Service, Proposal, SinapiService, Supplier, TeamMember, PaymentRecord, Status, UserData, UserPermissions } from '../types';
 
 interface DataContextType {
+  // Base SINAPI (Mock)
+  sinapiDatabase: SinapiService[];
+
   // Configurações da Empresa
   companyName: string;
   setCompanyName: (name: string) => void;
@@ -116,6 +119,17 @@ export const ROLE_DEFINITIONS: Record<string, UserPermissions> = {
     manageSettings: false
   }
 };
+
+export const MOCK_SINAPI_DB: SinapiService[] = [
+  { code: '88309', description: 'PEDREIRO COM ENCARGOS COMPLEMENTARES', unit: 'H', price: 23.45 },
+  { code: '88316', description: 'SERVENTE COM ENCARGOS COMPLEMENTARES', unit: 'H', price: 17.80 },
+  { code: '94273', description: 'ASSENTAMENTO DE GUIA (MEIO-FIO) EM TRECHO RETO, CONFECCIONADA EM CONCRETO PRÉ-FABRICADO', unit: 'M', price: 54.20 },
+  { code: '87298', description: 'REVESTIMENTO CERÂMICO PARA PISOS COM PLACAS TIPO ESMALTADA EXTRA DE DIMENSÕES 45X45 CM', unit: 'M2', price: 68.90 },
+  { code: '90443', description: 'RASGO EM ALVENARIA PARA RAMAIS/ DISTRIBUIÇÃO COM DIAMETRO ATÉ 40 MM', unit: 'M', price: 12.30 },
+  { code: '100860', description: 'CHUVEIRO ELÉTRICO COMUM CORPO PLÁSTICO, TIPO DUCHA SUPERMÁXIMO OU EQUIVALENTE', unit: 'UN', price: 125.00 },
+  { code: '89509', description: 'PINTURA ACRÍLICA EM CORES SOBRE PAREDES, COM DUAS DEMÃOS', unit: 'M2', price: 21.50 },
+  { code: '94963', description: 'CONCRETO FCK = 25MPA, TRAÇO 1:2,3:2,7 (EM MASSA SECA DE CIMENTO/ AREIA MÉDIA/ BRITA 1)', unit: 'M3', price: 450.00 }
+];
 
 export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   // Configurações Globais (com persistência no localStorage)
@@ -669,6 +683,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   return (
     <DataContext.Provider value={{
+      sinapiDatabase: MOCK_SINAPI_DB,
       companyName, setCompanyName,
       companyLogo, setCompanyLogo,
       companyCNPJ, setCompanyCNPJ,
