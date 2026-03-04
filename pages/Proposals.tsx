@@ -587,6 +587,9 @@ const CreateProposal = ({ onCancel, onSave }: { onCancel: () => void, onSave: (p
     return subtotal * (1 + (bdi / 100)); // Applying BDI globally
   };
 
+  const [showPasteModal, setShowPasteModal] = useState(false);
+  const [pasteData, setPasteData] = useState('');
+
   const handleDownloadTemplate = () => {
     const ws = XLSX.utils.aoa_to_sheet([
       ['Obra', '', 'Bancos', '', 'B.D.I.', '', 'Encargos Sociais'],
@@ -653,8 +656,7 @@ const CreateProposal = ({ onCancel, onSave }: { onCancel: () => void, onSave: (p
       const rows = targetRows; // Use the rows from the matched sheet
 
       if (headerRowIndex === -1) {
-        const debugInfo = firstSheetRows.map((r, idx) => `L${idx + 1}: ${r.filter(Boolean).join(' | ')}`).join('\n');
-        alert("Cabeçalho não encontrado. As linhas detectadas foram:\n\n" + debugInfo);
+        alert("Cabeçalho não encontrado. O Orçafascio pode ter gerado um arquivo XLS incompatível. \n\nDICA: Abra a planilha no seu Excel, copie as células (Ctrl+C) e use o novo botão 'Colar Dados' no sistema!");
         if (fileInputRef.current) fileInputRef.current.value = '';
         return;
       }
@@ -666,7 +668,7 @@ const CreateProposal = ({ onCancel, onSave }: { onCancel: () => void, onSave: (p
       const bancoIdx = getColIndex(['banco']);
       const descIdx = getColIndex(['descrição', 'descricao', 'serviço']);
       const unitIdx = getColIndex(['und', 'unidade']);
-      const quantIdx = getColIndex(['quant']);
+      const quantIdx = getColIndex(['quant', 'qtd']);
       const unitPriceIdx = getColIndex(['valor unit', 'preço unit']);
 
       if (itemIdx === -1 || descIdx === -1) {
@@ -674,86 +676,147 @@ const CreateProposal = ({ onCancel, onSave }: { onCancel: () => void, onSave: (p
         return;
       }
 
-      const novasEtapas: ProposalEtapa[] = [];
-      let currentEtapa: ProposalEtapa | null = null;
-      let itemOrderCounter = 1;
+      processExtractedRows(rows.slice(headerRowIndex + 1), itemIdx, descIdx, codeIdx, bancoIdx, unitIdx, quantIdx, unitPriceIdx);
 
-      for (let i = headerRowIndex + 1; i < rows.length; i++) {
-        const row = rows[i];
-        if (!row || row.length === 0) continue;
-
-        const itemStr = String(row[itemIdx] || '').trim();
-        if (!itemStr) continue;
-
-        const description = String(row[descIdx] || '').trim();
-        const code = codeIdx !== -1 ? String(row[codeIdx] || '').trim() : '';
-        const banco = bancoIdx !== -1 ? String(row[bancoIdx] || '').trim() : 'PROPRIO';
-        const unit = unitIdx !== -1 ? String(row[unitIdx] || '').trim() : 'un';
-
-        // Remove points from thousands and change comma to dot before parseFloat
-        const parseValue = (val: any) => {
-          if (typeof val === 'number') return val;
-          if (!val) return 0;
-          return parseFloat(String(val).replace(/\./g, '').replace(',', '.'));
-        };
-        const quant = quantIdx !== -1 ? parseValue(row[quantIdx] || '0') : 0;
-        const unitPrice = unitPriceIdx !== -1 ? parseValue(row[unitPriceIdx] || '0') : 0;
-
-        const isEtapa = !itemStr.includes('.');
-
-        if (isEtapa) {
-          if (currentEtapa) novasEtapas.push(currentEtapa);
-          currentEtapa = {
-            id: `etapa_${Date.now()}_${Math.random()}`,
-            name: description || `Etapa ${itemStr}`,
-            order: parseInt(itemStr) || novasEtapas.length + 1,
-            items: []
-          };
-          itemOrderCounter = 1;
-        } else {
-          if (!currentEtapa) {
-            currentEtapa = {
-              id: `etapa_${Date.now()}_${Math.random()}`,
-              name: `Serviços Iniciais`,
-              order: novasEtapas.length + 1,
-              items: []
-            };
-          }
-
-          const newItem: ProposalItem = {
-            id: `item_${Date.now()}_${Math.random()}`,
-            serviceId: '',
-            name: description,
-            quantity: isNaN(quant) ? 0 : quant,
-            unitPrice: isNaN(unitPrice) ? 0 : unitPrice,
-            unit: unit,
-            type: code ? 'COMPOSICAO' : 'INSUMO',
-            banco: banco.toUpperCase() || 'PROPRIO',
-            code: code,
-            origin: 'BASE',
-            version: 1,
-            order: itemOrderCounter++
-          };
-
-          currentEtapa.items.push(newItem);
-        }
-      }
-
-      if (currentEtapa) novasEtapas.push(currentEtapa);
-
-      if (novasEtapas.length > 0) {
-        setEtapas(prev => [...prev, ...novasEtapas]);
-        alert(`Planilha importada com sucesso! ${novasEtapas.length} etapa(s) adicionada(s).`);
-      } else {
-        alert("Nenhum dado válido encontrado na planilha.");
-      }
-
-    } catch (err) {
-      console.error(err);
-      alert("Erro ao processar a planilha. Verifique o formato do arquivo.");
+    } catch (error) {
+      console.error('Error uploading file:', error);
+      alert('Erro ao processar o arquivo. Utilize o botão "Colar Dados" em vez de upload.');
     } finally {
       if (fileInputRef.current) fileInputRef.current.value = '';
     }
+  };
+
+  const processExtractedRows = (
+    rows: any[][], itemIdx: number, descIdx: number, codeIdx: number,
+    bancoIdx: number, unitIdx: number, quantIdx: number, unitPriceIdx: number
+  ) => {
+    const novasEtapas: ProposalEtapa[] = [];
+    let currentEtapa: ProposalEtapa | null = null;
+    let itemOrderCounter = 1;
+
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
+      if (!row || row.length === 0) continue;
+
+      const itemStr = String(row[itemIdx] || '').trim();
+      if (!itemStr) continue;
+
+      const description = String(row[descIdx] || '').trim();
+      const code = codeIdx !== -1 ? String(row[codeIdx] || '').trim() : '';
+      const banco = bancoIdx !== -1 ? String(row[bancoIdx] || '').trim() : 'PROPRIO';
+      const unit = unitIdx !== -1 ? String(row[unitIdx] || '').trim() : 'un';
+
+      // Remove points from thousands and change comma to dot before parseFloat
+      const parseValue = (val: any) => {
+        if (typeof val === 'number') return val;
+        if (!val) return 0;
+        return parseFloat(String(val).replace(/\./g, '').replace(',', '.'));
+      };
+      const quant = quantIdx !== -1 ? parseValue(row[quantIdx] || '0') : 0;
+      const unitPrice = unitPriceIdx !== -1 ? parseValue(row[unitPriceIdx] || '0') : 0;
+
+      const isEtapa = !itemStr.includes('.');
+
+      if (isEtapa) {
+        if (currentEtapa) novasEtapas.push(currentEtapa);
+        currentEtapa = {
+          id: `etapa_${Date.now()}_${Math.random()}`,
+          name: `${itemStr} - ${description}`,
+          order: parseInt(itemStr) || novasEtapas.length + 1,
+          items: []
+        };
+        itemOrderCounter = 1;
+      } else {
+        if (!currentEtapa) {
+          currentEtapa = {
+            id: `etapa_${Date.now()}_${Math.random()}`,
+            name: `Serviços Iniciais`,
+            order: novasEtapas.length + 1,
+            items: []
+          };
+        }
+
+        const newItem: ProposalItem = {
+          id: `item_${Date.now()}_${Math.random()}`,
+          serviceId: '',
+          name: description,
+          quantity: isNaN(quant) ? 0 : quant,
+          unitPrice: isNaN(unitPrice) ? 0 : unitPrice,
+          unit: unit,
+          type: code ? 'COMPOSICAO' : 'INSUMO', // Default to INSUMO for direct import rows
+          banco: banco.toUpperCase() || 'PROPRIO',
+          code: code,
+          origin: 'BASE',
+          version: 1,
+          order: itemOrderCounter++
+        };
+
+        currentEtapa.items.push(newItem);
+      }
+    }
+
+    if (currentEtapa) novasEtapas.push(currentEtapa);
+
+    if (novasEtapas.length > 0) {
+      setEtapas(prev => [...prev, ...novasEtapas]);
+      alert(`Dados importados com sucesso! ${novasEtapas.length} etapa(s) adicionada(s).`);
+    } else {
+      alert("Nenhum dado válido encontrado para importação.");
+    }
+  };
+
+  const handlePasteProcess = () => {
+    if (!pasteData.trim()) return;
+
+    const lines = pasteData.split('\n');
+    const rows = lines.map(line => line.split('\t').map(cell => cell.trim()));
+
+    let headerRowIndex = -1;
+    let headers: string[] = [];
+
+    for (let i = 0; i < Math.min(rows.length, 100); i++) {
+      const rowStr = rows[i].map(c => c.toLowerCase());
+
+      let matchCount = 0;
+      if (rowStr.some(c => c.includes('item') || c === 'it')) matchCount++;
+      if (rowStr.some(c => c.includes('cód') || c.includes('cod'))) matchCount++;
+      if (rowStr.some(c => c.includes('descri') || c.includes('servi') || c.includes('espec'))) matchCount++;
+      if (rowStr.some(c => c.includes('und') || c.includes('unid'))) matchCount++;
+      if (rowStr.some(c => c.includes('quant') || c.includes('qtd'))) matchCount++;
+      if (rowStr.some(c => c.includes('valor') || c.includes('preço') || c.includes('preco') || c.includes('custo') || c.includes('total'))) matchCount++;
+
+      if (matchCount >= 2) {
+        headerRowIndex = i;
+        headers = rowStr;
+        break;
+      }
+    }
+
+    if (headerRowIndex === -1) {
+      alert("Não foi possível identificar o cabeçalho no texto colado. Copie todas as colunas incluindo 'Item' e 'Descrição'.");
+      return;
+    }
+
+    const dataRows = rows.slice(headerRowIndex + 1);
+
+    const getColIndex = (names: string[]) => headers.findIndex(h => names.some(n => h.includes(n.toLowerCase())));
+
+    const itemIdx = getColIndex(['item']);
+    const codeIdx = getColIndex(['código', 'codigo']);
+    const bancoIdx = getColIndex(['banco']);
+    const descIdx = getColIndex(['descrição', 'descricao', 'serviço']);
+    const unitIdx = getColIndex(['und', 'unidade']);
+    const quantIdx = getColIndex(['quant', 'qtd']);
+    const unitPriceIdx = getColIndex(['valor unit', 'preço unit', 'valor', 'total']); // fallback to total if unit is absent but unlikely
+
+    if (itemIdx === -1 || descIdx === -1) {
+      alert("Faltam colunas obrigatórias ('Item' ou 'Descrição') no que foi colado.");
+      return;
+    }
+
+    processExtractedRows(dataRows, itemIdx, descIdx, codeIdx, bancoIdx, unitIdx, quantIdx, unitPriceIdx);
+    setShowPasteModal(false);
+    setPasteData('');
   };
 
   const handleSaveClick = (isPrint: boolean) => {
@@ -891,6 +954,14 @@ const CreateProposal = ({ onCancel, onSave }: { onCancel: () => void, onSave: (p
             >
               <FileSpreadsheet size={18} />
               Importar Planilha
+            </button>
+            <button
+              onClick={() => setShowPasteModal(true)}
+              type="button"
+              className="bg-[#c79229] text-[#181418] font-medium px-4 py-3 rounded-lg flex items-center justify-center gap-2 hover:bg-[#a67922] transition-colors text-sm flex-1 sm:flex-none"
+            >
+              <FileText size={18} />
+              Colar Dados (Recomendado)
             </button>
             <button
               onClick={handleDownloadTemplate}
@@ -1093,6 +1164,51 @@ const CreateProposal = ({ onCancel, onSave }: { onCancel: () => void, onSave: (p
           <span>Salvar Orçamento Profissional</span>
         </button>
       </div>
+
+      {showPasteModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-3xl overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="flex justify-between items-center p-6 border-b bg-slate-50">
+              <h2 className="text-xl font-bold flex items-center gap-2 text-slate-800">
+                <FileText className="text-[#c79229]" />
+                Colar Tabela do Orçamento
+              </h2>
+              <button onClick={() => setShowPasteModal(false)} className="text-slate-400 hover:text-slate-600 transition-colors">
+                <X size={24} />
+              </button>
+            </div>
+
+            <div className="p-6">
+              <p className="text-slate-600 mb-4">
+                Abra sua planilha no Excel, selecione as células do orçamento inteiro (incluindo o cabeçalho 'Item', 'Descrição', etc), copie (<strong>Ctrl+C</strong>) e cole na área abaixo (<strong>Ctrl+V</strong>).
+              </p>
+              <textarea
+                value={pasteData}
+                onChange={(e) => setPasteData(e.target.value)}
+                placeholder="Cole as células do Excel aqui..."
+                className="w-full h-64 p-4 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#c79229] focus:outline-none resize-none font-mono text-sm whitespace-pre"
+              />
+            </div>
+
+            <div className="p-6 bg-slate-50 border-t flex justify-end gap-3">
+              <button
+                onClick={() => setShowPasteModal(false)}
+                className="px-6 py-2.5 rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-100 transition-colors font-medium"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handlePasteProcess}
+                className="px-6 py-2.5 rounded-lg bg-[#181418] text-white hover:bg-black transition-colors font-medium flex items-center gap-2"
+              >
+                <CheckCircle size={18} />
+                Processar e Importar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 };
