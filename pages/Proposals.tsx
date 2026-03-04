@@ -629,7 +629,11 @@ const CreateProposal = ({ onCancel, onSave }: { onCancel: () => void, onSave: (p
         if (!row || !Array.isArray(row)) continue;
 
         const rowStr = row.map(cell => String(cell || '').trim().toLowerCase());
-        if (rowStr.includes('item') && (rowStr.includes('descrição') || rowStr.includes('descricao'))) {
+
+        const hasItem = rowStr.some(cell => cell.includes('item') || cell === 'it');
+        const hasDesc = rowStr.some(cell => cell.includes('descri') || cell.includes('servi'));
+
+        if (hasItem && hasDesc) {
           headerRowIndex = i;
           headers = row.map(cell => String(cell || '').trim());
           break;
