@@ -836,10 +836,37 @@ const CreateProposal = ({ onCancel, onSave }: { onCancel: () => void, onSave: (p
 
       {/* ÁREA DE ETAPAS E ITENS */}
       <div className="mb-6 space-y-4">
-        <div className="flex bg-[#181418] rounded-t-lg p-4 justify-between items-center shadow-lg">
+        <div className="flex flex-col sm:flex-row bg-[#181418] rounded-t-lg p-4 justify-between items-start sm:items-center gap-4 shadow-lg">
           <button onClick={addEtapa} type="button" className="bg-[#c79229] text-[#181418] font-black px-6 py-3 rounded-lg flex items-center gap-2 hover:bg-[#a67922] transition-colors uppercase tracking-wider text-sm shadow-md">
             <Plus size={20} /> Adicionar Etapa
           </button>
+
+          <div className="flex gap-2 w-full sm:w-auto">
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={handleFileUpload}
+              className="hidden"
+              accept=".xlsx,.xls"
+            />
+            <button
+              onClick={handleImportClick}
+              type="button"
+              className="bg-slate-700 text-white font-medium px-4 py-3 rounded-lg flex items-center justify-center gap-2 hover:bg-slate-600 transition-colors text-sm flex-1 sm:flex-none"
+            >
+              <FileSpreadsheet size={18} />
+              Importar Planilha
+            </button>
+            <button
+              onClick={handleDownloadTemplate}
+              type="button"
+              className="bg-transparent border border-slate-600 text-slate-300 font-medium px-4 py-3 rounded-lg flex items-center justify-center gap-2 hover:bg-slate-800 transition-colors text-sm flex-1 sm:flex-none"
+              title="Baixar Modelo"
+            >
+              <Download size={18} />
+              <span className="hidden sm:inline">Modelo</span>
+            </button>
+          </div>
         </div>
 
         <div className="bg-slate-50 p-4 rounded-b-lg border border-slate-200 border-t-0 space-y-6">
