@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { FileText, Plus, CheckCircle, Trash2, Printer, X, Download, ArrowLeft, Package, Upload, FileSpreadsheet, ChevronDown, ChevronRight, Edit2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useData } from '../context/DataContext';
-import { Status, Proposal } from '../types';
+import { Status, Proposal, ProposalEtapa, ProposalItem } from '../types';
 import * as XLSX from 'xlsx';
 import { supabase } from '../supabaseClient';
 
@@ -595,12 +595,130 @@ const CreateProposal = ({ onCancel, onSave }: { onCancel: () => void, onSave: (p
     if (fileInputRef.current) fileInputRef.current.click();
   };
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    // Dummy import that appends to the first etapa or creates a default one
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    alert("Para utilizar a importação Excel na nova estrutura OrçaFascio, é recomendado adicionar manualmente usando a busca de itens, pois a hierarquia de etapas não é mantida em planilhas simples sem formatação específica.");
-    if (fileInputRef.current) fileInputRef.current.value = '';
+
+    try {
+      const data = await file.arrayBuffer();
+      const workbook = XLSX.read(data);
+      const sheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[sheetName];
+
+      const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as any[][];
+
+      let headerRowIndex = -1;
+      let headers: string[] = [];
+
+      for (let i = 0; i < Math.min(rows.length, 30); i++) {
+        const row = rows[i];
+        if (!row || !Array.isArray(row)) continue;
+
+        const rowStr = row.map(cell => String(cell || '').trim().toLowerCase());
+        if (rowStr.includes('item') && (rowStr.includes('descrição') || rowStr.includes('descricao'))) {
+          headerRowIndex = i;
+          headers = row.map(cell => String(cell || '').trim());
+          break;
+        }
+      }
+
+      if (headerRowIndex === -1) {
+        alert("Não foi possível encontrar a linha de cabeçalho na planilha. Certifique-se de que existem colunas com 'Item', 'Código' (opcional) e 'Descrição'.");
+        if (fileInputRef.current) fileInputRef.current.value = '';
+        return;
+      }
+
+      const getColIndex = (names: string[]) => headers.findIndex(h => names.some(n => h.toLowerCase().includes(n.toLowerCase())));
+
+      const itemIdx = getColIndex(['item']);
+      const codeIdx = getColIndex(['código', 'codigo']);
+      const bancoIdx = getColIndex(['banco']);
+      const descIdx = getColIndex(['descrição', 'descricao', 'serviço']);
+      const unitIdx = getColIndex(['und', 'unidade']);
+      const quantIdx = getColIndex(['quant']);
+      const unitPriceIdx = getColIndex(['valor unit', 'preço unit']);
+
+      if (itemIdx === -1 || descIdx === -1) {
+        alert("Faltam colunas obrigatórias ('Item' ou 'Descrição').");
+        return;
+      }
+
+      const novasEtapas: ProposalEtapa[] = [];
+      let currentEtapa: ProposalEtapa | null = null;
+      let itemOrderCounter = 1;
+
+      for (let i = headerRowIndex + 1; i < rows.length; i++) {
+        const row = rows[i];
+        if (!row || row.length === 0) continue;
+
+        const itemStr = String(row[itemIdx] || '').trim();
+        if (!itemStr) continue;
+
+        const description = String(row[descIdx] || '').trim();
+        const code = codeIdx !== -1 ? String(row[codeIdx] || '').trim() : '';
+        const banco = bancoIdx !== -1 ? String(row[bancoIdx] || '').trim() : 'PROPRIO';
+        const unit = unitIdx !== -1 ? String(row[unitIdx] || '').trim() : 'un';
+
+        // Remove points from thousands and change comma to dot before parseFloat
+        const parseValue = (val: any) => parseFloat(String(val).replace(/\./g, '').replace(',', '.'));
+        const quant = quantIdx !== -1 ? parseValue(row[quantIdx] || '0') : 0;
+        const unitPrice = unitPriceIdx !== -1 ? parseValue(row[unitPriceIdx] || '0') : 0;
+
+        const isEtapa = !itemStr.includes('.');
+
+        if (isEtapa) {
+          if (currentEtapa) novasEtapas.push(currentEtapa);
+          currentEtapa = {
+            id: `etapa_${Date.now()}_${Math.random()}`,
+            name: description || `Etapa ${itemStr}`,
+            order: parseInt(itemStr) || novasEtapas.length + 1,
+            items: []
+          };
+          itemOrderCounter = 1;
+        } else {
+          if (!currentEtapa) {
+            currentEtapa = {
+              id: `etapa_${Date.now()}_${Math.random()}`,
+              name: `Serviços Iniciais`,
+              order: novasEtapas.length + 1,
+              items: []
+            };
+          }
+
+          const newItem: ProposalItem = {
+            id: `item_${Date.now()}_${Math.random()}`,
+            serviceId: '',
+            name: description,
+            quantity: isNaN(quant) ? 0 : quant,
+            unitPrice: isNaN(unitPrice) ? 0 : unitPrice,
+            unit: unit,
+            type: code ? 'COMPOSICAO' : 'INSUMO',
+            banco: banco.toUpperCase() || 'PROPRIO',
+            code: code,
+            origin: 'BASE',
+            version: 1,
+            order: itemOrderCounter++
+          };
+
+          currentEtapa.items.push(newItem);
+        }
+      }
+
+      if (currentEtapa) novasEtapas.push(currentEtapa);
+
+      if (novasEtapas.length > 0) {
+        setEtapas(prev => [...prev, ...novasEtapas]);
+        alert(`Planilha importada com sucesso! ${novasEtapas.length} etapa(s) adicionada(s).`);
+      } else {
+        alert("Nenhum dado válido encontrado na planilha.");
+      }
+
+    } catch (err) {
+      console.error(err);
+      alert("Erro ao processar a planilha. Verifique o formato do arquivo.");
+    } finally {
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
   };
 
   const handleSaveClick = (isPrint: boolean) => {
