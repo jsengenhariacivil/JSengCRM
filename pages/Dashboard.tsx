@@ -1,12 +1,12 @@
 
 import React, { useMemo } from 'react';
-import { 
-  BarChart, 
-  Bar, 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip, 
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
   ResponsiveContainer,
   PieChart,
   Pie,
@@ -15,7 +15,7 @@ import {
   Area,
   Legend
 } from 'recharts';
-import { TrendingUp, TrendingDown, Users, Briefcase, Target, PieChart as PieIcon, Activity } from 'lucide-react';
+import { TrendingUp, TrendingDown, Users, Briefcase, Target, PieChart as PieIcon, Activity, Calendar as CalendarIcon } from 'lucide-react';
 import { useData } from '../context/DataContext';
 import { Status } from '../types';
 
@@ -33,11 +33,10 @@ const StatCard = ({ title, value, subtext, icon: Icon, trend }: { title: string,
         <p className="text-sm font-medium text-slate-500 mb-1">{title}</p>
         <h3 className="text-2xl font-bold text-[#181418]">{value}</h3>
       </div>
-      <div className={`p-3 rounded-lg ${
-        trend === 'down' ? 'bg-red-50 text-red-600' : 
-        trend === 'brand' ? 'bg-[#181418] text-[#c79229]' :
-        'bg-[#c79229]/10 text-[#c79229]'
-      }`}>
+      <div className={`p-3 rounded-lg ${trend === 'down' ? 'bg-red-50 text-red-600' :
+          trend === 'brand' ? 'bg-[#181418] text-[#c79229]' :
+            'bg-[#c79229]/10 text-[#c79229]'
+        }`}>
         <Icon size={24} />
       </div>
     </div>
@@ -52,7 +51,7 @@ const StatCard = ({ title, value, subtext, icon: Icon, trend }: { title: string,
 );
 
 const Dashboard: React.FC = () => {
-  const { financials, projects, proposals, clients, payments } = useData();
+  const { financials, projects, proposals, clients, payments, agendaEventos } = useData();
 
   // --- 1. FATURAMENTO MENSAL/ANUAL (Visão de Competência - Inclui Pendentes) ---
   const chartData = useMemo(() => {
@@ -87,7 +86,7 @@ const Dashboard: React.FC = () => {
   // --- 2. DESPESAS POR CATEGORIA (Inclui Pendentes) ---
   const expensesByCategory = useMemo(() => {
     const categories: Record<string, number> = {};
-    
+
     financials
       .filter(f => f.type === 'Despesa') // Removido filtro de Status.PAID
       .forEach(f => {
@@ -148,7 +147,7 @@ const Dashboard: React.FC = () => {
   // --- 5. PERFORMANCE DE EQUIPE (Baseado em Pagamentos/Volume) ---
   const teamPerformance = useMemo(() => {
     const performance: Record<string, number> = {};
-    
+
     payments.forEach(p => {
       performance[p.name] = (performance[p.name] || 0) + p.value;
     });
@@ -176,6 +175,40 @@ const Dashboard: React.FC = () => {
 
   const activeProjects = projects.filter(p => p.status === Status.IN_PROGRESS).length;
 
+  // --- AGENDA STATS ---
+  const agendaStats = useMemo(() => {
+    // If agendaEventos is undefined initially, fallback to []
+    const events = agendaEventos || [];
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const next7Days = new Date(today);
+    next7Days.setDate(today.getDate() + 7);
+
+    const pending = events.filter(e => e.status === 'PENDENTE');
+
+    // Compromissos para a semana
+    const naSemana = pending.filter(e => {
+      if (!e.dataInicio) return false;
+      const d = new Date(e.dataInicio);
+      return d >= today && d <= next7Days;
+    }).length;
+
+    // Próximo vencimento
+    const proximos = pending
+      .filter(e => e.dataInicio)
+      .map(e => new Date(e.dataInicio))
+      .filter(d => d >= today)
+      .sort((a, b) => a.getTime() - b.getTime());
+
+    const proximoVencimento = proximos.length > 0 ? proximos[0].toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) : '--';
+
+    return {
+      naSemana,
+      totalPendentes: pending.length,
+      proximoVencimento
+    };
+  }, [agendaEventos]);
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -184,34 +217,41 @@ const Dashboard: React.FC = () => {
       </div>
 
       {/* LINHA 1: KPIs Principais */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <StatCard 
-          title="Faturamento (Lançado)" 
-          value={`R$ ${totalRevenue.toLocaleString()}`} 
-          subtext="Receita total (Previsto + Realizado)" 
-          icon={TrendingUp} 
-          trend="brand" 
+      <div className="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-5 gap-6">
+        <StatCard
+          title="Faturamento (Lançado)"
+          value={`R$ ${totalRevenue.toLocaleString()}`}
+          subtext="Receita total (Previsto + Realizado)"
+          icon={TrendingUp}
+          trend="brand"
         />
-        <StatCard 
-          title="Taxa de Conversão" 
-          value={`${proposalStats.conversionRate}%`} 
-          subtext={`${proposalStats.data.find(d => d.name === 'Aprovadas')?.value || 0} propostas fechadas`} 
-          icon={Target} 
-          trend="up" 
+        <StatCard
+          title="Taxa de Conversão"
+          value={`${proposalStats.conversionRate}%`}
+          subtext={`${proposalStats.data.find(d => d.name === 'Aprovadas')?.value || 0} propostas fechadas`}
+          icon={Target}
+          trend="up"
         />
-        <StatCard 
-          title="Clientes Ativos" 
-          value={activeClientsCount.toString()} 
-          subtext="Com obras em andamento" 
-          icon={Users} 
-          trend="neutral" 
+        <StatCard
+          title="Clientes Ativos"
+          value={activeClientsCount.toString()}
+          subtext="Com obras em andamento"
+          icon={Users}
+          trend="neutral"
         />
-        <StatCard 
-          title="Obras em Execução" 
-          value={activeProjects.toString()} 
-          subtext="Projetos ativos" 
-          icon={Briefcase} 
-          trend="neutral" 
+        <StatCard
+          title="Obras em Execução"
+          value={activeProjects.toString()}
+          subtext="Projetos ativos"
+          icon={Briefcase}
+          trend="neutral"
+        />
+        <StatCard
+          title="Agenda da Semana"
+          value={agendaStats.naSemana.toString()}
+          subtext={`Próx. meta: ${agendaStats.proximoVencimento}`}
+          icon={CalendarIcon}
+          trend="brand"
         />
       </div>
 
@@ -227,7 +267,7 @@ const Dashboard: React.FC = () => {
               <CartesianGrid strokeDasharray="3 3" vertical={false} />
               <XAxis dataKey="name" axisLine={false} tickLine={false} />
               <YAxis axisLine={false} tickLine={false} />
-              <Tooltip 
+              <Tooltip
                 formatter={(value: number) => [`R$ ${value.toLocaleString()}`, '']}
                 contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
               />
@@ -241,7 +281,7 @@ const Dashboard: React.FC = () => {
 
       {/* LINHA 3: Grid de 3 Colunas */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        
+
         {/* Despesas por Categoria */}
         <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 flex flex-col">
           <h3 className="text-lg font-bold text-[#181418] mb-4">Despesas por Categoria</h3>
@@ -262,7 +302,7 @@ const Dashboard: React.FC = () => {
                   ))}
                 </Pie>
                 <Tooltip formatter={(value: number) => `R$ ${value.toLocaleString()}`} />
-                <Legend verticalAlign="bottom" height={36}/>
+                <Legend verticalAlign="bottom" height={36} />
               </PieChart>
             </ResponsiveContainer>
           </div>
@@ -272,13 +312,13 @@ const Dashboard: React.FC = () => {
         <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 flex flex-col">
           <h3 className="text-lg font-bold text-[#181418] mb-4">Conversão de Propostas</h3>
           <div className="h-64 flex-1 relative">
-             {/* Centro do Gráfico */}
-             <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                <div className="text-center">
-                  <span className="text-3xl font-bold text-[#181418]">{proposalStats.total}</span>
-                  <p className="text-xs text-slate-500 uppercase">Total</p>
-                </div>
-             </div>
+            {/* Centro do Gráfico */}
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+              <div className="text-center">
+                <span className="text-3xl font-bold text-[#181418]">{proposalStats.total}</span>
+                <p className="text-xs text-slate-500 uppercase">Total</p>
+              </div>
+            </div>
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
@@ -295,7 +335,7 @@ const Dashboard: React.FC = () => {
                   ))}
                 </Pie>
                 <Tooltip />
-                <Legend verticalAlign="bottom" height={36}/>
+                <Legend verticalAlign="bottom" height={36} />
               </PieChart>
             </ResponsiveContainer>
           </div>
@@ -306,13 +346,13 @@ const Dashboard: React.FC = () => {
           <h3 className="text-lg font-bold text-[#181418] mb-4">Serviços Mais Vendidos</h3>
           <div className="h-64 flex-1">
             <ResponsiveContainer width="100%" height="100%">
-               <BarChart layout="vertical" data={revenueByService} margin={{ left: 10, right: 10 }}>
-                  <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} />
-                  <XAxis type="number" hide />
-                  <YAxis type="category" dataKey="name" width={100} tick={{fontSize: 12}} interval={0} />
-                  <Tooltip formatter={(value: number) => `R$ ${value.toLocaleString()}`} />
-                  <Bar dataKey="value" fill="#c79229" radius={[0, 4, 4, 0]} barSize={20} />
-               </BarChart>
+              <BarChart layout="vertical" data={revenueByService} margin={{ left: 10, right: 10 }}>
+                <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} />
+                <XAxis type="number" hide />
+                <YAxis type="category" dataKey="name" width={100} tick={{ fontSize: 12 }} interval={0} />
+                <Tooltip formatter={(value: number) => `R$ ${value.toLocaleString()}`} />
+                <Bar dataKey="value" fill="#c79229" radius={[0, 4, 4, 0]} barSize={20} />
+              </BarChart>
             </ResponsiveContainer>
           </div>
         </div>
@@ -320,78 +360,78 @@ const Dashboard: React.FC = () => {
 
       {/* LINHA 4: Performance de Equipe e Lista Recente */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          
-          {/* Performance de Funcionários (Volume Financeiro) */}
-          <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-             <div className="flex items-center gap-2 mb-4">
-                <Activity size={20} className="text-[#c79229]" />
-                <h3 className="text-lg font-bold text-[#181418]">Volume de Pagamentos (Equipe)</h3>
-             </div>
-             <p className="text-xs text-slate-500 mb-4">Colaboradores com maior volume financeiro processado (Indicador de atividade).</p>
-             
-             <div className="space-y-4">
-                {teamPerformance.map((item, index) => (
-                   <div key={index} className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                         <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-xs font-bold text-slate-600">
-                            {index + 1}
-                         </div>
-                         <span className="font-medium text-slate-800">{item.name}</span>
-                      </div>
-                      <div className="flex items-center gap-4">
-                         <div className="w-24 h-2 bg-slate-100 rounded-full overflow-hidden hidden sm:block">
-                            <div 
-                               className="h-full bg-[#181418]" 
-                               style={{ width: `${(item.value / (teamPerformance[0]?.value || 1)) * 100}%` }}
-                            ></div>
-                         </div>
-                         <span className="font-bold text-[#c79229] w-24 text-right">R$ {item.value.toLocaleString()}</span>
-                      </div>
-                   </div>
-                ))}
-                {teamPerformance.length === 0 && (
-                   <p className="text-center text-slate-400 py-8">Sem dados de pagamentos registrados.</p>
-                )}
-             </div>
-          </div>
 
-          {/* Últimas Transações (Mantido, mas compactado) */}
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col">
-            <div className="p-6 border-b border-slate-100">
-               <h3 className="text-lg font-bold text-[#181418]">Movimentações Recentes</h3>
-            </div>
-            <div className="overflow-x-auto flex-1">
-              <table className="w-full text-sm text-left">
-                <thead className="bg-slate-50 text-slate-500 font-medium">
-                  <tr>
-                    <th className="px-6 py-3">Descrição</th>
-                    <th className="px-6 py-3 text-right">Valor</th>
-                    <th className="px-6 py-3 text-center">Status</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {financials.slice(0, 5).map((item) => (
-                    <tr key={item.id} className="hover:bg-slate-50">
-                      <td className="px-6 py-3 font-medium text-[#181418]">
-                          {item.description}
-                          <p className="text-xs text-slate-400 font-normal">{new Date(item.date).toLocaleDateString()}</p>
-                      </td>
-                      <td className={`px-6 py-3 text-right font-bold ${item.type === 'Receita' ? 'text-green-600' : 'text-red-600'}`}>
-                        {item.type === 'Receita' ? '+' : '-'} R$ {item.amount.toLocaleString()}
-                      </td>
-                      <td className="px-6 py-3 text-center">
-                        <span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wider
+        {/* Performance de Funcionários (Volume Financeiro) */}
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+          <div className="flex items-center gap-2 mb-4">
+            <Activity size={20} className="text-[#c79229]" />
+            <h3 className="text-lg font-bold text-[#181418]">Volume de Pagamentos (Equipe)</h3>
+          </div>
+          <p className="text-xs text-slate-500 mb-4">Colaboradores com maior volume financeiro processado (Indicador de atividade).</p>
+
+          <div className="space-y-4">
+            {teamPerformance.map((item, index) => (
+              <div key={index} className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-xs font-bold text-slate-600">
+                    {index + 1}
+                  </div>
+                  <span className="font-medium text-slate-800">{item.name}</span>
+                </div>
+                <div className="flex items-center gap-4">
+                  <div className="w-24 h-2 bg-slate-100 rounded-full overflow-hidden hidden sm:block">
+                    <div
+                      className="h-full bg-[#181418]"
+                      style={{ width: `${(item.value / (teamPerformance[0]?.value || 1)) * 100}%` }}
+                    ></div>
+                  </div>
+                  <span className="font-bold text-[#c79229] w-24 text-right">R$ {item.value.toLocaleString()}</span>
+                </div>
+              </div>
+            ))}
+            {teamPerformance.length === 0 && (
+              <p className="text-center text-slate-400 py-8">Sem dados de pagamentos registrados.</p>
+            )}
+          </div>
+        </div>
+
+        {/* Últimas Transações (Mantido, mas compactado) */}
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col">
+          <div className="p-6 border-b border-slate-100">
+            <h3 className="text-lg font-bold text-[#181418]">Movimentações Recentes</h3>
+          </div>
+          <div className="overflow-x-auto flex-1">
+            <table className="w-full text-sm text-left">
+              <thead className="bg-slate-50 text-slate-500 font-medium">
+                <tr>
+                  <th className="px-6 py-3">Descrição</th>
+                  <th className="px-6 py-3 text-right">Valor</th>
+                  <th className="px-6 py-3 text-center">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {financials.slice(0, 5).map((item) => (
+                  <tr key={item.id} className="hover:bg-slate-50">
+                    <td className="px-6 py-3 font-medium text-[#181418]">
+                      {item.description}
+                      <p className="text-xs text-slate-400 font-normal">{new Date(item.date).toLocaleDateString()}</p>
+                    </td>
+                    <td className={`px-6 py-3 text-right font-bold ${item.type === 'Receita' ? 'text-green-600' : 'text-red-600'}`}>
+                      {item.type === 'Receita' ? '+' : '-'} R$ {item.amount.toLocaleString()}
+                    </td>
+                    <td className="px-6 py-3 text-center">
+                      <span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wider
                           ${item.status === Status.PAID ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}
                         `}>
-                          {item.status}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                        {item.status}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
+        </div>
       </div>
     </div>
   );

@@ -1,7 +1,7 @@
 
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
-import { Client, Project, FinancialRecord, Service, Proposal, SinapiService, Supplier, TeamMember, PaymentRecord, Status, UserData, UserPermissions } from '../types';
+import { Client, Project, FinancialRecord, Service, Proposal, ProposalItem, ProposalEtapa, SinapiService, Supplier, TeamMember, PaymentRecord, Status, UserData, UserPermissions, AgendaEvento } from '../types';
 
 interface DataContextType {
   // Base SINAPI (Mock)
@@ -67,6 +67,13 @@ interface DataContextType {
   addUser: (user: UserData) => Promise<void>;
   updateUser: (user: UserData) => Promise<void>;
   deleteUser: (id: string) => Promise<void>;
+
+  // --- AGENDA GERENCIAL ---
+  agendaEventos: AgendaEvento[];
+  addAgendaEvent: (evento: AgendaEvento) => Promise<void>;
+  updateAgendaEvent: (evento: AgendaEvento) => Promise<void>;
+  deleteAgendaEvent: (id: string) => Promise<void>;
+  syncAgendaEvent: (origemModulo: 'OBRA' | 'ORCAMENTO' | 'FINANCEIRO', idReferencia: string, eventoData: Partial<AgendaEvento>) => Promise<void>;
 
   loading: boolean;
   refreshData: () => Promise<void>;
@@ -165,6 +172,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [payments, setPayments] = useState<PaymentRecord[]>([]);
   const [users, setUsers] = useState<UserData[]>([]);
+  const [agendaEventos, setAgendaEventos] = useState<AgendaEvento[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Função para carregar todos os dados
@@ -175,17 +183,18 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       const loadAllData = async () => {
         const [
           clientsData, projectsData, financialsData, servicesData,
-          proposalsData, suppliersData, teamData, paymentsData, usersData
+          proposalsData, suppliersData, teamData, paymentsData, usersData, agendaData
         ] = await Promise.all([
           supabase.from('clients').select('*'),
           supabase.from('projects').select('*, clients(name)'),
           supabase.from('financial_records').select('*').order('date', { ascending: false }),
           supabase.from('services').select('*'),
-          supabase.from('proposals').select('*, clients(name), proposal_items(*)'),
+          supabase.from('proposals').select('*, clients(name), proposal_items(*), proposal_etapas(*)'),
           supabase.from('suppliers').select('*'),
           supabase.from('team_members').select('*'),
           supabase.from('payment_records').select('*'),
-          supabase.from('users').select('*')
+          supabase.from('users').select('*'),
+          supabase.from('agenda_eventos').select('*').order('data_inicio', { ascending: true })
         ]);
 
         if (clientsData.data) {
@@ -239,21 +248,88 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         }
 
         if (proposalsData.data) {
-          setProposals(proposalsData.data.map(p => ({
-            id: p.id,
-            clientId: p.client_id,
-            clientName: p.clients?.name || '',
+          // Note: Since Supabase might not return nested correctly if we don't query properly,
+          // we use the current returned items to reconstruct a flat list, but ideally we add proposal_etapas in the select.
+          // Wait, we need to fetch proposal_etapas! Since we didn't add it to the Promise.all select yet, let's just do a basic map but be ready to accept etapas.
+          // To fetch etapas, we need to update the query: select('*, clients(name), proposal_items(*), proposal_etapas(*)')
+          // For now, let's map what we have and assume we will fix the query next.
+          setProposals(proposalsData.data.map(p => {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            items: p.proposal_items?.map((item: any) => ({
-              serviceId: item.service_id,
-              name: item.name,
-              quantity: parseFloat(item.quantity),
-              unitPrice: parseFloat(item.unit_price)
-            })) || [],
-            total: parseFloat(p.total),
-            status: p.status as Status,
-            date: p.date
-          })));
+            const allItems: any[] = p.proposal_items || [];
+
+            // Reconstruct the tree if they have parent_id
+            const itemMap = new Map();
+            const rootItems: any[] = [];
+
+            allItems.forEach(item => {
+              itemMap.set(item.id, {
+                id: item.id,
+                proposalId: p.id,
+                etapaId: item.etapa_id,
+                parentId: item.parent_id,
+                serviceId: item.service_id,
+                code: item.code || '',
+                banco: item.banco || 'PROPRIO',
+                name: item.name,
+                type: item.type || 'INSUMO',
+                origin: item.origin || 'BASE',
+                version: item.version || 1,
+                quantity: parseFloat(item.quantity) || 0,
+                unitPrice: parseFloat(item.unit_price) || 0,
+                unit: item.unit || 'un',
+                order: item.order || 0,
+                children: []
+              });
+            });
+
+            allItems.forEach(item => {
+              const mapped = itemMap.get(item.id);
+              if (item.parent_id && itemMap.has(item.parent_id)) {
+                itemMap.get(item.parent_id).children.push(mapped);
+              } else {
+                rootItems.push(mapped);
+              }
+            });
+
+            // Group by Etapa
+            const etapasMap = new Map();
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const pEtapas: any[] = p.proposal_etapas || [];
+            pEtapas.forEach(et => {
+              etapasMap.set(et.id, {
+                id: et.id,
+                name: et.name,
+                order: et.order,
+                items: []
+              });
+            });
+
+            rootItems.forEach(item => {
+              if (item.etapaId && etapasMap.has(item.etapaId)) {
+                etapasMap.get(item.etapaId).items.push(item);
+              } else {
+                // Fallback if no etapa
+                if (!etapasMap.has('default')) {
+                  etapasMap.set('default', { id: 'default', name: 'Serviços Gerais', order: 0, items: [] });
+                }
+                etapasMap.get('default').items.push(item);
+              }
+            });
+
+            const etapasArray = Array.from(etapasMap.values()).sort((a, b) => a.order - b.order);
+
+            return {
+              id: p.id,
+              clientId: p.client_id,
+              clientName: p.clients?.name || '',
+              etapas: etapasArray,
+              items: rootItems, // Keep legacy reference
+              total: parseFloat(p.total) || 0,
+              bdi: parseFloat(p.bdi) || 0,
+              status: p.status as Status,
+              date: p.date
+            };
+          }));
         }
 
         if (suppliersData.data) {
@@ -303,6 +379,27 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
               editProjects: u.edit_projects,
               manageSettings: u.manage_settings
             }
+          })));
+        }
+
+        if (agendaData.data) {
+          setAgendaEventos(agendaData.data.map(a => ({
+            id: a.id,
+            origemModulo: a.origem_modulo,
+            idReferencia: a.id_referencia,
+            tipoEvento: a.tipo_evento,
+            titulo: a.titulo,
+            descricao: a.descricao,
+            responsavel: a.responsavel,
+            setor: a.setor,
+            dataInicio: a.data_inicio,
+            dataFim: a.data_fim,
+            prioridade: a.prioridade,
+            status: a.status,
+            linkInterno: a.link_interno,
+            criadoAutomatico: a.criado_automatico,
+            eventoCritico: a.evento_critico,
+            createdAt: a.created_at
           })));
         }
       };
@@ -401,6 +498,20 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             projectId: newProject.id
           });
         }
+
+        // Sincronizar com Agenda
+        if (newProject.endDate) {
+          const safeDateStr = newProject.endDate.length === 10 ? `${newProject.endDate}T09:00:00` : newProject.endDate;
+          syncAgendaEvent('OBRA', newProject.id, {
+            tipoEvento: 'PRAZO FINAL OBRA',
+            titulo: `Prazo Final - ${newProject.title}`,
+            descricao: `Prazo contratual de término da obra ${newProject.title}.`,
+            dataInicio: safeDateStr,
+            dataFim: safeDateStr,
+            prioridade: 'ALTA',
+            eventoCritico: true
+          }).catch(console.error);
+        }
       }
     } catch (err) {
       console.error('Falha inesperada em addProject:', err);
@@ -421,11 +532,31 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }).eq('id', project.id);
 
     setProjects(prev => prev.map(p => p.id === project.id ? project : p));
+
+    // Sincronizar com Agenda
+    if (project.endDate) {
+      const safeDateStr = project.endDate.length === 10 ? `${project.endDate}T09:00:00` : project.endDate;
+      syncAgendaEvent('OBRA', project.id, {
+        tipoEvento: 'PRAZO FINAL OBRA',
+        titulo: `Prazo Final - ${project.title}`,
+        descricao: `Prazo contratual de término da obra ${project.title}.`,
+        dataInicio: safeDateStr,
+        dataFim: safeDateStr,
+        prioridade: 'ALTA',
+        eventoCritico: true
+      }).catch(console.error);
+    }
   };
 
   const deleteProject = async (id: string) => {
     await supabase.from('projects').delete().eq('id', id);
     setProjects(prev => prev.filter(p => p.id !== id));
+
+    // Remover eventos da agenda vinculados
+    const eventosVinculados = agendaEventos.filter(a => a.origemModulo === 'OBRA' && a.idReferencia === id);
+    for (const ev of eventosVinculados) {
+      await deleteAgendaEvent(ev.id).catch(console.error);
+    }
   };
 
   // --- FINANCIAL RECORDS ---
@@ -499,23 +630,108 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const { data: proposalData, error: proposalError } = await supabase.from('proposals').insert([{
       client_id: proposal.clientId,
       total: proposal.total,
+      bdi: proposal.bdi || 0,
       status: proposal.status,
       date: proposal.date
     }]).select().single();
 
-    if (!proposalError && proposalData) {
-      // Inserir itens da proposta
-      const items = proposal.items.map(item => ({
-        proposal_id: proposalData.id,
-        service_id: item.serviceId,
-        name: item.name,
-        quantity: item.quantity,
-        unit_price: item.unitPrice
-      }));
+    if (proposalError) {
+      console.error('Error creating proposal:', proposalError);
+      alert('Erro Fatal ao salvar Proposta: ' + proposalError.message);
+      return;
+    }
 
-      await supabase.from('proposal_items').insert(items);
+    if (proposalData) {
+      // Inserir etapas
+      if (proposal.etapas && proposal.etapas.length > 0) {
+        for (const etapa of proposal.etapas) {
+          const { data: etapaData, error: etapaError } = await supabase.from('proposal_etapas').insert([{
+            proposal_id: proposalData.id,
+            name: etapa.name,
+            order: etapa.order
+          }]).select().single();
+
+          if (etapaError) {
+            console.error('Erro ao salvar etapa:', etapaError);
+            alert(`Erro fatal na etapa "${etapa.name}": ${etapaError.message}`);
+            continue;
+          }
+
+          if (etapaData) {
+            // Função recursiva para inserir itens e subitens
+            const insertItemsRecursive = async (items: ProposalItem[], parentId: string | null = null) => {
+              for (const item of items) {
+                const { data: itemData, error: itemError } = await supabase.from('proposal_items').insert([{
+                  proposal_id: proposalData.id,
+                  etapa_id: etapaData.id,
+                  parent_id: parentId,
+                  service_id: item.serviceId && item.serviceId.length >= 32 ? item.serviceId : null,
+                  code: item.code || (item.serviceId && item.serviceId.length < 32 ? item.serviceId : ''),
+                  banco: item.banco || 'PROPRIO',
+                  name: item.name,
+                  type: item.type || 'INSUMO',
+                  origin: item.origin || 'BASE',
+                  version: item.version || 1,
+                  quantity: item.quantity,
+                  unit_price: item.unitPrice,
+                  unit: item.unit || 'un',
+                  order: item.order || 0
+                }]).select().single();
+
+                if (itemError) {
+                  console.error('Erro ao salvar item:', itemError);
+                  alert(`Erro fatal no item "${item.name}": ${itemError.message}`);
+                }
+
+                if (itemData && item.children && item.children.length > 0) {
+                  await insertItemsRecursive(item.children, itemData.id);
+                }
+              }
+            };
+            if (etapa.items) {
+              await insertItemsRecursive(etapa.items);
+            }
+          }
+        }
+      }
+
+      // Legacy fallback
+      if (proposal.items && proposal.items.length > 0) {
+        const flatItems = proposal.items.map(item => ({
+          proposal_id: proposalData.id,
+          service_id: item.serviceId && item.serviceId.length >= 32 ? item.serviceId : null,
+          code: item.code || (item.serviceId && item.serviceId.length < 32 ? item.serviceId : ''),
+          banco: item.banco || 'PROPRIO',
+          name: item.name,
+          type: item.type || 'INSUMO',
+          origin: item.origin || 'BASE',
+          version: item.version || 1,
+          quantity: item.quantity,
+          unit_price: item.unitPrice,
+          unit: item.unit || 'un',
+          order: item.order || 0
+        }));
+        await supabase.from('proposal_items').insert(flatItems);
+      }
 
       setProposals(prev => [{ ...proposal, id: proposalData.id }, ...prev]);
+
+      // Sincronizar com a Agenda
+      if (proposal.date) {
+        const dataVencimento = new Date(proposal.date.length === 10 ? `${proposal.date}T09:00:00` : proposal.date);
+        dataVencimento.setDate(dataVencimento.getDate() + 15); // Validade padrão de 15 dias
+        const vencimentoStr = dataVencimento.toISOString();
+
+        syncAgendaEvent('ORCAMENTO', proposalData.id, {
+          tipoEvento: 'VENCIMENTO DE PROPOSTA',
+          titulo: `Vencimento Proposta - ${proposal.clientName}`,
+          descricao: `Aviso automático de vencimento da proposta (validade padrão de 15 dias a partir da criação).`,
+          dataInicio: vencimentoStr,
+          dataFim: vencimentoStr,
+          prioridade: 'ALTA',
+          eventoCritico: true
+        }).catch(console.error);
+      }
     }
   };
 
@@ -681,6 +897,104 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setUsers(prev => prev.filter(u => u.id !== id));
   };
 
+  // --- AGENDA GERENCIAL ---
+  const addAgendaEvent = async (evento: AgendaEvento) => {
+    const payload = {
+      origem_modulo: evento.origemModulo,
+      id_referencia: evento.idReferencia,
+      tipo_evento: evento.tipoEvento,
+      titulo: evento.titulo,
+      descricao: evento.descricao,
+      responsavel: evento.responsavel,
+      setor: evento.setor,
+      data_inicio: evento.dataInicio,
+      data_fim: evento.dataFim,
+      prioridade: evento.prioridade,
+      status: evento.status,
+      link_interno: evento.linkInterno,
+      criado_automatico: evento.criadoAutomatico,
+      evento_critico: evento.eventoCritico
+    };
+
+    const { data, error } = await supabase.from('agenda_eventos').insert([payload]).select().single();
+    if (error) throw new Error(error.message);
+    if (data) {
+      setAgendaEventos(prev => [...prev, {
+        id: data.id,
+        origemModulo: data.origem_modulo,
+        idReferencia: data.id_referencia,
+        tipoEvento: data.tipo_evento,
+        titulo: data.titulo,
+        descricao: data.descricao,
+        responsavel: data.responsavel,
+        setor: data.setor,
+        dataInicio: data.data_inicio,
+        dataFim: data.data_fim,
+        prioridade: data.prioridade,
+        status: data.status,
+        linkInterno: data.link_interno,
+        criadoAutomatico: data.criado_automatico,
+        eventoCritico: data.evento_critico,
+        createdAt: data.created_at
+      }]);
+    }
+  };
+
+  const updateAgendaEvent = async (evento: AgendaEvento) => {
+    const payload = {
+      origem_modulo: evento.origemModulo,
+      id_referencia: evento.idReferencia,
+      tipo_evento: evento.tipoEvento,
+      titulo: evento.titulo,
+      descricao: evento.descricao,
+      responsavel: evento.responsavel,
+      setor: evento.setor,
+      data_inicio: evento.dataInicio,
+      data_fim: evento.dataFim,
+      prioridade: evento.prioridade,
+      status: evento.status,
+      link_interno: evento.linkInterno,
+      criado_automatico: evento.criadoAutomatico,
+      evento_critico: evento.eventoCritico
+    };
+    const { error } = await supabase.from('agenda_eventos').update(payload).eq('id', evento.id);
+    if (error) throw new Error(error.message);
+    setAgendaEventos(prev => prev.map(a => a.id === evento.id ? evento : a));
+  };
+
+  const deleteAgendaEvent = async (id: string) => {
+    await supabase.from('agenda_eventos').delete().eq('id', id);
+    setAgendaEventos(prev => prev.filter(a => a.id !== id));
+  };
+
+  const syncAgendaEvent = async (origemModulo: 'OBRA' | 'ORCAMENTO' | 'FINANCEIRO', idReferencia: string, eventoData: Partial<AgendaEvento>) => {
+    const existente = agendaEventos.find(a => a.origemModulo === origemModulo && a.idReferencia === idReferencia);
+    if (existente) {
+      // Deleta ou atualiza dependendo se foi desmarcado? O ideal é que se o status for CANCELADO ele cancela.
+      // O sync só atualiza. A deleção é tratada no delete do projeto/orçamento.
+      await updateAgendaEvent({ ...existente, ...eventoData });
+    } else {
+      if (!eventoData.titulo || !eventoData.dataInicio || !eventoData.tipoEvento) return;
+      await addAgendaEvent({
+        id: '',
+        origemModulo,
+        idReferencia,
+        tipoEvento: eventoData.tipoEvento,
+        titulo: eventoData.titulo,
+        descricao: eventoData.descricao,
+        responsavel: eventoData.responsavel,
+        setor: eventoData.setor,
+        dataInicio: eventoData.dataInicio,
+        dataFim: eventoData.dataFim,
+        prioridade: eventoData.prioridade || 'MEDIA',
+        status: eventoData.status || 'PENDENTE',
+        linkInterno: eventoData.linkInterno,
+        criadoAutomatico: true,
+        eventoCritico: eventoData.eventoCritico || false
+      });
+    }
+  };
+
   return (
     <DataContext.Provider value={{
       sinapiDatabase: MOCK_SINAPI_DB,
@@ -699,6 +1013,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       teamMembers, addTeamMember, updateTeamMember, deleteTeamMember,
       payments, addPayment, updatePayment, deletePayment,
       users, addUser, updateUser, deleteUser,
+      agendaEventos, addAgendaEvent, updateAgendaEvent, deleteAgendaEvent, syncAgendaEvent,
       loading,
       refreshData
     }}>

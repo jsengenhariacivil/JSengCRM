@@ -51,11 +51,39 @@ export interface Service {
   unit: string;
 }
 
+export interface ProposalItem {
+  id?: string;
+  proposalId?: string;
+  etapaId?: string;
+  parentId?: string; // For Subcomposições or Insumos inside a Composição
+  serviceId: string; // Reference ID
+  code: string;      // SINAPI code or custom
+  banco: string;     // SINAPI, ORSE, SETOP, PROPRIO
+  name: string;
+  type: 'COMPOSICAO' | 'SUBCOMPOSICAO' | 'INSUMO';
+  origin: 'BASE' | 'PERSONALIZADO';
+  version: number;
+  quantity: number;
+  unitPrice: number;
+  unit?: string;
+  order?: number;
+  children?: ProposalItem[]; // Nested hierarchy (in-memory)
+}
+
+export interface ProposalEtapa {
+  id?: string;
+  proposalId?: string;
+  name: string;
+  order: number;
+  items: ProposalItem[]; // Top-level items of this Etapa
+}
+
 export interface Proposal {
   id: string;
   clientId: string;
   clientName: string;
-  items: { serviceId: string; name: string; quantity: number; unitPrice: number; unit?: string }[];
+  etapas: ProposalEtapa[];
+  items?: ProposalItem[]; // Legacy support or ungrouped items
   total: number;
   bdi?: number;
   status: Status;
@@ -114,4 +142,25 @@ export interface UserData {
   role: string;
   permissions: UserPermissions;
   password?: string; // Opcional para o mock, em prod seria hash
+}
+
+// --- AGENDA GERENCIAL ---
+
+export interface AgendaEvento {
+  id: string;
+  origemModulo: 'OBRA' | 'ORCAMENTO' | 'FINANCEIRO' | 'MANUAL';
+  idReferencia?: string | null;
+  tipoEvento: string;
+  titulo: string;
+  descricao?: string;
+  responsavel?: string;
+  setor?: string;
+  dataInicio: string; // ISO 8601
+  dataFim?: string;   // ISO 8601
+  prioridade: 'ALTA' | 'MEDIA' | 'BAIXA';
+  status: 'PENDENTE' | 'CONCLUIDO' | 'CANCELADO';
+  linkInterno?: string;
+  criadoAutomatico: boolean;
+  eventoCritico: boolean;
+  createdAt?: string;
 }

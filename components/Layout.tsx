@@ -1,14 +1,14 @@
 
 import React, { useState, useEffect } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { 
-  LayoutDashboard, 
-  Wallet, 
-  HardHat, 
-  Users, 
-  FileText, 
-  Menu, 
-  X, 
+import {
+  LayoutDashboard,
+  Wallet,
+  HardHat,
+  Users,
+  FileText,
+  Menu,
+  X,
   Settings,
   ChevronDown,
   ChevronRight,
@@ -31,17 +31,17 @@ import { useAuth } from '../context/AuthContext';
 
 const SidebarItem = ({ to, icon: Icon, label, onClick, isSubItem = false }: { to: string, icon: any, label: string, onClick?: () => void, isSubItem?: boolean }) => {
   const location = useLocation();
-  const isActive = location.pathname === to || (to !== '/' && location.pathname.startsWith(to) && to !== '/propostas' && to !== '/equipe'); 
-  
-  const activeStyle = isActive 
-    ? 'bg-[#c79229] text-[#181418] font-bold shadow-md' 
+  const isActive = location.pathname === to || (to !== '/' && location.pathname.startsWith(to) && to !== '/propostas' && to !== '/equipe');
+
+  const activeStyle = isActive
+    ? 'bg-[#c79229] text-[#181418] font-bold shadow-md'
     : 'text-slate-400 hover:text-[#c79229] hover:bg-[#181418]/50';
 
   return (
-    <NavLink 
-      to={to} 
+    <NavLink
+      to={to}
       onClick={onClick}
-      end={to === '/'} 
+      end={to === '/'}
       className={`flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${activeStyle} ${isSubItem ? 'pl-11 py-2 text-sm' : ''}`}
     >
       <Icon size={isSubItem ? 18 : 20} />
@@ -54,7 +54,7 @@ const Layout: React.FC = () => {
   const { companyName, companyLogo } = useData();
   const { currentUser, logout } = useAuth();
   const navigate = useNavigate();
-  
+
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isCadastrosOpen, setIsCadastrosOpen] = useState(false);
   const [isPropostasOpen, setIsPropostasOpen] = useState(false);
@@ -94,7 +94,7 @@ const Layout: React.FC = () => {
   const NavContent = ({ mobile = false }) => (
     <>
       <SidebarItem to="/" icon={LayoutDashboard} label="Dashboard" onClick={mobile ? toggleMenu : undefined} />
-      
+
       {canViewFinancial && (
         <>
           <SidebarItem to="/financeiro" icon={Wallet} label="Financeiro" onClick={mobile ? toggleMenu : undefined} />
@@ -105,11 +105,11 @@ const Layout: React.FC = () => {
       {canViewProjects && (
         <SidebarItem to="/obras" icon={HardHat} label="Obras" onClick={mobile ? toggleMenu : undefined} />
       )}
-      
+
       {/* Propostas (Assumindo que todos exceto Visitante podem ver) */}
       {(canViewFinancial || canViewProjects) && (
         <div className="space-y-1">
-          <button 
+          <button
             onClick={togglePropostas}
             className={`w-full flex items-center justify-between px-4 py-3 rounded-lg transition-colors text-slate-400 hover:text-[#c79229] hover:bg-[#181418]/50`}
           >
@@ -133,7 +133,7 @@ const Layout: React.FC = () => {
       {/* Equipe (RH ou Financeiro ou Admin) */}
       {(canViewFinancial || canManageSettings) && (
         <div className="space-y-1">
-          <button 
+          <button
             onClick={toggleEquipe}
             className={`w-full flex items-center justify-between px-4 py-3 rounded-lg transition-colors text-slate-400 hover:text-[#c79229] hover:bg-[#181418]/50`}
           >
@@ -149,17 +149,17 @@ const Layout: React.FC = () => {
               <SidebarItem to="/equipe/funcionarios" icon={User} label="Funcionários" isSubItem onClick={mobile ? toggleMenu : undefined} />
               <SidebarItem to="/equipe/prestadores" icon={UserCog} label="Prestadores" isSubItem onClick={mobile ? toggleMenu : undefined} />
               {canViewFinancial && (
-                  <SidebarItem to="/equipe/pagamentos" icon={Banknote} label="Pagamentos" isSubItem onClick={mobile ? toggleMenu : undefined} />
+                <SidebarItem to="/equipe/pagamentos" icon={Banknote} label="Pagamentos" isSubItem onClick={mobile ? toggleMenu : undefined} />
               )}
             </div>
           )}
         </div>
       )}
-      
+
       {/* Cadastros (Geralmente operacional/financeiro) */}
       {(canViewFinancial || canViewProjects) && (
         <div className="space-y-1">
-          <button 
+          <button
             onClick={toggleCadastros}
             className={`w-full flex items-center justify-between px-4 py-3 rounded-lg transition-colors text-slate-400 hover:text-[#c79229] hover:bg-[#181418]/50`}
           >
@@ -180,15 +180,20 @@ const Layout: React.FC = () => {
         </div>
       )}
 
+      {/* Agenda (Todos podem ver ou apenas gerentes?) Vou assumir que quem ve financeiro ou obras pode ver */}
+      {(canViewFinancial || canViewProjects) && (
+        <SidebarItem to="/agenda" icon={Calendar} label="Agenda Gerencial" onClick={mobile ? toggleMenu : undefined} />
+      )}
+
       {/* Configurações apenas para quem tem permissão */}
       {canManageSettings && (
         <div className="pt-6 mt-6 border-t border-[#c79229]/20">
-             <SidebarItem to="/configuracoes" icon={Settings} label="Configurações" onClick={mobile ? toggleMenu : undefined} />
+          <SidebarItem to="/configuracoes" icon={Settings} label="Configurações" onClick={mobile ? toggleMenu : undefined} />
         </div>
       )}
 
       {/* Logout Button */}
-      <button 
+      <button
         onClick={handleLogout}
         className="w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors text-red-400 hover:text-red-500 hover:bg-red-900/10 mt-2"
       >
@@ -205,16 +210,16 @@ const Layout: React.FC = () => {
         <div className="p-6 border-b border-[#c79229]/20 flex flex-col items-center space-y-4 text-center justify-center min-h-[140px]">
           <div className="w-full flex justify-center">
             {companyLogo ? (
-               <img 
-                 src={companyLogo} 
-                 alt={companyName} 
-                 className="max-h-24 max-w-full object-contain mx-auto" 
-               />
+              <img
+                src={companyLogo}
+                alt={companyName}
+                className="max-h-24 max-w-full object-contain mx-auto"
+              />
             ) : (
-               <div>
-                  <h1 className="text-xl font-bold tracking-tight text-white leading-tight">{companyName}</h1>
-                  <p className="text-[10px] text-[#c79229] uppercase tracking-widest mt-1">Construção & Reforma</p>
-               </div>
+              <div>
+                <h1 className="text-xl font-bold tracking-tight text-white leading-tight">{companyName}</h1>
+                <p className="text-[10px] text-[#c79229] uppercase tracking-widest mt-1">Construção & Reforma</p>
+              </div>
             )}
           </div>
         </div>
@@ -241,12 +246,12 @@ const Layout: React.FC = () => {
         <div className="fixed inset-0 z-50 bg-[#181418]/50 md:hidden" onClick={toggleMenu}>
           <div className="absolute left-0 top-0 bottom-0 w-64 bg-[#181418] text-white p-4 shadow-xl border-r border-[#c79229]" onClick={e => e.stopPropagation()}>
             <div className="flex justify-between items-center mb-8">
-               <div className="flex flex-col items-start space-y-2 w-full">
-                 {companyLogo ? (
-                    <img src={companyLogo} alt="Logo" className="max-h-16 w-auto object-contain" />
-                 ) : (
-                    <span className="text-lg font-bold">{companyName}</span>
-                 )}
+              <div className="flex flex-col items-start space-y-2 w-full">
+                {companyLogo ? (
+                  <img src={companyLogo} alt="Logo" className="max-h-16 w-auto object-contain" />
+                ) : (
+                  <span className="text-lg font-bold">{companyName}</span>
+                )}
               </div>
               <button onClick={toggleMenu}><X className="text-[#c79229]" /></button>
             </div>
@@ -262,11 +267,11 @@ const Layout: React.FC = () => {
         {/* Top Header Mobile */}
         <header className="md:hidden bg-[#181418] shadow-md h-16 flex items-center justify-between px-4 z-10 border-b border-[#c79229]">
           <div className="flex items-center space-x-2">
-             {companyLogo ? (
-                <img src={companyLogo} alt="Logo" className="h-10 w-auto object-contain" />
-             ) : (
-                <span className="font-bold text-white text-lg">{companyName}</span>
-             )}
+            {companyLogo ? (
+              <img src={companyLogo} alt="Logo" className="h-10 w-auto object-contain" />
+            ) : (
+              <span className="font-bold text-white text-lg">{companyName}</span>
+            )}
           </div>
           <button onClick={toggleMenu} className="p-2 text-[#c79229] hover:bg-white/10 rounded-lg transition-colors">
             <Menu size={24} />

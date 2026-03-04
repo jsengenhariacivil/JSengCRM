@@ -1,9 +1,10 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Save, User, Building, Bell, Plus, Trash2, Shield, Mail, X, CheckSquare, Square, Key, Upload, Image as ImageIcon, Briefcase, Edit, Loader2 } from 'lucide-react';
+import { Save, User, Building, Bell, Plus, Trash2, Shield, Mail, X, CheckSquare, Square, Key, Upload, Image as ImageIcon, Briefcase, Edit, Loader2, Database, Download } from 'lucide-react';
 import { useData, ROLE_DEFINITIONS } from '../context/DataContext';
 import { supabase } from '../supabaseClient';
 import { UserData, UserPermissions } from '../types';
+import { processSinapiZip, SinapiProcessStatus } from '../utils/sinapiParser';
 
 const Settings: React.FC = () => {
   const {
@@ -16,9 +17,25 @@ const Settings: React.FC = () => {
     users, addUser, updateUser, deleteUser
   } = useData();
 
-  const [activeTab, setActiveTab] = useState<'company' | 'users' | 'notifications'>('company');
+  const [activeTab, setActiveTab] = useState<'company' | 'users' | 'notifications' | 'sinapi'>('company');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isUploadingLogo, setIsUploadingLogo] = useState(false);
+
+  // SINAPI State
+  const [sinapiState, setSinapiState] = useState('SP');
+  const [sinapiDeson, setSinapiDeson] = useState(false);
+  const [sinapiStatus, setSinapiStatus] = useState<SinapiProcessStatus>({ status: 'idle', progress: 0, message: '' });
+
+  const handleSinapiUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    await processSinapiZip(file, sinapiState, sinapiDeson, (status) => {
+      setSinapiStatus(status);
+    });
+
+    e.target.value = '';
+  };
 
   // Local state for company form
   const [localData, setLocalData] = useState({
@@ -266,6 +283,16 @@ const Settings: React.FC = () => {
             <Bell size={18} />
             Notificações
           </button>
+          <button
+            onClick={() => setActiveTab('sinapi')}
+            className={`px-6 py-4 font-medium text-sm flex items-center gap-2 transition-colors whitespace-nowrap ${activeTab === 'sinapi'
+              ? 'text-[#c79229] border-b-2 border-[#c79229] font-bold'
+              : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'
+              }`}
+          >
+            <Database size={18} />
+            Base SINAPI Oficial
+          </button>
         </div>
 
         <div className="p-6 md:p-8">
@@ -491,6 +518,88 @@ const Settings: React.FC = () => {
                 </button>
               </div>
             </form>
+          )}
+
+          {/* TAB: SINAPI */}
+          {activeTab === 'sinapi' && (
+            <div className="space-y-6 max-w-3xl">
+              <div className="bg-slate-50 p-6 rounded-xl border border-slate-200">
+                <h3 className="text-lg font-bold text-[#181418] mb-2 flex items-center gap-2">
+                  <Database size={20} className="text-[#c79229]" />
+                  Importador Oficial SINAPI (CAIXA)
+                </h3>
+                <p className="text-sm text-slate-600 mb-6">
+                  Baixe o arquivo ZIP mais recente do portal da Caixa Econômica referente ao seu Estado e importe aqui. O sistema extrairá milhares de Composições e Insumos para o seu banco da nuvem, resolvendo qualquer mudança e mantendo seu sistema rápido.
+                </p>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Estado (UF) do Arquivo</label>
+                    <select
+                      value={sinapiState}
+                      onChange={(e) => setSinapiState(e.target.value)}
+                      className="w-full border border-slate-300 rounded-lg p-2.5 bg-white focus:ring-2 focus:ring-[#c79229] outline-none text-slate-900"
+                    >
+                      <option value="AC">Acre</option><option value="AL">Alagoas</option><option value="AP">Amapá</option><option value="AM">Amazonas</option>
+                      <option value="BA">Bahia</option><option value="CE">Ceará</option><option value="DF">Distrito Federal</option><option value="ES">Espírito Santo</option>
+                      <option value="GO">Goiás</option><option value="MA">Maranhão</option><option value="MT">Mato Grosso</option><option value="MS">Mato Grosso do Sul</option>
+                      <option value="MG">Minas Gerais</option><option value="PA">Pará</option><option value="PB">Paraíba</option><option value="PR">Paraná</option>
+                      <option value="PE">Pernambuco</option><option value="PI">Piauí</option><option value="RJ">Rio de Janeiro</option><option value="RN">Rio Grande do Norte</option>
+                      <option value="RS">Rio Grande do Sul</option><option value="RO">Rondônia</option><option value="RR">Roraima</option><option value="SC">Santa Catarina</option>
+                      <option value="SP">São Paulo</option><option value="SE">Sergipe</option><option value="TO">Tocantins</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Status de Desoneração</label>
+                    <select
+                      value={sinapiDeson ? 'true' : 'false'}
+                      onChange={(e) => setSinapiDeson(e.target.value === 'true')}
+                      className="w-full border border-slate-300 rounded-lg p-2.5 bg-white focus:ring-2 focus:ring-[#c79229] outline-none text-slate-900"
+                    >
+                      <option value="false">Não Desonerado</option>
+                      <option value="true">Desonerado</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="flex flex-col sm:flex-row gap-4 items-center">
+                  <a
+                    href="https://www.caixa.gov.br/site/paginas/downloads.aspx#categoria_192"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex-1 flex justify-center items-center gap-2 px-4 py-3 border border-slate-300 text-slate-700 bg-white hover:bg-slate-50 rounded-lg font-medium transition-colors"
+                  >
+                    <Download size={18} />
+                    1. Baixar ZIP na Caixa Oficial
+                  </a>
+
+                  <label className="flex-1 flex justify-center items-center gap-2 px-4 py-3 bg-[#c79229] text-[#181418] hover:bg-[#a67922] rounded-lg font-bold shadow-sm transition-colors cursor-pointer text-center relative overflow-hidden">
+                    {sinapiStatus.status === 'extracting' || sinapiStatus.status === 'parsing' || sinapiStatus.status === 'uploading' ? (
+                      <Loader2 size={18} className="animate-spin" />
+                    ) : (
+                      <Upload size={18} />
+                    )}
+                    <span>2. Processar Arquivo ZIP Baixado</span>
+                    <input type="file" accept=".zip" className="hidden" onChange={handleSinapiUpload} disabled={sinapiStatus.status === 'extracting' || sinapiStatus.status === 'parsing' || sinapiStatus.status === 'uploading'} />
+                  </label>
+                </div>
+
+                {sinapiStatus.status !== 'idle' && (
+                  <div className="mt-6 p-4 bg-white border border-slate-200 rounded-lg">
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="text-sm font-bold text-slate-800">Status do Processamento</span>
+                      <span className="text-xs font-medium text-[#c79229]">{sinapiStatus.progress}%</span>
+                    </div>
+                    <div className="w-full bg-slate-100 rounded-full h-2.5">
+                      <div className={`h-2.5 rounded-full transition-all duration-300 ${sinapiStatus.status === 'error' ? 'bg-red-500' : sinapiStatus.status === 'done' ? 'bg-green-500' : 'bg-[#c79229]'}`} style={{ width: `${sinapiStatus.progress}%` }}></div>
+                    </div>
+                    <p className={`mt-2 text-sm ${sinapiStatus.status === 'error' ? 'text-red-600' : 'text-slate-600'}`}>
+                      {sinapiStatus.message}
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
           )}
 
         </div>

@@ -1,10 +1,11 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { FileText, Plus, CheckCircle, Trash2, Printer, X, Download, ArrowLeft, Package, Upload, FileSpreadsheet } from 'lucide-react';
+import { FileText, Plus, CheckCircle, Trash2, Printer, X, Download, ArrowLeft, Package, Upload, FileSpreadsheet, ChevronDown, ChevronRight, Edit2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useData } from '../context/DataContext';
 import { Status, Proposal } from '../types';
 import * as XLSX from 'xlsx';
+import { supabase } from '../supabaseClient';
 
 interface ProposalsProps {
   viewMode?: 'list' | 'create';
@@ -24,11 +25,15 @@ const PrintPreviewModal = ({ proposal, onClose, clients }: { proposal: Proposal,
 
   const proposalBdi = proposal.bdi || 0;
   const calculateSubtotalDisplay = () => {
+    if (proposal.etapas && proposal.etapas.length > 0) {
+      return proposal.etapas.reduce((sum, etapa) =>
+        sum + etapa.items.reduce((etapaSum, item) => etapaSum + (item.quantity * item.unitPrice), 0), 0);
+    }
     if (!proposal.items || proposal.items.length === 0) return proposal.total;
     return proposal.items.reduce((acc, item) => acc + (item.quantity * item.unitPrice), 0);
   };
   const calculateTotalDisplay = () => {
-    if (!proposal.items || proposal.items.length === 0) return proposal.total;
+    if ((!proposal.items || proposal.items.length === 0) && (!proposal.etapas || proposal.etapas.length === 0)) return proposal.total;
     const subtotal = calculateSubtotalDisplay();
     return subtotal * (1 + (proposalBdi / 100));
   };
@@ -187,41 +192,86 @@ const PrintPreviewModal = ({ proposal, onClose, clients }: { proposal: Proposal,
               </div>
             </div>
 
-            {/* Items Table */}
+            {/* Items / Etapas Table */}
             <div className="mb-8 overflow-x-auto">
-              <table className="w-full text-left border-collapse min-w-[500px]">
-                <thead>
-                  <tr className="bg-[#181418] text-white">
-                    <th className="py-3 px-4 text-sm font-bold uppercase rounded-tl-lg">Item / Serviço</th>
-                    <th className="py-3 px-2 text-sm font-bold text-center uppercase w-24">Qtd.</th>
-                    <th className="py-3 px-2 text-sm font-bold text-right uppercase w-32">Unitário</th>
-                    <th className="py-3 px-4 text-sm font-bold text-right uppercase w-32 rounded-tr-lg">Total</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {proposal.items && proposal.items.length > 0 ? (
-                    proposal.items.map((item, idx) => (
-                      <tr key={idx} className="border-b border-slate-100 even:bg-slate-50">
-                        <td className="py-4 px-4 text-slate-800">
-                          <p className="font-bold">{item.name}</p>
-                        </td>
-                        <td className="py-4 px-2 text-center text-slate-600">{item.quantity}</td>
-                        <td className="py-4 px-2 text-right text-slate-600">R$ {item.unitPrice.toLocaleString()}</td>
-                        <td className="py-4 px-4 text-right font-medium text-[#181418]">R$ {(item.quantity * item.unitPrice).toLocaleString()}</td>
-                      </tr>
-                    ))
-                  ) : (
-                    <tr className="border-b border-slate-100">
-                      <td className="py-4 px-4 text-slate-800">
-                        <p className="font-bold">Serviços de Engenharia (Pacote Geral)</p>
-                      </td>
-                      <td className="py-4 px-2 text-center text-slate-600">1</td>
-                      <td className="py-4 px-2 text-right text-slate-600">R$ {proposal.total.toLocaleString()}</td>
-                      <td className="py-4 px-4 text-right font-medium text-[#181418]">R$ {proposal.total.toLocaleString()}</td>
+              {proposal.etapas && proposal.etapas.length > 0 ? (
+                <div className="space-y-6">
+                  {proposal.etapas.map((etapa, eIdx) => (
+                    <div key={eIdx} className="border border-slate-200 rounded-lg overflow-hidden">
+                      <div className="bg-[#181418] text-[#c79229] p-3 font-bold uppercase text-sm tracking-wider">
+                        {etapa.name}
+                      </div>
+                      <table className="w-full text-left border-collapse min-w-[500px]">
+                        <thead>
+                          <tr className="bg-slate-100 text-slate-700">
+                            <th className="py-2 px-4 text-xs font-bold uppercase">Item / Serviço</th>
+                            <th className="py-2 px-2 text-xs font-bold text-center uppercase w-16">Und.</th>
+                            <th className="py-2 px-2 text-xs font-bold text-center uppercase w-20">Qtd.</th>
+                            <th className="py-2 px-2 text-xs font-bold text-right uppercase w-28">Unitário</th>
+                            <th className="py-2 px-4 text-xs font-bold text-right uppercase w-32">Total</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {etapa.items.map((item, iIdx) => (
+                            <tr key={iIdx} className="border-b border-slate-100 even:bg-slate-50 text-sm">
+                              <td className="py-3 px-4 text-slate-800">
+                                <p className="font-semibold">{item.name}</p>
+                                {item.code && <p className="text-[10px] text-slate-500 font-mono mt-0.5">{item.banco} | {item.code}</p>}
+                              </td>
+                              <td className="py-3 px-2 text-center text-slate-600 font-mono text-xs">{item.unit || 'un'}</td>
+                              <td className="py-3 px-2 text-center text-slate-600">{item.quantity}</td>
+                              <td className="py-3 px-2 text-right text-slate-600">R$ {item.unitPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                              <td className="py-3 px-4 text-right font-bold text-[#181418]">R$ {(item.quantity * item.unitPrice).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                        <tfoot className="bg-slate-50 border-t-2 border-slate-200">
+                          <tr>
+                            <td colSpan={4} className="py-3 px-4 text-right text-xs font-bold text-slate-500 uppercase">Subtotal da Etapa:</td>
+                            <td className="py-3 px-4 text-right font-black text-[#c79229]">
+                              R$ {etapa.items.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </td>
+                          </tr>
+                        </tfoot>
+                      </table>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <table className="w-full text-left border-collapse min-w-[500px]">
+                  <thead>
+                    <tr className="bg-[#181418] text-white">
+                      <th className="py-3 px-4 text-sm font-bold uppercase rounded-tl-lg">Item / Serviço</th>
+                      <th className="py-3 px-2 text-sm font-bold text-center uppercase w-24">Qtd.</th>
+                      <th className="py-3 px-2 text-sm font-bold text-right uppercase w-32">Unitário</th>
+                      <th className="py-3 px-4 text-sm font-bold text-right uppercase w-32 rounded-tr-lg">Total</th>
                     </tr>
-                  )}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {proposal.items && proposal.items.length > 0 ? (
+                      proposal.items.map((item, idx) => (
+                        <tr key={idx} className="border-b border-slate-100 even:bg-slate-50">
+                          <td className="py-4 px-4 text-slate-800">
+                            <p className="font-bold">{item.name}</p>
+                          </td>
+                          <td className="py-4 px-2 text-center text-slate-600">{item.quantity}</td>
+                          <td className="py-4 px-2 text-right text-slate-600">R$ {item.unitPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                          <td className="py-4 px-4 text-right font-medium text-[#181418]">R$ {(item.quantity * item.unitPrice).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr className="border-b border-slate-100">
+                        <td className="py-4 px-4 text-slate-800">
+                          <p className="font-bold">Serviços de Engenharia (Pacote Geral)</p>
+                        </td>
+                        <td className="py-4 px-2 text-center text-slate-600">1</td>
+                        <td className="py-4 px-2 text-right text-slate-600">R$ {proposal.total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                        <td className="py-4 px-4 text-right font-medium text-[#181418]">R$ {proposal.total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              )}
             </div>
 
             {/* Resumo Financeiro */}
@@ -275,200 +325,295 @@ const PrintPreviewModal = ({ proposal, onClose, clients }: { proposal: Proposal,
 
 // Sub-component for Creating a Proposal
 const CreateProposal = ({ onCancel, onSave }: { onCancel: () => void, onSave: (proposal: Proposal) => void }) => {
-  const { clients, services, sinapiDatabase } = useData(); // Use Global Data
+  const { clients, services, sinapiDatabase } = useData();
   const [selectedClient, setSelectedClient] = useState('');
   const [validityDate, setValidityDate] = useState(new Date().toISOString().split('T')[0]);
-  const [bdi, setBdi] = useState(20); // Valor padrão de BDI: 20%
+  const [bdi, setBdi] = useState<number>(20);
+  const [proposalSinapiState, setProposalSinapiState] = useState('SP');
+  const [proposalSinapiDeson, setProposalSinapiDeson] = useState(false);
+  const [proposalSinapiType, setProposalSinapiType] = useState('AMBOS');
+  const [sinapiResults, setSinapiResults] = useState<any[]>([]);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Local state for items
-  const [items, setItems] = useState<{
-    tempId: number;
-    serviceId: string;
-    name: string;
-    quantity: number;
-    unitPrice: number;
-    unit: string;
-  }[]>([]);
+  const [etapas, setEtapas] = useState<any[]>([
+    { id: `etapa_${Date.now()}`, name: "1. SERVIÇOS PRELIMINARES", order: 1, items: [] }
+  ]);
 
-  const handleAddItem = () => {
-    // Add a blank line or default to first service
-    setItems(prev => [...prev, {
-      tempId: Date.now(),
-      serviceId: '',
-      name: '',
-      quantity: 1,
-      unitPrice: 0,
-      unit: 'un'
+  const addEtapa = () => {
+    setEtapas(prev => [...prev, {
+      id: `etapa_${Date.now()}`,
+      name: `${prev.length + 1}. NOVA ETAPA`,
+      order: prev.length + 1,
+      items: []
     }]);
   };
 
-  const handleServiceChange = (index: number, serviceIdOrName: string) => {
-    // 1. Tenta achar no SINAPI
-    const sinapiSrv = sinapiDatabase.find(s =>
+  const removeEtapa = (etapaId: string) => {
+    setEtapas(prev => prev.filter(e => e.id !== etapaId));
+  };
+
+  const updateEtapaName = (etapaId: string, newName: string) => {
+    setEtapas(prev => prev.map(e => e.id === etapaId ? { ...e, name: newName } : e));
+  };
+
+  const addItemToEtapa = (etapaId: string, type: 'COMPOSICAO' | 'INSUMO') => {
+    setEtapas(prev => prev.map(e => {
+      if (e.id === etapaId) {
+        return {
+          ...e,
+          items: [...e.items, {
+            id: `item_${Date.now()}_${Math.random()}`,
+            serviceId: '',
+            name: '',
+            quantity: 1,
+            unitPrice: 0,
+            unit: 'un',
+            type: type,
+            banco: 'PROPRIO',
+            code: '',
+            origin: 'BASE',
+            version: 1,
+            children: []
+          }]
+        };
+      }
+      return e;
+    }));
+  };
+
+  const removeItemFromEtapa = (etapaId: string, itemId: string) => {
+    setEtapas(prev => prev.map(e => {
+      if (e.id === etapaId) {
+        return { ...e, items: e.items.filter((i: any) => i.id !== itemId) };
+      }
+      return e;
+    }));
+  };
+
+  const updateItemInEtapa = (etapaId: string, itemId: string, field: string, value: any) => {
+    setEtapas(prev => prev.map(e => {
+      if (e.id === etapaId) {
+        return {
+          ...e,
+          items: e.items.map((i: any) => i.id === itemId ? { ...i, [field]: value } : i)
+        };
+      }
+      return e;
+    }));
+  };
+
+  const handleServiceChange = async (etapaId: string, itemId: string, serviceIdOrName: string) => {
+    // 1. Atualizar texto
+    updateItemInEtapa(etapaId, itemId, 'name', serviceIdOrName);
+
+    // 2. Procurar em memoria
+    const sinapiSrv = sinapiResults.find(s =>
       s.code === serviceIdOrName ||
       s.description === serviceIdOrName ||
       `${s.code} - ${s.description}` === serviceIdOrName
     );
 
     if (sinapiSrv) {
-      setItems(prev => prev.map((item, i) => {
-        if (i === index) {
-          return {
-            ...item,
-            serviceId: sinapiSrv.code,
-            name: sinapiSrv.description,
-            unitPrice: sinapiSrv.price,
-            unit: sinapiSrv.unit
-          };
-        }
-        return item;
-      }));
+      setEtapas(prev => prev.map(e => e.id === etapaId ? {
+        ...e,
+        items: e.items.map((i: any) => i.id === itemId ? {
+          ...i,
+          serviceId: sinapiSrv.code,
+          code: sinapiSrv.code,
+          banco: 'SINAPI',
+          name: sinapiSrv.description,
+          unitPrice: sinapiSrv.price,
+          unit: sinapiSrv.unit,
+          type: sinapiSrv.type || i.type
+        } : i)
+      } : e));
       return;
     }
 
-    // 2. Tenta achar nos serviços próprios
     const service = services.find(s => s.id === serviceIdOrName || s.name === serviceIdOrName);
+    if (service) {
+      setEtapas(prev => prev.map(e => e.id === etapaId ? {
+        ...e,
+        items: e.items.map((i: any) => i.id === itemId ? {
+          ...i,
+          serviceId: service.id,
+          code: service.id,
+          banco: 'PROPRIO',
+          name: service.name,
+          unitPrice: service.basePrice,
+          unit: service.unit
+        } : i)
+      } : e));
+      return;
+    }
 
-    setItems(prev => prev.map((item, i) => {
-      if (i === index) {
+    // 3. Busca no supabase
+    if (serviceIdOrName.length >= 3) {
+      if (proposalSinapiType === 'AMBOS') {
+        const [resInsumos, resComp] = await Promise.all([
+          supabase.from('sinapi_items')
+            .select('*')
+            .eq('state', proposalSinapiState)
+            .eq('is_desonerated', proposalSinapiDeson)
+            .eq('type', 'INSUMO')
+            .or(`description.ilike.%${serviceIdOrName}%,code.ilike.%${serviceIdOrName}%`)
+            .limit(15),
+          supabase.from('sinapi_items')
+            .select('*')
+            .eq('state', proposalSinapiState)
+            .eq('is_desonerated', proposalSinapiDeson)
+            .eq('type', 'COMPOSICAO')
+            .or(`description.ilike.%${serviceIdOrName}%,code.ilike.%${serviceIdOrName}%`)
+            .limit(15)
+        ]);
+
+        const combined = [...(resComp.data || []), ...(resInsumos.data || [])];
+        setSinapiResults(combined);
+      } else {
+        const { data } = await supabase.from('sinapi_items')
+          .select('*')
+          .eq('state', proposalSinapiState)
+          .eq('is_desonerated', proposalSinapiDeson)
+          .eq('type', proposalSinapiType)
+          .or(`description.ilike.%${serviceIdOrName}%,code.ilike.%${serviceIdOrName}%`)
+          .limit(25);
+
+        if (data) {
+          setSinapiResults(data);
+        }
+      }
+    } else {
+      setSinapiResults([]);
+    }
+  };
+
+  const [expandedItems, setExpandedItems] = useState<string[]>([]);
+
+  const toggleExpand = (itemId: string) => {
+    setExpandedItems(prev => prev.includes(itemId) ? prev.filter(id => id !== itemId) : [...prev, itemId]);
+  };
+
+  const addSubItemToItem = (etapaId: string, itemId: string, type: 'INSUMO' | 'SUBCOMPOSICAO') => {
+    setEtapas(prev => prev.map(e => {
+      if (e.id === etapaId) {
         return {
-          ...item,
-          serviceId: service ? service.id : '',
-          name: service ? service.name : serviceIdOrName,
-          unitPrice: service ? service.basePrice : item.unitPrice,
-          unit: service ? service.unit : item.unit
+          ...e,
+          items: e.items.map((i: any) => {
+            if (i.id === itemId) {
+              return {
+                ...i,
+                origin: 'PERSONALIZADO',
+                children: [...(i.children || []), {
+                  id: `subitem_${Date.now()}_${Math.random()}`,
+                  serviceId: '',
+                  name: '',
+                  quantity: 1,
+                  unitPrice: 0,
+                  unit: 'un',
+                  type: type,
+                  banco: 'PROPRIO',
+                  code: '',
+                  origin: 'BASE',
+                  version: 1
+                }]
+              };
+            }
+            return i;
+          })
         };
       }
-      return item;
+      return e;
     }));
+    if (!expandedItems.includes(itemId)) setExpandedItems(prev => [...prev, itemId]);
   };
 
-  const updateItem = (index: number, field: string, value: any) => {
-    setItems(prev => prev.map((item, i) => {
-      if (i === index) {
-        return { ...item, [field]: value };
+  const updateSubItem = (etapaId: string, itemId: string, subItemId: string, field: string, value: any) => {
+    setEtapas(prev => prev.map(e => {
+      if (e.id === etapaId) {
+        return {
+          ...e,
+          items: e.items.map((i: any) => {
+            if (i.id === itemId) {
+              return {
+                ...i,
+                origin: 'PERSONALIZADO',
+                children: i.children.map((sub: any) => sub.id === subItemId ? { ...sub, [field]: value } : sub)
+              };
+            }
+            return i;
+          })
+        };
       }
-      return item;
+      return e;
     }));
   };
 
-  const removeItem = (index: number) => {
-    setItems(prev => prev.filter((_, i) => i !== index));
+  const removeSubItem = (etapaId: string, itemId: string, subItemId: string) => {
+    setEtapas(prev => prev.map(e => {
+      if (e.id === etapaId) {
+        return {
+          ...e,
+          items: e.items.map((i: any) => {
+            if (i.id === itemId) {
+              return {
+                ...i,
+                origin: 'PERSONALIZADO',
+                children: i.children.filter((sub: any) => sub.id !== subItemId)
+              };
+            }
+            return i;
+          })
+        };
+      }
+      return e;
+    }));
+  };
+
+  const calculateEtapaTotal = (etapa: any) => {
+    return etapa.items.reduce((acc: number, item: any) => {
+      const childrenTotal = item.children && item.origin === 'PERSONALIZADO' ? item.children.reduce((cAcc: number, c: any) => cAcc + (c.quantity * c.unitPrice), 0) : 0;
+      const unitPriceToUse = childrenTotal > 0 ? childrenTotal : item.unitPrice;
+      return acc + (item.quantity * unitPriceToUse);
+    }, 0);
   };
 
   const calculateSubtotal = () => {
-    return items.reduce((acc, item) => acc + (item.quantity * item.unitPrice), 0);
+    return etapas.reduce((acc, etapa) => acc + calculateEtapaTotal(etapa), 0);
   };
 
   const calculateTotal = () => {
     const subtotal = calculateSubtotal();
-    return subtotal * (1 + (bdi / 100)); // Applying BDI
+    return subtotal * (1 + (bdi / 100)); // Applying BDI globally
   };
 
-  // --- EXCEL IMPORT LOGIC ---
-
   const handleDownloadTemplate = () => {
-    const wsData = [
-      ['Serviço', 'Descrição', 'Quantidade', 'Unidade', 'Valor Unitário'],
-      ['Instalação Elétrica', 'Fiação completa do quarto', 10, 'pt', 150.00],
-      ['Pintura', 'Paredes internas (Látex)', 50, 'm²', 35.50]
-    ];
-    const ws = XLSX.utils.aoa_to_sheet(wsData);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Modelo Proposta");
-    XLSX.writeFile(wb, "modelo_importacao_proposta.xlsx");
+    // Legacy support download
   };
 
   const handleImportClick = () => {
-    if (fileInputRef.current) {
-      fileInputRef.current.click();
-    }
+    if (fileInputRef.current) fileInputRef.current.click();
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    // Dummy import that appends to the first etapa or creates a default one
     const file = e.target.files?.[0];
     if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = (evt) => {
-      const bstr = evt.target?.result;
-      const wb = XLSX.read(bstr, { type: 'binary' });
-      const wsname = wb.SheetNames[0];
-      const ws = wb.Sheets[wsname];
-      const data = XLSX.utils.sheet_to_json(ws);
-
-      if (data && data.length > 0) {
-        const newItems = data.map((row: any) => {
-          // Tenta mapear nomes de colunas comuns
-          const serviceName = row['Serviço'] || row['Servico'] || row['Service'] || '';
-          const desc = row['Descrição'] || row['Descricao'] || row['descricao'] || row['Nome'] || '';
-
-          // Combina Serviço e Descrição se ambos existirem, ou usa um deles para o campo Nome
-          let finalName = '';
-          if (serviceName && desc) {
-            finalName = `${serviceName} - ${desc}`;
-          } else {
-            finalName = serviceName || desc || 'Item importado';
-          }
-
-          const qty = Number(row['Quantidade'] || row['Qtd'] || row['qtd'] || row['quantidade'] || 1);
-          const unit = row['Unidade'] || row['unidade'] || row['Unit'] || 'un';
-          const price = Number(row['Valor Unitário'] || row['Valor Unitario'] || row['Preco'] || row['Valor'] || 0);
-
-          return {
-            tempId: Date.now() + Math.random(),
-            serviceId: '', // Importado vem como Custom
-            name: String(finalName),
-            quantity: isNaN(qty) ? 1 : qty,
-            unitPrice: isNaN(price) ? 0 : price,
-            unit: String(unit)
-          };
-        });
-
-        // Adiciona os novos itens aos existentes
-        setItems(prev => [...prev, ...newItems]);
-        alert(`${newItems.length} itens importados com sucesso!`);
-      } else {
-        alert('Não foi possível ler dados da planilha. Verifique o modelo.');
-      }
-
-      // Reset input
-      if (fileInputRef.current) fileInputRef.current.value = '';
-    };
-    reader.readAsBinaryString(file);
+    alert("Para utilizar a importação Excel na nova estrutura OrçaFascio, é recomendado adicionar manualmente usando a busca de itens, pois a hierarquia de etapas não é mantida em planilhas simples sem formatação específica.");
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
-  // --- SAVE LOGIC ---
-
   const handleSaveClick = (isPrint: boolean) => {
-    // 1. Validação do Cliente
     if (!selectedClient) {
       alert('Por favor, selecione um cliente.');
       return;
     }
 
-    // 2. Validação se existem itens
-    if (items.length === 0) {
+    if (etapas.length === 0 || etapas.every(e => e.items.length === 0)) {
       alert('Adicione pelo menos um serviço à proposta.');
       return;
     }
 
-    // 3. Validação dos dados dos itens (Nome e Quantidade)
-    const validItems = items.filter(i => i.name.trim() !== '' && i.quantity > 0);
-
-    if (validItems.length === 0) {
-      alert('Preencha os dados dos serviços (Nome e Quantidade).');
-      return;
-    }
-
-    if (validItems.length !== items.length) {
-      if (!window.confirm('Existem itens incompletos (sem nome ou quantidade zerada) que serão ignorados. Deseja continuar?')) {
-        return;
-      }
-    }
-
-    const client = clients.find(c => c.id === selectedClient);
     const total = calculateTotal();
 
     const newProposal: Proposal = {
@@ -479,18 +624,12 @@ const CreateProposal = ({ onCancel, onSave }: { onCancel: () => void, onSave: (p
       status: Status.PENDING,
       total: total,
       bdi: bdi,
-      items: validItems.map(item => ({
-        serviceId: item.serviceId || 'custom',
-        name: item.name,
-        quantity: item.quantity,
-        unitPrice: item.unitPrice,
-        unit: item.unit
+      etapas: etapas.map((e, idx) => ({
+        name: e.name,
+        order: idx + 1,
+        items: e.items.filter((i: any) => i.name.trim() !== '' && i.quantity > 0)
       }))
     };
-
-    if (isPrint) {
-      alert('Proposta salva! Você poderá imprimir a visualização na próxima tela.');
-    }
 
     onSave(newProposal);
   };
@@ -498,7 +637,7 @@ const CreateProposal = ({ onCancel, onSave }: { onCancel: () => void, onSave: (p
   return (
     <div className="bg-white rounded-xl shadow-lg border border-slate-200 p-6 animate-in slide-in-from-bottom-4 duration-300">
       <div className="flex justify-between items-center mb-6 border-b pb-4">
-        <h2 className="text-xl font-bold text-[#181418]">Nova Proposta Comercial</h2>
+        <h2 className="text-xl font-bold text-[#181418]">Nova Proposta Comercial (Estrutura Completa)</h2>
         <button onClick={onCancel} className="text-slate-400 hover:text-red-500">
           <X size={24} />
         </button>
@@ -527,155 +666,233 @@ const CreateProposal = ({ onCancel, onSave }: { onCancel: () => void, onSave: (p
             className="w-full border border-slate-300 rounded-lg p-2.5 bg-white text-slate-900 focus:ring-2 focus:ring-[#c79229] outline-none"
           />
         </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">BDI (%)</label>
+          <label className="block text-sm font-medium text-slate-700 mb-1">BDI Global (%)</label>
           <input
             type="number"
             value={bdi}
             onChange={(e) => setBdi(parseFloat(e.target.value) || 0)}
-            className="w-full border border-slate-300 rounded-lg p-2.5 bg-white text-slate-900 focus:ring-2 focus:ring-[#c79229] outline-none"
+            className="w-full font-bold text-[#c79229] border border-slate-300 rounded-lg p-2.5 bg-white focus:ring-2 focus:ring-[#c79229] outline-none"
           />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-slate-700 mb-1">Fonte SINAPI (Estado)</label>
+          <select
+            className="w-full border border-slate-300 rounded-lg p-2.5 bg-slate-50 text-slate-900 focus:ring-2 focus:ring-[#c79229] outline-none"
+            value={proposalSinapiState}
+            onChange={(e) => setProposalSinapiState(e.target.value)}
+          >
+            <option value="BA">Bahia</option>
+            <option value="SP">São Paulo</option>
+            <option value="SE">Sergipe</option>
+            {/* ... simplified for focus */}
+          </select>
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-slate-700 mb-1">Regime SINAPI</label>
+          <select
+            className="w-full border border-slate-300 rounded-lg p-2.5 bg-slate-50 text-slate-900 focus:ring-2 focus:ring-[#c79229] outline-none"
+            value={proposalSinapiDeson ? 'true' : 'false'}
+            onChange={(e) => setProposalSinapiDeson(e.target.value === 'true')}
+          >
+            <option value="false">Não Desonerado</option>
+            <option value="true">Desonerado</option>
+          </select>
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-slate-700 mb-1">Filtro Visual</label>
+          <select
+            className="w-full border border-slate-300 rounded-lg p-2.5 bg-slate-50 text-slate-900 focus:ring-2 focus:ring-[#c79229] outline-none"
+            value={proposalSinapiType}
+            onChange={(e) => setProposalSinapiType(e.target.value)}
+          >
+            <option value="AMBOS">Todos (Insumos e Composições)</option>
+            <option value="COMPOSICAO">Apenas Composições</option>
+            <option value="INSUMO">Apenas Insumos</option>
+          </select>
         </div>
       </div>
 
-      <div className="mb-6">
-        <div className="flex flex-col sm:flex-row justify-between items-end sm:items-center mb-2 gap-2">
-          <label className="block text-sm font-medium text-slate-700">Serviços e Materiais</label>
-
-          <div className="flex gap-2">
-            <input
-              type="file"
-              accept=".xlsx, .xls"
-              ref={fileInputRef}
-              onChange={handleFileUpload}
-              className="hidden"
-            />
-            <button
-              type="button"
-              onClick={handleDownloadTemplate}
-              className="text-xs flex items-center gap-1 text-slate-500 hover:text-[#c79229] border border-slate-200 px-2 py-1 rounded hover:bg-slate-50 transition-colors"
-              title="Baixar modelo de planilha para preenchimento"
-            >
-              <FileSpreadsheet size={14} /> Baixar Modelo
-            </button>
-            <button
-              type="button"
-              onClick={handleImportClick}
-              className="text-xs flex items-center gap-1 bg-[#181418] text-[#c79229] px-3 py-1 rounded hover:bg-black transition-colors font-bold"
-            >
-              <Upload size={14} /> Importar Excel
-            </button>
-          </div>
+      {/* ÁREA DE ETAPAS E ITENS */}
+      <div className="mb-6 space-y-4">
+        <div className="flex bg-[#181418] rounded-t-lg p-4 justify-between items-center shadow-lg">
+          <button onClick={addEtapa} type="button" className="bg-[#c79229] text-[#181418] font-black px-6 py-3 rounded-lg flex items-center gap-2 hover:bg-[#a67922] transition-colors uppercase tracking-wider text-sm shadow-md">
+            <Plus size={20} /> Adicionar Etapa
+          </button>
         </div>
 
-        <div className="border rounded-lg overflow-hidden bg-slate-50 overflow-x-auto">
-          <table className="w-full text-sm text-left min-w-[800px]">
-            <thead className="bg-slate-100 text-slate-600 border-b border-slate-200">
-              <tr>
-                <th className="px-4 py-3 w-12"></th>
-                <th className="px-4 py-3 min-w-[450px]" colSpan={2}>Serviço / Descrição (SINAPI ou Editável)</th>
-                <th className="px-4 py-3 w-32 text-center">Qtd.</th>
-                {/* Mantendo o ajuste visual solicitado anteriormente */}
-                <th className="px-4 py-3 min-w-[150px] text-right">Valor Unit.</th>
-                <th className="px-4 py-3 min-w-[150px] text-right">Total</th>
-                <th className="px-4 py-3 w-12"></th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-200 bg-white">
-              {items.map((item, idx) => {
-                const lineTotal = item.quantity * item.unitPrice;
+        <div className="bg-slate-50 p-4 rounded-b-lg border border-slate-200 border-t-0 space-y-6">
+          {etapas.map((etapa, eIdx) => (
+            <div key={etapa.id} className="border border-slate-300 rounded-lg overflow-hidden bg-white shadow-sm ring-1 ring-black/5">
+              <div className="bg-slate-200/80 p-3 flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-300">
+                <input
+                  value={etapa.name}
+                  onChange={e => updateEtapaName(etapa.id, e.target.value)}
+                  className="bg-transparent border-b-2 border-transparent focus:border-[#c79229] font-black text-slate-800 text-lg md:w-1/2 outline-none uppercase pb-1"
+                  placeholder="NOME DA ETAPA"
+                />
 
-                return (
-                  <tr key={item.tempId} className="hover:bg-slate-50 transition-colors">
-                    <td className="px-4 py-3 text-center text-slate-400 align-middle">
-                      <Package size={18} />
-                    </td>
-                    <td colSpan={2} className="px-4 py-3 align-middle">
-                      <input
-                        list={`service-options-${idx}`}
-                        className="w-full p-2.5 border border-slate-300 rounded-lg focus:border-[#c79229] focus:ring-1 focus:ring-[#c79229] bg-white outline-none font-medium text-slate-900 placeholder-slate-400 shadow-sm transition-all text-sm mb-1"
-                        placeholder="Buscar serviço SINAPI ou Próprios..."
-                        value={item.name}
-                        onChange={(e) => handleServiceChange(idx, e.target.value)}
-                      />
-                      <datalist id={`service-options-${idx}`}>
-                        {sinapiDatabase.map(s => (
-                          <option key={s.code} value={`${s.code} - ${s.description}`}>
-                            SINAPI ({s.unit}) - R$ {s.price.toFixed(2)}
-                          </option>
-                        ))}
-                        {services.map(s => (
-                          <option key={s.id} value={s.name}>
-                            Próprio ({s.unit}) - R$ {s.basePrice.toFixed(2)}
-                          </option>
-                        ))}
-                      </datalist>
-                    </td>
-                    <td className="px-4 py-3 align-middle">
-                      <div className="flex items-center justify-center gap-2">
-                        <input
-                          type="number"
-                          min="0.1"
-                          step="0.1"
-                          className="w-20 p-2.5 border border-slate-300 rounded-lg text-center bg-white text-slate-900 focus:border-[#c79229] focus:ring-1 focus:ring-[#c79229] outline-none shadow-sm transition-all"
-                          value={item.quantity}
-                          onChange={(e) => updateItem(idx, 'quantity', parseFloat(e.target.value) || 0)}
-                        />
-                        <span className="text-xs text-slate-500 font-medium w-6">{item.unit}</span>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 align-middle">
-                      <div className="relative">
-                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-sm">R$</span>
-                        <input
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          className="w-full pl-9 p-2.5 border border-slate-300 rounded-lg text-right bg-white text-slate-900 focus:border-[#c79229] focus:ring-1 focus:ring-[#c79229] outline-none shadow-sm transition-all"
-                          value={item.unitPrice}
-                          onChange={(e) => updateItem(idx, 'unitPrice', parseFloat(e.target.value) || 0)}
-                        />
-                      </div>
-                    </td>
-
-                    <td className="px-4 py-3 text-right font-bold text-slate-900 bg-slate-50/50 border-l border-slate-100 align-middle">
-                      R$ {lineTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </td>
-
-                    <td className="px-4 py-3 text-center align-middle">
-                      <button onClick={() => removeItem(idx)} className="text-slate-400 hover:text-red-600 transition-colors p-2 rounded-lg hover:bg-red-50" title="Remover item"><Trash2 size={18} /></button>
-                    </td>
-                  </tr>
-                );
-              })}
-              {items.length === 0 && (
-                <tr>
-                  <td colSpan={7} className="px-4 py-12 text-center text-slate-400 italic bg-white flex flex-col items-center justify-center">
-                    <Package size={48} className="opacity-20 mb-2" />
-                    Adicione serviços para compor a proposta ou importe do Excel.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-            <tfoot className="bg-slate-50 font-bold text-slate-800 border-t border-slate-200">
-              <tr>
-                <td colSpan={7} className="px-0 py-0">
-                  <button
-                    onClick={handleAddItem}
-                    type="button"
-                    className="w-full py-4 flex items-center justify-center gap-2 text-[#c79229] hover:bg-[#c79229]/10 transition-colors font-medium border-b border-slate-200"
-                  >
-                    <Plus size={18} /> Adicionar Item Manualmente
+                <div className="flex gap-2 shrink-0">
+                  <button onClick={() => addItemToEtapa(etapa.id, 'COMPOSICAO')} type="button" className="bg-white border border-slate-300 text-slate-700 px-3 py-1.5 text-sm rounded hover:bg-slate-50 flex items-center gap-1 font-bold shadow-sm">
+                    <Plus size={16} className="text-blue-500" /> Composição
                   </button>
-                </td>
-              </tr>
-              <tr>
-                <td colSpan={5} className="px-4 py-4 text-right text-lg">Total Geral:</td>
-                <td className="px-4 py-4 text-right text-xl text-[#181418]">R$ {calculateTotal().toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                <td></td>
-              </tr>
-            </tfoot>
-          </table>
+                  <button onClick={() => addItemToEtapa(etapa.id, 'INSUMO')} type="button" className="bg-white border border-slate-300 text-slate-700 px-3 py-1.5 text-sm rounded hover:bg-slate-50 flex items-center gap-1 font-bold shadow-sm">
+                    <Plus size={16} className="text-orange-500" /> Insumo
+                  </button>
+                  <button onClick={() => removeEtapa(etapa.id)} type="button" className="text-red-500 hover:text-red-700 ml-4 p-1.5 hover:bg-red-50 rounded">
+                    <Trash2 size={20} />
+                  </button>
+                </div>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-sm whitespace-nowrap">
+                  <thead className="bg-slate-50 border-b text-slate-500 text-xs uppercase tracking-wider font-bold">
+                    <tr>
+                      <th className="p-3 w-16 text-center">Tipo</th>
+                      <th className="p-3 w-32 text-center">Código / Base</th>
+                      <th className="p-3 min-w-[300px]">Descrição do Item (Busca SINAPI)</th>
+                      <th className="p-3 w-16 text-center">Und.</th>
+                      <th className="p-3 w-28 text-center">Qtd.</th>
+                      <th className="p-3 w-32 text-right">Valor Unit.</th>
+                      <th className="p-3 w-32 text-right">Total (Sem BDI)</th>
+                      <th className="p-3 w-12 text-center">Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {etapa.items.map((item: any, iIdx: number) => {
+                      const isExpanded = expandedItems.includes(item.id);
+                      const hasChildren = item.children && item.children.length > 0;
+                      const isComposicao = item.type === 'COMPOSICAO' || (item.type && item.type.toString().toUpperCase().includes('COMP'));
+                      const childrenTotal = hasChildren && item.origin === 'PERSONALIZADO' ? item.children.reduce((sum: number, c: any) => sum + (c.quantity * c.unitPrice), 0) : 0;
+                      const displayUnitPrice = childrenTotal > 0 ? childrenTotal : item.unitPrice;
+                      const lineTotal = item.quantity * displayUnitPrice;
+
+                      return (
+                        <React.Fragment key={item.id}>
+                          <tr className="hover:bg-slate-50/80 transition-colors group">
+                            <td className="p-3 text-center flex justify-center items-center gap-1">
+                              {isComposicao && (
+                                <button onClick={() => toggleExpand(item.id)} className="text-slate-400 hover:text-[#c79229]">
+                                  {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                                </button>
+                              )}
+                              <span className={`text-[10px] font-black px-2 py-1 rounded-full ${isComposicao ? 'bg-blue-100 text-blue-700' : 'bg-orange-100 text-orange-700'}`}>
+                                {isComposicao ? 'COMP' : 'INS'}
+                              </span>
+                            </td>
+                            <td className="p-3 text-center">
+                              <div className="flex flex-col items-center">
+                                <span className="font-mono font-bold text-slate-700 flex items-center gap-1">
+                                  {item.code || '-'}
+                                  {item.origin === 'PERSONALIZADO' && <span className="w-2 h-2 rounded-full bg-yellow-400" title="Personalizado"></span>}
+                                </span>
+                                <span className="text-[10px] uppercase text-slate-400 font-bold">{item.banco} {item.version > 1 ? ` v${item.version}` : ''}</span>
+                              </div>
+                            </td>
+                            <td className="p-3">
+                              <div className="flex items-center gap-2">
+                                <input
+                                  list={`service-options-${etapa.id}-${item.id}`}
+                                  placeholder="Buscar no Banco ou digitar novo..."
+                                  className="flex-1 p-2.5 border border-slate-200 bg-white hover:border-slate-300 rounded-md focus:border-[#c79229] focus:ring-1 focus:ring-[#c79229] outline-none text-slate-800 transition-all font-medium"
+                                  value={item.name}
+                                  onChange={(e) => handleServiceChange(etapa.id, item.id, e.target.value)}
+                                />
+                                {isComposicao && (
+                                  <button onClick={() => { toggleExpand(item.id); if (!isExpanded) addSubItemToItem(etapa.id, item.id, 'INSUMO'); }} className="text-slate-400 hover:text-[#c79229] p-2 bg-white border border-slate-200 rounded" title="Editar Composição / Adicionar Insumo">
+                                    <Edit2 size={16} />
+                                  </button>
+                                )}
+                              </div>
+                              <datalist id={`service-options-${etapa.id}-${item.id}`}>
+                                {sinapiResults.map((res: any, idx2: number) => (
+                                  <option key={`res-${idx2}`} value={`${res.code} - ${res.description}`} />
+                                ))}
+                                {services.map(srv => (
+                                  <option key={`srv-${srv.id}`} value={srv.name} />
+                                ))}
+                              </datalist>
+                            </td>
+                            <td className="p-3 text-center">
+                              <input value={item.unit} onChange={e => updateItemInEtapa(etapa.id, item.id, 'unit', e.target.value)} className="w-12 text-center bg-transparent border-b border-dashed border-slate-300 outline-none uppercase text-xs font-bold text-slate-600" />
+                            </td>
+                            <td className="p-3 text-center">
+                              <input type="number" step="0.01" value={item.quantity} onChange={e => updateItemInEtapa(etapa.id, item.id, 'quantity', parseFloat(e.target.value) || 0)} className="w-20 p-2 border border-slate-200 rounded-md text-center bg-white font-medium focus:border-[#c79229] outline-none" />
+                            </td>
+                            <td className="p-3 text-right">
+                              <div className="flex items-center justify-end gap-1">
+                                <span className="text-xs text-slate-400">R$</span>
+                                <input type="number" step="0.01" value={displayUnitPrice} onChange={e => updateItemInEtapa(etapa.id, item.id, 'unitPrice', parseFloat(e.target.value) || 0)} disabled={hasChildren && item.origin === 'PERSONALIZADO'} className={`w-24 p-2 border border-slate-200 rounded-md text-right font-medium outline-none ${hasChildren && item.origin === 'PERSONALIZADO' ? 'bg-slate-100 text-slate-500 cursor-not-allowed' : 'bg-white focus:border-[#c79229]'}`} />
+                              </div>
+                            </td>
+                            <td className="p-3 text-right font-bold text-[#181418]">
+                              R$ {lineTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </td>
+                            <td className="p-3 text-center">
+                              <button onClick={() => removeItemFromEtapa(etapa.id, item.id)} className="text-slate-300 hover:text-red-500 transition-colors p-1.5 rounded hover:bg-red-50 opacity-0 group-hover:opacity-100">
+                                <Trash2 size={18} />
+                              </button>
+                            </td>
+                          </tr>
+                          {isExpanded && item.children && item.children.map((sub: any) => (
+                            <tr key={sub.id} className="bg-slate-100/50 border-t border-dashed border-slate-200">
+                              <td className="p-2 text-right pr-4"><span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider pl-4">└ Insumo</span></td>
+                              <td className="p-2 text-center"><span className="font-mono text-xs text-slate-500">{sub.code || '-'}</span></td>
+                              <td className="p-2 pl-4">
+                                <input value={sub.name} onChange={e => updateSubItem(etapa.id, item.id, sub.id, 'name', e.target.value)} className="w-full bg-white border border-slate-200 p-1.5 rounded text-sm outline-none focus:border-[#c79229]" placeholder="Descrição do insumo interno..." />
+                              </td>
+                              <td className="p-2 text-center"><input value={sub.unit} onChange={e => updateSubItem(etapa.id, item.id, sub.id, 'unit', e.target.value)} className="w-10 text-center bg-transparent border-b border-dashed border-slate-300 text-xs outline-none" /></td>
+                              <td className="p-2 text-center"><input type="number" step="0.0000001" value={sub.quantity} onChange={e => updateSubItem(etapa.id, item.id, sub.id, 'quantity', parseFloat(e.target.value) || 0)} className="w-20 text-center bg-white border border-slate-200 p-1 rounded outline-none" /></td>
+                              <td className="p-2 text-right"><input type="number" step="0.01" value={sub.unitPrice} onChange={e => updateSubItem(etapa.id, item.id, sub.id, 'unitPrice', parseFloat(e.target.value) || 0)} className="w-20 text-right bg-white border border-slate-200 p-1 rounded outline-none" /></td>
+                              <td className="p-2 text-right text-slate-500 text-sm font-medium">R$ {(sub.quantity * sub.unitPrice).toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+                              <td className="p-2 text-center"><button onClick={() => removeSubItem(etapa.id, item.id, sub.id)} className="text-red-300 hover:text-red-500"><X size={14} /></button></td>
+                            </tr>
+                          ))}
+                          {isExpanded && (
+                            <tr className="bg-slate-100/50 border-b border-slate-200">
+                              <td colSpan={2}></td>
+                              <td colSpan={6} className="p-2 pb-4">
+                                <button onClick={() => addSubItemToItem(etapa.id, item.id, 'INSUMO')} className="text-xs bg-white border border-slate-300 text-slate-600 px-3 py-1 rounded shadow-sm hover:bg-slate-50 font-bold flex items-center gap-1">+ ADICIONAR INSUMO</button>
+                              </td>
+                            </tr>
+                          )}
+                        </React.Fragment>
+                      );
+                    })}
+                    {etapa.items.length === 0 && (
+                      <tr><td colSpan={8} className="p-8 text-center text-slate-400 italic bg-white flex-col flex items-center gap-2"><Package size={32} className="opacity-20" /> Adicione composições ou insumos nesta etapa.</td></tr>
+                    )}
+                  </tbody>
+                  {etapa.items.length > 0 && (
+                    <tfoot className="bg-slate-50/50">
+                      <tr>
+                        <td colSpan={6} className="text-right p-3 text-sm font-bold text-slate-500 uppercase">Subtotal da Etapa</td>
+                        <td className="p-3 text-right font-black text-[#c79229] whitespace-nowrap">R$ {calculateEtapaTotal(etapa).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                        <td></td>
+                      </tr>
+                    </tfoot>
+                  )}
+                </table>
+              </div>
+            </div>
+          ))}
+
+          {etapas.length > 0 && (
+            <div className="bg-[#181418] rounded-lg p-6 flex flex-col md:flex-row justify-between items-center text-white mt-8 shadow-xl">
+              <div className="mb-4 md:mb-0 text-center md:text-left">
+                <h3 className="text-slate-400 uppercase text-xs font-bold tracking-widest mb-1">Custo Total Direto (Sem BDI)</h3>
+                <div className="text-xl">R$ {calculateSubtotal().toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+              </div>
+              <div className="text-center md:text-right">
+                <h3 className="text-[#c79229] uppercase text-xs font-bold tracking-widest mb-1">Total Geral com BDI ({bdi}%)</h3>
+                <div className="text-3xl font-black text-white drop-shadow-md">R$ {calculateTotal().toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -690,10 +907,10 @@ const CreateProposal = ({ onCancel, onSave }: { onCancel: () => void, onSave: (p
         <button
           type="button"
           onClick={() => handleSaveClick(false)}
-          className="px-6 py-2 bg-[#c79229] text-[#181418] rounded-lg hover:bg-[#a67922] shadow-md flex items-center gap-2 font-bold transition-colors"
+          className="px-8 py-3 bg-[#c79229] text-[#181418] rounded-lg hover:bg-[#a67922] shadow-md flex items-center gap-2 font-black transition-colors"
         >
-          <CheckCircle size={18} />
-          <span>Salvar Proposta</span>
+          <CheckCircle size={20} />
+          <span>Salvar Orçamento Profissional</span>
         </button>
       </div>
     </div>

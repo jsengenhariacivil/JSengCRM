@@ -14,6 +14,7 @@ import Settings from './pages/Settings';
 import Suppliers from './pages/Suppliers';
 import ServicesPage from './pages/ServicesPage';
 import Team from './pages/Team';
+import Agenda from './pages/Agenda';
 import Login from './pages/Login';
 import { Status, UserPermissions } from './types';
 
@@ -100,6 +101,11 @@ const App: React.FC = () => {
               <Route path="clientes" element={<Clients />} />
               <Route path="fornecedores" element={<Suppliers />} />
               <Route path="servicos" element={<ServicesPage />} />
+              <Route path="agenda" element={
+                <RequirePermission permission="viewProjects">
+                  <Agenda />
+                </RequirePermission>
+              } />
 
               {/* Configurações restrito apenas para quem tem permissão */}
               <Route path="configuracoes" element={
