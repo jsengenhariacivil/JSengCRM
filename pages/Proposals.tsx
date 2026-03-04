@@ -589,12 +589,16 @@ const CreateProposal = ({ onCancel, onSave }: { onCancel: () => void, onSave: (p
 
   const handleDownloadTemplate = () => {
     const ws = XLSX.utils.aoa_to_sheet([
-      ['Item', 'Código', 'Banco', 'Descrição', 'Unidade', 'Quant', 'Valor Unit'],
-      ['1', '', '', 'SERVIÇOS PRELIMINARES', '', '', ''],
-      ['1.1', '12345', 'SINAPI', 'Placa de obra', 'm2', '12.00', '250.00'],
-      ['1.2', '67890', 'PROPRIO', 'Tapume de chapa', 'm2', '50.00', '80.00'],
-      ['2', '', '', 'INFRAESTRUTURA / FUNDAÇÕES', '', '', ''],
-      ['2.1', '11111', 'SINAPI', 'Escavação manual', 'm3', '10.50', '55.00']
+      ['Obra', '', 'Bancos', '', 'B.D.I.', '', 'Encargos Sociais'],
+      ['Orçamento Ministério Público', '', 'SINAPI - 01/2026 - Bahia', '', '22,88%', '', 'Desonerado: embutido nos...'],
+      ['', '', '', 'Orçamento Sintético', '', '', '', '', '', ''],
+      ['Item', 'Código', 'Banco', 'Descrição', 'Und', 'Quant.', 'Valor Unit', 'Valor Unit com BDI', 'Total', 'Peso (%)'],
+      ['1', '', '', 'ADMINISTRAÇÃO LOCAL', '', '1', '', '3.334,40', '3.334,40', '42,79 %'],
+      ['1.1', '90777', 'SINAPI', 'ENGENHEIRO CIVIL DE OBRA JUNIOR COM ENCARGOS COMPLEMENTARES', 'H', '20', '135,68', '166,72', '3.334,40', '42,79 %'],
+      ['2', '', '', 'SERVIÇOS PRELIMINARES', '', '1', '', '1.787,94', '1.787,94', '22,94 %'],
+      ['2.1', '97063', 'SINAPI', 'MONTAGEM E DESMONTAGEM DE ANDAIME MODULAR...', 'm2', '27', '24,16', '29,68', '801,36', '10,28 %'],
+      ['3', '', '', 'INSTALAÇÕES SPDA', '', '1', '', '910,02', '910,02', '11,68 %'],
+      ['3.1', '104753', 'SINAPI', 'CONECTOR SPLIT-BOLT...', 'UN', '6', '23,00', '28,26', '169,56', '2,18 %']
     ]);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Modelo_Proposta");
@@ -670,7 +674,11 @@ const CreateProposal = ({ onCancel, onSave }: { onCancel: () => void, onSave: (p
         const unit = unitIdx !== -1 ? String(row[unitIdx] || '').trim() : 'un';
 
         // Remove points from thousands and change comma to dot before parseFloat
-        const parseValue = (val: any) => parseFloat(String(val).replace(/\./g, '').replace(',', '.'));
+        const parseValue = (val: any) => {
+          if (typeof val === 'number') return val;
+          if (!val) return 0;
+          return parseFloat(String(val).replace(/\./g, '').replace(',', '.'));
+        };
         const quant = quantIdx !== -1 ? parseValue(row[quantIdx] || '0') : 0;
         const unitPrice = unitPriceIdx !== -1 ? parseValue(row[unitPriceIdx] || '0') : 0;
 
