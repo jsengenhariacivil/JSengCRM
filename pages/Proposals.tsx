@@ -616,32 +616,37 @@ const CreateProposal = ({ onCancel, onSave }: { onCancel: () => void, onSave: (p
     try {
       const data = await file.arrayBuffer();
       const workbook = XLSX.read(data);
-      const sheetName = workbook.SheetNames[0];
-      const worksheet = workbook.Sheets[sheetName];
-
-      const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as any[][];
-
       let headerRowIndex = -1;
       let headers: string[] = [];
+      let targetRows: any[][] = [];
 
-      for (let i = 0; i < Math.min(rows.length, 30); i++) {
-        const row = rows[i];
-        if (!row || !Array.isArray(row)) continue;
+      for (const name of workbook.SheetNames) {
+        const worksheet = workbook.Sheets[name];
+        const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' }) as any[][];
 
-        const rowStr = row.map(cell => String(cell || '').trim().toLowerCase());
+        for (let i = 0; i < Math.min(rows.length, 100); i++) {
+          const row = rows[i];
+          if (!row || !Array.isArray(row)) continue;
 
-        const hasItem = rowStr.some(cell => cell.includes('item') || cell === 'it');
-        const hasDesc = rowStr.some(cell => cell.includes('descri') || cell.includes('servi'));
+          const rowStr = row.map(cell => String(cell || '').trim().toLowerCase());
 
-        if (hasItem && hasDesc) {
-          headerRowIndex = i;
-          headers = row.map(cell => String(cell || '').trim());
-          break;
+          const hasItem = rowStr.some(cell => cell.includes('item') || cell === 'it');
+          const hasDesc = rowStr.some(cell => cell.includes('descri') || cell.includes('servi'));
+
+          if (hasItem && hasDesc) {
+            headerRowIndex = i;
+            headers = row.map(cell => String(cell || '').trim());
+            targetRows = rows;
+            break;
+          }
         }
+        if (headerRowIndex !== -1) break; // Found it in this sheet!
       }
 
+      const rows = targetRows; // Use the rows from the matched sheet
+
       if (headerRowIndex === -1) {
-        alert("Não foi possível encontrar a linha de cabeçalho na planilha. Certifique-se de que existem colunas com 'Item', 'Código' (opcional) e 'Descrição'.");
+        alert("Não foi possível encontrar a linha de cabeçalho na planilha. Certifique-se de que existem colunas com 'Item' e 'Descrição'. O sistema procurou em todas as abas do arquivo.");
         if (fileInputRef.current) fileInputRef.current.value = '';
         return;
       }
