@@ -588,7 +588,17 @@ const CreateProposal = ({ onCancel, onSave }: { onCancel: () => void, onSave: (p
   };
 
   const handleDownloadTemplate = () => {
-    // Legacy support download
+    const ws = XLSX.utils.aoa_to_sheet([
+      ['Item', 'Código', 'Banco', 'Descrição', 'Unidade', 'Quant', 'Valor Unit'],
+      ['1', '', '', 'SERVIÇOS PRELIMINARES', '', '', ''],
+      ['1.1', '12345', 'SINAPI', 'Placa de obra', 'm2', '12.00', '250.00'],
+      ['1.2', '67890', 'PROPRIO', 'Tapume de chapa', 'm2', '50.00', '80.00'],
+      ['2', '', '', 'INFRAESTRUTURA / FUNDAÇÕES', '', '', ''],
+      ['2.1', '11111', 'SINAPI', 'Escavação manual', 'm3', '10.50', '55.00']
+    ]);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Modelo_Proposta");
+    XLSX.writeFile(wb, "Modelo_Importacao_JSeng.xlsx");
   };
 
   const handleImportClick = () => {
