@@ -619,24 +619,31 @@ const CreateProposal = ({ onCancel, onSave }: { onCancel: () => void, onSave: (p
       let headerRowIndex = -1;
       let headers: string[] = [];
       let targetRows: any[][] = [];
+      let firstSheetRows: any[][] = [];
 
       for (const name of workbook.SheetNames) {
         const worksheet = workbook.Sheets[name];
-        const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' }) as any[][];
+        const sheetRows = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' }) as any[][];
+        if (firstSheetRows.length === 0) firstSheetRows = sheetRows.slice(0, 10);
 
-        for (let i = 0; i < Math.min(rows.length, 100); i++) {
-          const row = rows[i];
+        for (let i = 0; i < Math.min(sheetRows.length, 100); i++) {
+          const row = sheetRows[i];
           if (!row || !Array.isArray(row)) continue;
 
           const rowStr = row.map(cell => String(cell || '').trim().toLowerCase());
 
-          const hasItem = rowStr.some(cell => cell.includes('item') || cell === 'it');
-          const hasDesc = rowStr.some(cell => cell.includes('descri') || cell.includes('servi'));
+          let matchCount = 0;
+          if (rowStr.some(c => c.includes('item') || c === 'it')) matchCount++;
+          if (rowStr.some(c => c.includes('cód') || c.includes('cod'))) matchCount++;
+          if (rowStr.some(c => c.includes('descri') || c.includes('servi') || c.includes('espec'))) matchCount++;
+          if (rowStr.some(c => c.includes('und') || c.includes('unid'))) matchCount++;
+          if (rowStr.some(c => c.includes('quant') || c.includes('qtd'))) matchCount++;
+          if (rowStr.some(c => c.includes('valor') || c.includes('preço') || c.includes('preco') || c.includes('custo') || c.includes('total'))) matchCount++;
 
-          if (hasItem && hasDesc) {
+          if (matchCount >= 2) {
             headerRowIndex = i;
-            headers = row.map(cell => String(cell || '').trim());
-            targetRows = rows;
+            headers = rowStr; // use lowercase string directly
+            targetRows = sheetRows;
             break;
           }
         }
@@ -646,12 +653,13 @@ const CreateProposal = ({ onCancel, onSave }: { onCancel: () => void, onSave: (p
       const rows = targetRows; // Use the rows from the matched sheet
 
       if (headerRowIndex === -1) {
-        alert("Não foi possível encontrar a linha de cabeçalho na planilha. Certifique-se de que existem colunas com 'Item' e 'Descrição'. O sistema procurou em todas as abas do arquivo.");
+        const debugInfo = firstSheetRows.map((r, idx) => `L${idx + 1}: ${r.filter(Boolean).join(' | ')}`).join('\n');
+        alert("Cabeçalho não encontrado. As linhas detectadas foram:\n\n" + debugInfo);
         if (fileInputRef.current) fileInputRef.current.value = '';
         return;
       }
 
-      const getColIndex = (names: string[]) => headers.findIndex(h => names.some(n => h.toLowerCase().includes(n.toLowerCase())));
+      const getColIndex = (names: string[]) => headers.findIndex(h => names.some(n => h.includes(n.toLowerCase())));
 
       const itemIdx = getColIndex(['item']);
       const codeIdx = getColIndex(['código', 'codigo']);
