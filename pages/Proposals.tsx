@@ -1,6 +1,5 @@
-
 import React, { useState, useEffect, useRef } from 'react';
-import { FileText, Plus, CheckCircle, Trash2, Printer, X, Download, ArrowLeft, Package, Upload, FileSpreadsheet, ChevronDown, ChevronRight, Edit2 } from 'lucide-react';
+import { FileText, Plus, CheckCircle, Trash2, Printer, X, Download, ArrowLeft, Package, Upload, FileSpreadsheet, ChevronDown, ChevronRight, Edit2, LayoutList, Columns } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useData } from '../context/DataContext';
 import { Status, Proposal, ProposalEtapa, ProposalItem } from '../types';
@@ -1099,11 +1098,34 @@ const Proposals: React.FC<ProposalsProps> = ({ viewMode = 'list', filterStatus }
   const [isCreating, setIsCreating] = useState(viewMode === 'create');
   const [editingProposal, setEditingProposal] = useState<Proposal | null>(null);
   const [previewProposal, setPreviewProposal] = useState<Proposal | null>(null);
+  const [displayMode, setDisplayMode] = useState<'list' | 'kanban'>('kanban');
 
   useEffect(() => {
     setIsCreating(viewMode === 'create');
     if (viewMode !== 'create') setEditingProposal(null);
   }, [viewMode]);
+
+  // HTML5 Drag and Drop Handlers
+  const handleDragStart = (e: React.DragEvent, proposalId: string) => {
+    e.dataTransfer.setData('proposalId', proposalId);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  };
+
+  const handleDrop = async (e: React.DragEvent, newStatus: Status) => {
+    e.preventDefault();
+    const proposalId = e.dataTransfer.getData('proposalId');
+    if (proposalId) {
+      const proposal = proposals.find(p => p.id === proposalId);
+      if (proposal && proposal.status !== newStatus) {
+        await updateProposalStatus(proposalId, newStatus);
+      }
+    }
+  };
 
   const handleCreateNew = () => {
     setEditingProposal(null);
@@ -1164,87 +1186,214 @@ const Proposals: React.FC<ProposalsProps> = ({ viewMode = 'list', filterStatus }
                   : 'Gerador e histórico de orçamentos'}
               </p>
             </div>
-            <button
-              onClick={handleCreateNew}
-              className="flex items-center space-x-2 px-4 py-2 bg-[#c79229] text-[#181418] font-bold rounded-lg hover:bg-[#a67922] shadow-sm transition-colors"
-            >
-              <Plus size={18} />
-              <span>Nova Proposta</span>
-            </button>
+            <div className="flex items-center gap-3">
+              {!filterStatus && (
+                <div className="flex bg-slate-100 p-1 rounded-lg border border-slate-200">
+                  <button onClick={() => setDisplayMode('list')} className={`px-3 py-1.5 rounded-md text-sm font-medium flex items-center gap-1.5 ${displayMode === 'list' ? 'bg-white shadow-sm text-[#c79229]' : 'text-slate-500 hover:text-slate-700'}`}>
+                    <LayoutList size={16} /> <span className="hidden sm:inline">Lista</span>
+                  </button>
+                  <button onClick={() => setDisplayMode('kanban')} className={`px-3 py-1.5 rounded-md text-sm font-medium flex items-center gap-1.5 ${displayMode === 'kanban' ? 'bg-white shadow-sm text-[#c79229]' : 'text-slate-500 hover:text-slate-700'}`}>
+                    <Columns size={16} /> <span className="hidden sm:inline">Kanban</span>
+                  </button>
+                </div>
+              )}
+              <button
+                onClick={handleCreateNew}
+                className="flex items-center space-x-2 px-4 py-2 bg-[#c79229] text-[#181418] font-bold rounded-lg hover:bg-[#a67922] shadow-sm transition-colors"
+              >
+                <Plus size={18} />
+                <span className="hidden sm:inline">Nova Proposta</span>
+                <span className="sm:hidden">Novo</span>
+              </button>
+            </div>
           </div>
 
-          <div className="grid gap-4">
-            {filteredProposals.length > 0 ? filteredProposals.map(proposal => (
-              <div key={proposal.id} className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 flex flex-col md:flex-row justify-between items-center gap-4 hover:shadow-md transition-shadow hover:border-[#c79229]/30">
-                <div className="flex items-center gap-4">
-                  <div className="bg-[#c79229]/10 p-3 rounded-lg text-[#c79229]">
-                    <FileText size={24} />
-                  </div>
-                  <div>
-                    <h3 className="font-bold text-[#181418]">Proposta #{proposal.id.padStart(4, '0')}</h3>
-                    <p className="text-sm text-slate-500">Cliente: {proposal.clientName}</p>
-                    <p className="text-xs text-slate-400">Criada em: {new Date(proposal.date).toLocaleDateString()}</p>
-                  </div>
+          {!filterStatus && displayMode === 'kanban' ? (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-start h-[calc(100vh-250px)] min-h-[500px]">
+              {/* Em Negociação (Pendente) */}
+              <div
+                className="bg-slate-50 rounded-xl border border-slate-200 flex flex-col h-full overflow-hidden shadow-sm"
+                onDragOver={handleDragOver}
+                onDrop={(e) => handleDrop(e, Status.PENDING)}
+              >
+                <div className="p-4 border-b border-slate-200 bg-white shadow-sm z-10 sticky top-0 flex items-center justify-between">
+                  <h3 className="font-bold text-slate-700 flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full bg-[#c79229]"></span> Em Negociação
+                  </h3>
+                  <span className="bg-slate-100 text-slate-500 text-xs font-bold px-2 py-1 rounded-full">{proposals.filter(p => p.status === Status.PENDING).length}</span>
                 </div>
+                <div className="p-3 flex-1 overflow-y-auto space-y-3">
+                  {proposals.filter(p => p.status === Status.PENDING).map(proposal => (
+                    <div
+                      key={proposal.id}
+                      draggable
+                      onDragStart={(e) => handleDragStart(e, proposal.id)}
+                      className="bg-white p-4 rounded-lg border border-slate-200 shadow-sm cursor-grab active:cursor-grabbing hover:border-[#c79229] transition-colors relative group"
+                    >
+                      <h4 className="font-bold text-[#181418] text-sm mb-1">#{proposal.id.padStart(4, '0')} - {proposal.clientName}</h4>
+                      <p className="text-xs text-slate-500 mb-3">{new Date(proposal.date).toLocaleDateString()}</p>
+                      <div className="flex justify-between items-center mt-2 pt-2 border-t border-slate-100">
+                        <span className="font-bold text-[#c79229]">R$ {proposal.total.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                        <div className="flex opacity-0 group-hover:opacity-100 transition-opacity gap-1">
+                          <button onClick={(e) => { e.stopPropagation(); handlePreview(proposal); }} className="p-1.5 text-slate-400 hover:text-[#c79229] hover:bg-[#c79229]/10 rounded"><Printer size={14} /></button>
+                          <button onClick={(e) => { e.stopPropagation(); handleEdit(proposal); }} className="p-1.5 text-blue-400 hover:text-blue-600 hover:bg-blue-50 rounded"><Edit2 size={14} /></button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  {proposals.filter(p => p.status === Status.PENDING).length === 0 && (
+                    <div className="text-center p-4 border-2 border-dashed border-slate-200 rounded-lg text-slate-400 text-sm">Arraste propostas para cá</div>
+                  )}
+                </div>
+              </div>
 
-                <div className="flex items-center gap-6 w-full md:w-auto justify-between md:justify-end">
-                  <div className="text-right">
-                    <p className="text-sm text-slate-500">Valor Total</p>
-                    <p className="text-xl font-bold text-[#181418]">R$ {proposal.total.toLocaleString()}</p>
+              {/* Aprovadas */}
+              <div
+                className="bg-green-50/50 rounded-xl border border-green-100 flex flex-col h-full overflow-hidden shadow-sm"
+                onDragOver={handleDragOver}
+                onDrop={(e) => handleDrop(e, Status.APPROVED)}
+              >
+                <div className="p-4 border-b border-green-100 bg-white/80 backdrop-blur-sm shadow-sm z-10 sticky top-0 flex items-center justify-between">
+                  <h3 className="font-bold text-green-700 flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full bg-green-500"></span> Aprovadas / Ganhas
+                  </h3>
+                  <span className="bg-green-100 text-green-700 text-xs font-bold px-2 py-1 rounded-full">{proposals.filter(p => p.status === Status.APPROVED).length}</span>
+                </div>
+                <div className="p-3 flex-1 overflow-y-auto space-y-3">
+                  {proposals.filter(p => p.status === Status.APPROVED).map(proposal => (
+                    <div
+                      key={proposal.id}
+                      draggable
+                      onDragStart={(e) => handleDragStart(e, proposal.id)}
+                      className="bg-white p-4 rounded-lg border border-green-200 shadow-sm cursor-grab active:cursor-grabbing hover:border-green-400 transition-colors relative group"
+                    >
+                      <h4 className="font-bold text-[#181418] text-sm mb-1">#{proposal.id.padStart(4, '0')} - {proposal.clientName}</h4>
+                      <p className="text-xs text-slate-500 mb-3">{new Date(proposal.date).toLocaleDateString()}</p>
+                      <div className="flex justify-between items-center mt-2 pt-2 border-t border-slate-100">
+                        <span className="font-bold text-green-600">R$ {proposal.total.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                        <div className="flex opacity-0 group-hover:opacity-100 transition-opacity gap-1">
+                          <button onClick={(e) => { e.stopPropagation(); handlePreview(proposal); }} className="p-1.5 text-slate-400 hover:text-[#c79229] hover:bg-[#c79229]/10 rounded"><Printer size={14} /></button>
+                          <button onClick={(e) => { e.stopPropagation(); handleEdit(proposal); }} className="p-1.5 text-blue-400 hover:text-blue-600 hover:bg-blue-50 rounded"><Edit2 size={14} /></button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  {proposals.filter(p => p.status === Status.APPROVED).length === 0 && (
+                    <div className="text-center p-4 border-2 border-dashed border-green-200 rounded-lg text-green-400/70 text-sm">Nenhuma proposta aprovada</div>
+                  )}
+                </div>
+              </div>
+
+              {/* Reprovadas */}
+              <div
+                className="bg-red-50/50 rounded-xl border border-red-100 flex flex-col h-full overflow-hidden shadow-sm"
+                onDragOver={handleDragOver}
+                onDrop={(e) => handleDrop(e, Status.REJECTED)}
+              >
+                <div className="p-4 border-b border-red-100 bg-white/80 backdrop-blur-sm shadow-sm z-10 sticky top-0 flex items-center justify-between">
+                  <h3 className="font-bold text-red-700 flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full bg-red-500"></span> Perdidas / Canceladas
+                  </h3>
+                  <span className="bg-red-100 text-red-700 text-xs font-bold px-2 py-1 rounded-full">{proposals.filter(p => p.status === Status.REJECTED).length}</span>
+                </div>
+                <div className="p-3 flex-1 overflow-y-auto space-y-3">
+                  {proposals.filter(p => p.status === Status.REJECTED).map(proposal => (
+                    <div
+                      key={proposal.id}
+                      draggable
+                      onDragStart={(e) => handleDragStart(e, proposal.id)}
+                      className="bg-white p-4 rounded-lg border border-red-200 shadow-sm cursor-grab active:cursor-grabbing hover:border-red-400 transition-colors relative group opacity-75 hover:opacity-100"
+                    >
+                      <h4 className="font-bold text-[#181418] text-sm line-through decoration-red-300 mb-1">#{proposal.id.padStart(4, '0')} - {proposal.clientName}</h4>
+                      <p className="text-xs text-slate-500 mb-3">{new Date(proposal.date).toLocaleDateString()}</p>
+                      <div className="flex justify-between items-center mt-2 pt-2 border-t border-slate-100">
+                        <span className="font-bold text-slate-400">R$ {proposal.total.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                        <div className="flex opacity-0 group-hover:opacity-100 transition-opacity gap-1">
+                          <button onClick={(e) => { e.stopPropagation(); handleDelete(proposal.id, e); }} className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded"><Trash2 size={14} /></button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  {proposals.filter(p => p.status === Status.REJECTED).length === 0 && (
+                    <div className="text-center p-4 border-2 border-dashed border-red-200 rounded-lg text-red-300 text-sm">Arraste propostas perdidas para cá</div>
+                  )}
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="grid gap-4">
+              {filteredProposals.length > 0 ? filteredProposals.map(proposal => (
+                <div key={proposal.id} className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 flex flex-col md:flex-row justify-between items-center gap-4 hover:shadow-md transition-shadow hover:border-[#c79229]/30">
+                  <div className="flex items-center gap-4">
+                    <div className="bg-[#c79229]/10 p-3 rounded-lg text-[#c79229]">
+                      <FileText size={24} />
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-[#181418]">Proposta #{proposal.id.padStart(4, '0')}</h3>
+                      <p className="text-sm text-slate-500">Cliente: {proposal.clientName}</p>
+                      <p className="text-xs text-slate-400">Criada em: {new Date(proposal.date).toLocaleDateString()}</p>
+                    </div>
                   </div>
 
-                  <div className={`px-3 py-1 rounded-full text-xs font-bold ${proposal.status === Status.APPROVED ? 'bg-green-100 text-green-700' :
-                    proposal.status === Status.REJECTED ? 'bg-red-100 text-red-700' :
-                      'bg-[#c79229]/20 text-[#c79229]'
-                    }`}>
-                    {proposal.status}
-                  </div>
+                  <div className="flex items-center gap-6 w-full md:w-auto justify-between md:justify-end">
+                    <div className="text-right">
+                      <p className="text-sm text-slate-500">Valor Total</p>
+                      <p className="text-xl font-bold text-[#181418]">R$ {proposal.total.toLocaleString()}</p>
+                    </div>
 
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => handlePreview(proposal)}
-                      title="Visualizar e Imprimir"
-                      className="p-2 text-slate-500 hover:text-[#c79229] border border-slate-200 rounded-lg hover:bg-[#c79229]/10 transition-colors bg-white shadow-sm"
-                    >
-                      <Printer size={18} />
-                    </button>
+                    <div className={`px-3 py-1 rounded-full text-xs font-bold ${proposal.status === Status.APPROVED ? 'bg-green-100 text-green-700' :
+                      proposal.status === Status.REJECTED ? 'bg-red-100 text-red-700' :
+                        'bg-[#c79229]/20 text-[#c79229]'
+                      }`}>
+                      {proposal.status}
+                    </div>
 
-                    <button
-                      onClick={() => handleEdit(proposal)}
-                      title="Editar Proposta"
-                      className="p-2 text-blue-500 hover:text-blue-700 border border-blue-200 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors shadow-sm"
-                    >
-                      <Edit2 size={18} />
-                    </button>
-
-                    <button
-                      onClick={(e) => handleDelete(proposal.id, e)}
-                      title="Excluir Proposta"
-                      className="p-2 text-red-500 hover:text-red-700 border border-red-200 bg-red-50 rounded-lg hover:bg-red-100 transition-colors shadow-sm"
-                    >
-                      <Trash2 size={18} />
-                    </button>
-
-                    {proposal.status === Status.PENDING ? (
+                    <div className="flex gap-2">
                       <button
-                        onClick={() => handleApprove(proposal.id)}
-                        title="Aprovar Proposta"
-                        className="p-2 text-green-600 hover:text-green-700 border border-green-200 bg-green-50 rounded-lg hover:bg-green-100 transition-colors shadow-sm"
+                        onClick={() => handlePreview(proposal)}
+                        title="Visualizar e Imprimir"
+                        className="p-2 text-slate-500 hover:text-[#c79229] border border-slate-200 rounded-lg hover:bg-[#c79229]/10 transition-colors bg-white shadow-sm"
                       >
-                        <CheckCircle size={18} />
+                        <Printer size={18} />
                       </button>
-                    ) : (
-                      <div className="w-[36px]"></div>
-                    )}
+
+                      <button
+                        onClick={() => handleEdit(proposal)}
+                        title="Editar Proposta"
+                        className="p-2 text-blue-500 hover:text-blue-700 border border-blue-200 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors shadow-sm"
+                      >
+                        <Edit2 size={18} />
+                      </button>
+
+                      <button
+                        onClick={(e) => handleDelete(proposal.id, e)}
+                        title="Excluir Proposta"
+                        className="p-2 text-red-500 hover:text-red-700 border border-red-200 bg-red-50 rounded-lg hover:bg-red-100 transition-colors shadow-sm"
+                      >
+                        <Trash2 size={18} />
+                      </button>
+
+                      {proposal.status === Status.PENDING ? (
+                        <button
+                          onClick={() => handleApprove(proposal.id)}
+                          title="Aprovar Proposta"
+                          className="p-2 text-green-600 hover:text-green-700 border border-green-200 bg-green-50 rounded-lg hover:bg-green-100 transition-colors shadow-sm"
+                        >
+                          <CheckCircle size={18} />
+                        </button>
+                      ) : (
+                        <div className="w-[36px]"></div>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
-            )) : (
-              <div className="text-center py-12 bg-white rounded-xl border border-slate-200 text-slate-500">
-                Nenhuma proposta encontrada {filterStatus === Status.APPROVED ? 'nesta categoria' : ''}.
-              </div>
-            )}
-          </div>
+              )) : (
+                <div className="text-center py-12 bg-white rounded-xl border border-slate-200 text-slate-500">
+                  Nenhuma proposta encontrada {filterStatus === Status.APPROVED ? 'nesta categoria' : ''}.
+                </div>
+              )}
+            </div>
+          )}
         </>
       ) : (
         <CreateProposal
