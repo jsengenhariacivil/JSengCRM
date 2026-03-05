@@ -41,6 +41,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             editFinancial: data.edit_financial,
             viewProjects: data.view_projects,
             editProjects: data.edit_projects,
+            viewProposals: data.view_proposals ?? ['Administrador', 'Gerente', 'Comercial', 'Engenharia'].includes(data.role),
+            editProposals: data.edit_proposals ?? ['Administrador', 'Gerente', 'Comercial'].includes(data.role),
+            viewTeam: data.view_team ?? ['Administrador', 'Gerente', 'Financeiro', 'RH'].includes(data.role),
             manageSettings: data.manage_settings,
           },
         };

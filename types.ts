@@ -97,6 +97,25 @@ export interface SinapiService {
   price: number;
 }
 
+export interface AppNotification {
+  id: string;
+  title: string;
+  message: string;
+  type: 'info' | 'success' | 'warning' | 'error';
+  is_read: boolean;
+  user_id?: string;
+  created_at: string;
+}
+
+export interface ProposalHistory {
+  id: string;
+  proposal_id: string;
+  description: string;
+  contact_type: string;
+  user_name: string;
+  created_at: string;
+}
+
 export interface Supplier {
   id: string;
   name: string;
@@ -132,6 +151,9 @@ export interface UserPermissions {
   editFinancial: boolean;
   viewProjects: boolean;
   editProjects: boolean;
+  viewProposals: boolean;
+  editProposals: boolean;
+  viewTeam: boolean;
   manageSettings: boolean;
 }
 

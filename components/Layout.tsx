@@ -24,7 +24,8 @@ import {
   Calendar,
   Banknote,
   PieChart,
-  LogOut
+  LogOut,
+  Bell
 } from 'lucide-react';
 import { useData } from '../context/DataContext';
 import { useAuth } from '../context/AuthContext';
@@ -47,6 +48,68 @@ const SidebarItem = ({ to, icon: Icon, label, onClick, isSubItem = false }: { to
       <Icon size={isSubItem ? 18 : 20} />
       <span className="font-medium">{label}</span>
     </NavLink>
+  );
+};
+
+const NotificationBell = ({ isDarkBg = false }: { isDarkBg?: boolean }) => {
+  const { notifications, markNotificationAsRead } = useData();
+  const [isOpen, setIsOpen] = useState(false);
+  const unreadCount = notifications.filter(n => !n.is_read).length;
+
+  return (
+    <div className="relative z-50">
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className={`relative p-2 transition-colors rounded-full flex items-center justify-center ${isDarkBg
+            ? 'text-slate-300 hover:text-[#c79229] hover:bg-white/5'
+            : 'text-slate-500 hover:text-[#c79229] hover:bg-slate-200/50 bg-white shadow-sm border border-slate-200'
+          }`}
+      >
+        <Bell size={isDarkBg ? 24 : 20} />
+        {unreadCount > 0 && (
+          <span className={`absolute ${isDarkBg ? 'top-0 right-0' : '-top-1 -right-1'} w-5 h-5 bg-red-500 text-white text-[10px] font-bold flex items-center justify-center rounded-full border-2 ${isDarkBg ? 'border-[#181418]' : 'border-white'}`}>
+            {unreadCount > 9 ? '9+' : unreadCount}
+          </span>
+        )}
+      </button>
+
+      {isOpen && (
+        <div className="absolute right-0 mt-3 w-80 bg-white rounded-xl shadow-2xl border border-slate-200 overflow-hidden transform origin-top-right transition-all animate-in fade-in zoom-in-95 duration-200">
+          <div className="bg-[#181418] text-[#c79229] px-4 py-3 font-semibold flex justify-between items-center">
+            <span>Notificações</span>
+            {unreadCount > 0 && (
+              <span className="text-xs bg-[#c79229]/20 px-2 py-1 rounded-full text-white">{unreadCount} novas</span>
+            )}
+          </div>
+          <div className="max-h-80 overflow-y-auto">
+            {notifications.length === 0 ? (
+              <div className="p-6 text-center text-slate-500 text-sm">Pronto, você está atualizado!</div>
+            ) : (
+              notifications.map(n => (
+                <div
+                  key={n.id}
+                  className={`p-4 border-b border-slate-100 transition-colors ${!n.is_read ? 'bg-amber-50/30 hover:bg-amber-50/80 cursor-pointer' : 'opacity-70 hover:bg-slate-50'}`}
+                  onClick={() => {
+                    if (!n.is_read) markNotificationAsRead(n.id);
+                  }}
+                >
+                  <div className="flex items-start justify-between">
+                    <h4 className={`text-sm tracking-tight ${!n.is_read ? 'font-bold text-slate-800' : 'font-medium text-slate-600'}`}>
+                      {n.title}
+                    </h4>
+                    {!n.is_read && <div className="w-2 h-2 rounded-full bg-red-500 flex-shrink-0 mt-1.5 ml-3"></div>}
+                  </div>
+                  <p className="text-xs text-slate-500 mt-1.5 leading-relaxed">{n.message}</p>
+                  <span className="text-[10px] text-slate-400 mt-2 block font-medium">
+                    {new Date(n.created_at).toLocaleDateString('pt-BR')} às {new Date(n.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                  </span>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+    </div>
   );
 };
 
@@ -89,6 +152,8 @@ const Layout: React.FC = () => {
   // Permissions Check Helpers
   const canViewFinancial = currentUser?.permissions.viewFinancial;
   const canViewProjects = currentUser?.permissions.viewProjects;
+  const canViewProposals = currentUser?.permissions.viewProposals;
+  const canViewTeam = currentUser?.permissions.viewTeam;
   const canManageSettings = currentUser?.permissions.manageSettings;
 
   const NavContent = ({ mobile = false }) => (
@@ -106,8 +171,8 @@ const Layout: React.FC = () => {
         <SidebarItem to="/obras" icon={HardHat} label="Obras" onClick={mobile ? toggleMenu : undefined} />
       )}
 
-      {/* Propostas (Assumindo que todos exceto Visitante podem ver) */}
-      {(canViewFinancial || canViewProjects) && (
+      {/* Propostas */}
+      {canViewProposals && (
         <div className="space-y-1">
           <button
             onClick={togglePropostas}
@@ -130,8 +195,8 @@ const Layout: React.FC = () => {
         </div>
       )}
 
-      {/* Equipe (RH ou Financeiro ou Admin) */}
-      {(canViewFinancial || canManageSettings) && (
+      {/* Equipe */}
+      {canViewTeam && (
         <div className="space-y-1">
           <button
             onClick={toggleEquipe}
@@ -273,13 +338,19 @@ const Layout: React.FC = () => {
               <span className="font-bold text-white text-lg">{companyName}</span>
             )}
           </div>
-          <button onClick={toggleMenu} className="p-2 text-[#c79229] hover:bg-white/10 rounded-lg transition-colors">
-            <Menu size={24} />
-          </button>
+          <div className="flex items-center space-x-3">
+            <NotificationBell isDarkBg={true} />
+            <button onClick={toggleMenu} className="p-2 text-[#c79229] hover:bg-white/10 rounded-lg transition-colors">
+              <Menu size={24} />
+            </button>
+          </div>
         </header>
 
         {/* Content Scrollable Area */}
-        <main className="flex-1 overflow-y-auto p-4 md:p-8 bg-slate-50">
+        <main className="flex-1 overflow-y-auto p-4 md:p-8 bg-slate-50 relative">
+          <div className="hidden md:flex absolute top-6 right-8 z-40 items-center space-x-4">
+            <NotificationBell isDarkBg={false} />
+          </div>
           <Outlet />
         </main>
       </div>

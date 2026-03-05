@@ -181,6 +181,21 @@ const Dashboard: React.FC = () => {
 
   const activeProjects = projects.filter(p => p.status === Status.IN_PROGRESS).length;
 
+  // --- ALERTA FUNIL DE VENDAS ---
+  const { stagnantCount, stagnantValue } = useMemo(() => {
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+    const stagnantList = proposals.filter(p =>
+      p.status === Status.PENDING && new Date(p.date) < sevenDaysAgo
+    );
+
+    return {
+      stagnantCount: stagnantList.length,
+      stagnantValue: stagnantList.reduce((acc, curr) => acc + curr.total, 0)
+    };
+  }, [proposals]);
+
   // --- AGENDA STATS ---
   const agendaStats = useMemo(() => {
     // If agendaEventos is undefined initially, fallback to []
@@ -221,6 +236,21 @@ const Dashboard: React.FC = () => {
         <h1 className="text-2xl font-bold text-[#181418]">Dashboard Gerencial</h1>
         <div className="text-sm text-slate-500">Visão 360º do Negócio</div>
       </div>
+
+      {stagnantCount > 0 && (
+        <div className="bg-amber-50 border-l-4 border-amber-500 p-5 rounded-r-xl shadow-sm flex items-start gap-4 animate-in fade-in slide-in-from-top-4 mt-2">
+          <div className="bg-amber-100 p-3 rounded-full text-amber-600 shrink-0">
+            <Target size={24} />
+          </div>
+          <div>
+            <h3 className="text-amber-800 font-bold text-lg tracking-tight">Atenção ao Funil de Vendas</h3>
+            <p className="text-amber-700 mt-1 leading-relaxed">
+              Existem <strong>{stagnantCount}</strong> propostas comerciais pendentes de negociação há mais de 7 dias. O valor estagnado no funil representa <strong>R$ {stagnantValue.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>.<br />
+              Recomendamos acessar a área de Propostas e realizar um <strong className="text-amber-900 border-b border-amber-900/30">Follow-up</strong> com os clientes para aquecer essas oportunidades.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* LINHA 1: KPIs Principais */}
       <div className="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-3 2xl:grid-cols-6 gap-6">

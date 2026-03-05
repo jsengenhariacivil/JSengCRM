@@ -90,13 +90,37 @@ const App: React.FC = () => {
                 </RequirePermission>
               } />
 
-              <Route path="propostas" element={<Proposals viewMode="list" />} />
-              <Route path="propostas/nova" element={<Proposals viewMode="create" />} />
-              <Route path="propostas/aprovadas" element={<Proposals viewMode="list" filterStatus={Status.APPROVED} />} />
+              <Route path="propostas" element={
+                <RequirePermission permission="viewProposals">
+                  <Proposals viewMode="list" />
+                </RequirePermission>
+              } />
+              <Route path="propostas/nova" element={
+                <RequirePermission permission="editProposals">
+                  <Proposals viewMode="create" />
+                </RequirePermission>
+              } />
+              <Route path="propostas/aprovadas" element={
+                <RequirePermission permission="viewProposals">
+                  <Proposals viewMode="list" filterStatus={Status.APPROVED} />
+                </RequirePermission>
+              } />
 
-              <Route path="equipe/funcionarios" element={<Team view="employees" />} />
-              <Route path="equipe/prestadores" element={<Team view="contractors" />} />
-              <Route path="equipe/pagamentos" element={<Team view="payments" />} />
+              <Route path="equipe/funcionarios" element={
+                <RequirePermission permission="viewTeam">
+                  <Team view="employees" />
+                </RequirePermission>
+              } />
+              <Route path="equipe/prestadores" element={
+                <RequirePermission permission="viewTeam">
+                  <Team view="contractors" />
+                </RequirePermission>
+              } />
+              <Route path="equipe/pagamentos" element={
+                <RequirePermission permission="viewFinancial">
+                  <Team view="payments" />
+                </RequirePermission>
+              } />
 
               <Route path="clientes" element={<Clients />} />
               <Route path="fornecedores" element={<Suppliers />} />

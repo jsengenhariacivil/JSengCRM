@@ -809,6 +809,45 @@ const Settings: React.FC = () => {
 
                 <div
                   className="flex items-center justify-between p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 transition-colors"
+                  onClick={() => togglePermission('viewProposals')}
+                >
+                  <div className="flex flex-col">
+                    <span className="font-medium text-slate-800">Visualizar Propostas</span>
+                    <span className="text-xs text-slate-500">Ver orçamentos, etapas e kanban.</span>
+                  </div>
+                  <div className={`text-[#c79229]`}>
+                    {editingPermissionsUser.permissions.viewProposals ? <CheckSquare size={24} /> : <Square size={24} className="text-slate-300" />}
+                  </div>
+                </div>
+
+                <div
+                  className="flex items-center justify-between p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 transition-colors"
+                  onClick={() => togglePermission('editProposals')}
+                >
+                  <div className="flex flex-col">
+                    <span className="font-medium text-slate-800">Gerenciar Propostas</span>
+                    <span className="text-xs text-slate-500">Criar novos orçamentos, importar planilhas e editar.</span>
+                  </div>
+                  <div className={`text-[#c79229]`}>
+                    {editingPermissionsUser.permissions.editProposals ? <CheckSquare size={24} /> : <Square size={24} className="text-slate-300" />}
+                  </div>
+                </div>
+
+                <div
+                  className="flex items-center justify-between p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 transition-colors"
+                  onClick={() => togglePermission('viewTeam')}
+                >
+                  <div className="flex flex-col">
+                    <span className="font-medium text-slate-800">Visualizar Equipe</span>
+                    <span className="text-xs text-slate-500">Acesso a aba equipe, RH e funcionários.</span>
+                  </div>
+                  <div className={`text-[#c79229]`}>
+                    {editingPermissionsUser.permissions.viewTeam ? <CheckSquare size={24} /> : <Square size={24} className="text-slate-300" />}
+                  </div>
+                </div>
+
+                <div
+                  className="flex items-center justify-between p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 transition-colors"
                   onClick={() => togglePermission('manageSettings')}
                 >
                   <div className="flex flex-col">

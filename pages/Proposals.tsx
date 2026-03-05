@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { FileText, Plus, CheckCircle, Trash2, Printer, X, Download, ArrowLeft, Package, Upload, FileSpreadsheet, ChevronDown, ChevronRight, Edit2, LayoutList, Columns } from 'lucide-react';
+import { FileText, Plus, CheckCircle, Trash2, Printer, X, Download, ArrowLeft, Package, Upload, FileSpreadsheet, ChevronDown, ChevronRight, Edit2, LayoutList, Columns, History } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useData } from '../context/DataContext';
+import { useAuth } from '../context/AuthContext';
 import { Status, Proposal, ProposalEtapa, ProposalItem } from '../types';
 import * as XLSX from 'xlsx';
 import { supabase } from '../supabaseClient';
@@ -322,6 +323,84 @@ const PrintPreviewModal = ({ proposal, onClose, clients }: { proposal: Proposal,
   );
 };
 
+// Sub-component for Follow-up Timeline
+const ProposalFollowUpTab = ({ proposalId }: { proposalId: string }) => {
+  const { proposalHistory, addProposalHistory } = useData();
+  const { currentUser } = useAuth();
+  const history = proposalHistory.filter(h => h.proposal_id === proposalId);
+
+  const [desc, setDesc] = useState('');
+  const [type, setType] = useState('Ligação');
+
+  const handleAdd = async () => {
+    if (!desc.trim()) return;
+    await addProposalHistory({
+      proposal_id: proposalId,
+      description: desc,
+      contact_type: type,
+      user_name: currentUser?.name || 'Usuário'
+    });
+    setDesc('');
+  };
+
+  return (
+    <div className="animate-in fade-in duration-300">
+      <div className="bg-slate-50 p-6 rounded-lg border border-slate-200 mb-8">
+        <h3 className="text-lg font-bold text-slate-800 mb-4">Registrar Novo Contato</h3>
+        <div className="flex flex-col md:flex-row gap-4 mb-2">
+          <select value={type} onChange={e => setType(e.target.value)} className="p-2.5 border border-slate-300 rounded-lg bg-white outline-none focus:border-[#c79229] md:w-48 font-medium text-slate-700">
+            <option value="Ligação">Ligação Telefônica</option>
+            <option value="Email">E-mail Enviado</option>
+            <option value="WhatsApp">Mensagem WhatsApp</option>
+            <option value="Reunião">Reunião Realizada</option>
+            <option value="Anotação">Anotação Interna</option>
+          </select>
+          <input
+            type="text"
+            value={desc}
+            onChange={e => setDesc(e.target.value)}
+            placeholder="Ex: Liguei para o cliente, pediu orçamento revisado para amanhã..."
+            className="flex-1 p-2.5 border border-slate-300 rounded-lg outline-none focus:border-[#c79229] text-slate-800"
+            onKeyDown={e => e.key === 'Enter' && handleAdd()}
+          />
+          <button onClick={handleAdd} className="bg-[#181418] text-white px-8 py-2.5 rounded-lg font-bold hover:bg-black transition-colors shrink-0 shadow-md">
+            Registrar
+          </button>
+        </div>
+      </div>
+
+      <h3 className="text-xl font-bold text-[#181418] mb-6 flex items-center gap-2">
+        <History className="text-[#c79229]" size={24} /> Histórico de Interações do Lead
+      </h3>
+      <div className="space-y-6 relative before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-slate-300 before:to-transparent">
+        {history.length === 0 ? (
+          <p className="text-center text-slate-500 italic py-8 bg-slate-50 rounded-lg border border-dashed border-slate-300 relative z-10 w-full md:w-1/2 mx-auto">Nenhum histórico registrado para esta negociação comercial ainda.</p>
+        ) : (
+          history.map((h, i) => (
+            <div key={h.id} className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
+              <div className="flex items-center justify-center w-10 h-10 rounded-full border-4 border-white bg-slate-100 text-[#c79229] shadow-md shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 relative z-10 font-bold">
+                {h.contact_type.charAt(0)}
+              </div>
+              <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] p-5 rounded-xl border border-slate-200 bg-white shadow-sm hover:shadow-md transition-shadow relative z-10">
+                <div className="flex items-center justify-between space-x-2 mb-2">
+                  <div className="font-black text-[#181418] tracking-tight">{h.contact_type}</div>
+                  <time className="font-mono text-xs font-bold text-slate-400 bg-slate-100 px-2 py-1 rounded-md">
+                    {new Date(h.created_at).toLocaleDateString('pt-BR')} {new Date(h.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                  </time>
+                </div>
+                <div className="text-sm text-slate-600 mb-3 font-medium leading-relaxed">{h.description}</div>
+                <div className="text-xs text-slate-400 font-bold border-t border-slate-100 pt-3 mt-1 flex items-center gap-1.5">
+                  Registrado por <span className="text-[#c79229]">{h.user_name}</span>
+                </div>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  );
+};
+
 // Sub-component for Creating a Proposal
 const CreateProposal = ({ onCancel, onSave, initialData }: { onCancel: () => void, onSave: (proposal: Proposal) => void, initialData?: Proposal }) => {
   const { clients, services, sinapiDatabase } = useData();
@@ -332,6 +411,7 @@ const CreateProposal = ({ onCancel, onSave, initialData }: { onCancel: () => voi
   const [proposalSinapiDeson, setProposalSinapiDeson] = useState(false);
   const [proposalSinapiType, setProposalSinapiType] = useState('AMBOS');
   const [sinapiResults, setSinapiResults] = useState<any[]>([]);
+  const [activeTab, setActiveTab] = useState<'orcamento' | 'followup'>('orcamento');
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -835,198 +915,223 @@ const CreateProposal = ({ onCancel, onSave, initialData }: { onCancel: () => voi
         </div>
       </div>
 
-      {/* ÁREA DE ETAPAS E ITENS */}
-      <div className="mb-6 space-y-4">
-        <div className="flex flex-col sm:flex-row bg-[#181418] rounded-t-lg p-4 justify-between items-start sm:items-center gap-4 shadow-lg">
-          <button onClick={addEtapa} type="button" className="bg-[#c79229] text-[#181418] font-black px-6 py-3 rounded-lg flex items-center gap-2 hover:bg-[#a67922] transition-colors uppercase tracking-wider text-sm shadow-md">
-            <Plus size={20} /> Adicionar Etapa
+      {initialData && (
+        <div className="flex space-x-4 mb-6 border-b border-slate-200 overflow-x-auto">
+          <button
+            type="button"
+            className={`pb-3 font-bold px-4 border-b-2 transition-colors whitespace-nowrap ${activeTab === 'orcamento' ? 'border-[#c79229] text-[#c79229]' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
+            onClick={() => setActiveTab('orcamento')}
+          >
+            Orçamento de Obra
           </button>
-
-          <div className="flex gap-2 w-full sm:w-auto">
-            <button
-              onClick={() => setShowPasteModal(true)}
-              type="button"
-              className="bg-transparent border border-[#c79229] text-[#c79229] font-medium px-4 py-3 rounded-lg flex items-center justify-center gap-2 hover:bg-[#c79229]/10 transition-colors text-sm flex-1 sm:flex-none"
-            >
-              <FileSpreadsheet size={18} />
-              Importar do Excel (Ctrl+C V)
-            </button>
-          </div>
+          <button
+            type="button"
+            className={`pb-3 font-bold px-4 border-b-2 transition-colors whitespace-nowrap flex items-center gap-2 ${activeTab === 'followup' ? 'border-[#c79229] text-[#c79229]' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
+            onClick={() => setActiveTab('followup')}
+          >
+            Follow-up (Timeline)
+          </button>
         </div>
+      )}
 
-        <div className="bg-slate-50 p-4 rounded-b-lg border border-slate-200 border-t-0 space-y-6">
-          {etapas.map((etapa, eIdx) => (
-            <div key={etapa.id} className="border border-slate-300 rounded-lg overflow-hidden bg-white shadow-sm ring-1 ring-black/5">
-              <div className="bg-slate-200/80 p-3 flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-300">
-                <input
-                  value={etapa.name}
-                  onChange={e => updateEtapaName(etapa.id, e.target.value)}
-                  className="bg-transparent border-b-2 border-transparent focus:border-[#c79229] font-black text-slate-800 text-lg md:w-1/2 outline-none uppercase pb-1"
-                  placeholder="NOME DA ETAPA"
-                />
+      <div className={activeTab === 'orcamento' ? 'block' : 'hidden'}>
+        {/* ÁREA DE ETAPAS E ITENS */}
+        <div className="mb-6 space-y-4 animate-in fade-in duration-300">
+          <div className="flex flex-col sm:flex-row bg-[#181418] rounded-t-lg p-4 justify-between items-start sm:items-center gap-4 shadow-lg">
+            <button onClick={addEtapa} type="button" className="bg-[#c79229] text-[#181418] font-black px-6 py-3 rounded-lg flex items-center gap-2 hover:bg-[#a67922] transition-colors uppercase tracking-wider text-sm shadow-md">
+              <Plus size={20} /> Adicionar Etapa
+            </button>
 
-                <div className="flex gap-2 shrink-0">
-                  <button onClick={() => addItemToEtapa(etapa.id, 'COMPOSICAO')} type="button" className="bg-white border border-slate-300 text-slate-700 px-3 py-1.5 text-sm rounded hover:bg-slate-50 flex items-center gap-1 font-bold shadow-sm">
-                    <Plus size={16} className="text-blue-500" /> Composição
-                  </button>
-                  <button onClick={() => addItemToEtapa(etapa.id, 'INSUMO')} type="button" className="bg-white border border-slate-300 text-slate-700 px-3 py-1.5 text-sm rounded hover:bg-slate-50 flex items-center gap-1 font-bold shadow-sm">
-                    <Plus size={16} className="text-orange-500" /> Insumo
-                  </button>
-                  <button onClick={() => removeEtapa(etapa.id)} type="button" className="text-red-500 hover:text-red-700 ml-4 p-1.5 hover:bg-red-50 rounded">
-                    <Trash2 size={20} />
-                  </button>
+            <div className="flex gap-2 w-full sm:w-auto">
+              <button
+                onClick={() => setShowPasteModal(true)}
+                type="button"
+                className="bg-transparent border border-[#c79229] text-[#c79229] font-medium px-4 py-3 rounded-lg flex items-center justify-center gap-2 hover:bg-[#c79229]/10 transition-colors text-sm flex-1 sm:flex-none"
+              >
+                <FileSpreadsheet size={18} />
+                Importar do Excel (Ctrl+C V)
+              </button>
+            </div>
+          </div>
+
+          <div className="bg-slate-50 p-4 rounded-b-lg border border-slate-200 border-t-0 space-y-6">
+            {etapas.map((etapa, eIdx) => (
+              <div key={etapa.id} className="border border-slate-300 rounded-lg overflow-hidden bg-white shadow-sm ring-1 ring-black/5">
+                <div className="bg-slate-200/80 p-3 flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-300">
+                  <input
+                    value={etapa.name}
+                    onChange={e => updateEtapaName(etapa.id, e.target.value)}
+                    className="bg-transparent border-b-2 border-transparent focus:border-[#c79229] font-black text-slate-800 text-lg md:w-1/2 outline-none uppercase pb-1"
+                    placeholder="NOME DA ETAPA"
+                  />
+
+                  <div className="flex gap-2 shrink-0">
+                    <button onClick={() => addItemToEtapa(etapa.id, 'COMPOSICAO')} type="button" className="bg-white border border-slate-300 text-slate-700 px-3 py-1.5 text-sm rounded hover:bg-slate-50 flex items-center gap-1 font-bold shadow-sm">
+                      <Plus size={16} className="text-blue-500" /> Composição
+                    </button>
+                    <button onClick={() => addItemToEtapa(etapa.id, 'INSUMO')} type="button" className="bg-white border border-slate-300 text-slate-700 px-3 py-1.5 text-sm rounded hover:bg-slate-50 flex items-center gap-1 font-bold shadow-sm">
+                      <Plus size={16} className="text-orange-500" /> Insumo
+                    </button>
+                    <button onClick={() => removeEtapa(etapa.id)} type="button" className="text-red-500 hover:text-red-700 ml-4 p-1.5 hover:bg-red-50 rounded">
+                      <Trash2 size={20} />
+                    </button>
+                  </div>
                 </div>
-              </div>
 
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-sm whitespace-nowrap">
-                  <thead className="bg-slate-50 border-b text-slate-500 text-xs uppercase tracking-wider font-bold">
-                    <tr>
-                      <th className="p-3 w-16 text-center">Tipo</th>
-                      <th className="p-3 w-32 text-center">Código / Base</th>
-                      <th className="p-3 min-w-[300px]">Descrição do Item (Busca SINAPI)</th>
-                      <th className="p-3 w-16 text-center">Und.</th>
-                      <th className="p-3 w-28 text-center">Qtd.</th>
-                      <th className="p-3 w-32 text-right">Valor Unit.</th>
-                      <th className="p-3 w-32 text-right">Total (Sem BDI)</th>
-                      <th className="p-3 w-12 text-center">Ações</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {etapa.items.map((item: any, iIdx: number) => {
-                      const isExpanded = expandedItems.includes(item.id);
-                      const hasChildren = item.children && item.children.length > 0;
-                      const isComposicao = item.type === 'COMPOSICAO' || (item.type && item.type.toString().toUpperCase().includes('COMP'));
-                      const childrenTotal = hasChildren && item.origin === 'PERSONALIZADO' ? item.children.reduce((sum: number, c: any) => sum + (c.quantity * c.unitPrice), 0) : 0;
-                      const displayUnitPrice = childrenTotal > 0 ? childrenTotal : item.unitPrice;
-                      const lineTotal = item.quantity * displayUnitPrice;
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-sm whitespace-nowrap">
+                    <thead className="bg-slate-50 border-b text-slate-500 text-xs uppercase tracking-wider font-bold">
+                      <tr>
+                        <th className="p-3 w-16 text-center">Tipo</th>
+                        <th className="p-3 w-32 text-center">Código / Base</th>
+                        <th className="p-3 min-w-[300px]">Descrição do Item (Busca SINAPI)</th>
+                        <th className="p-3 w-16 text-center">Und.</th>
+                        <th className="p-3 w-28 text-center">Qtd.</th>
+                        <th className="p-3 w-32 text-right">Valor Unit.</th>
+                        <th className="p-3 w-32 text-right">Total (Sem BDI)</th>
+                        <th className="p-3 w-12 text-center">Ações</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {etapa.items.map((item: any, iIdx: number) => {
+                        const isExpanded = expandedItems.includes(item.id);
+                        const hasChildren = item.children && item.children.length > 0;
+                        const isComposicao = item.type === 'COMPOSICAO' || (item.type && item.type.toString().toUpperCase().includes('COMP'));
+                        const childrenTotal = hasChildren && item.origin === 'PERSONALIZADO' ? item.children.reduce((sum: number, c: any) => sum + (c.quantity * c.unitPrice), 0) : 0;
+                        const displayUnitPrice = childrenTotal > 0 ? childrenTotal : item.unitPrice;
+                        const lineTotal = item.quantity * displayUnitPrice;
 
-                      return (
-                        <React.Fragment key={item.id}>
-                          <tr className="hover:bg-slate-50/80 transition-colors group">
-                            <td className="p-3 text-center flex justify-center items-center gap-1">
-                              {isComposicao && (
-                                <button onClick={() => toggleExpand(item.id)} className="text-slate-400 hover:text-[#c79229]">
-                                  {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-                                </button>
-                              )}
-                              <span className={`text-[10px] font-black px-2 py-1 rounded-full ${isComposicao ? 'bg-blue-100 text-blue-700' : 'bg-orange-100 text-orange-700'}`}>
-                                {isComposicao ? 'COMP' : 'INS'}
-                              </span>
-                            </td>
-                            <td className="p-3 text-center">
-                              <div className="flex flex-col items-center">
-                                <span className="font-mono font-bold text-slate-700 flex items-center gap-1">
-                                  {item.code || '-'}
-                                  {item.origin === 'PERSONALIZADO' && <span className="w-2 h-2 rounded-full bg-yellow-400" title="Personalizado"></span>}
-                                </span>
-                                <span className="text-[10px] uppercase text-slate-400 font-bold">{item.banco} {item.version > 1 ? ` v${item.version}` : ''}</span>
-                              </div>
-                            </td>
-                            <td className="p-3">
-                              <div className="flex items-center gap-2">
-                                <input
-                                  list={`service-options-${etapa.id}-${item.id}`}
-                                  placeholder="Buscar no Banco ou digitar novo..."
-                                  className="flex-1 p-2.5 border border-slate-200 bg-white hover:border-slate-300 rounded-md focus:border-[#c79229] focus:ring-1 focus:ring-[#c79229] outline-none text-slate-800 transition-all font-medium"
-                                  value={item.name}
-                                  onChange={(e) => handleServiceChange(etapa.id, item.id, e.target.value)}
-                                />
+                        return (
+                          <React.Fragment key={item.id}>
+                            <tr className="hover:bg-slate-50/80 transition-colors group">
+                              <td className="p-3 text-center flex justify-center items-center gap-1">
                                 {isComposicao && (
-                                  <button onClick={() => { toggleExpand(item.id); if (!isExpanded) addSubItemToItem(etapa.id, item.id, 'INSUMO'); }} className="text-slate-400 hover:text-[#c79229] p-2 bg-white border border-slate-200 rounded" title="Editar Composição / Adicionar Insumo">
-                                    <Edit2 size={16} />
+                                  <button onClick={() => toggleExpand(item.id)} className="text-slate-400 hover:text-[#c79229]">
+                                    {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
                                   </button>
                                 )}
-                              </div>
-                              <datalist id={`service-options-${etapa.id}-${item.id}`}>
-                                {sinapiResults.map((res: any, idx2: number) => (
-                                  <option key={`res-${idx2}`} value={`${res.code} - ${res.description}`} />
-                                ))}
-                                {services.map(srv => (
-                                  <option key={`srv-${srv.id}`} value={srv.name} />
-                                ))}
-                              </datalist>
-                            </td>
-                            <td className="p-3 text-center">
-                              <input value={item.unit} onChange={e => updateItemInEtapa(etapa.id, item.id, 'unit', e.target.value)} className="w-12 text-center bg-transparent border-b border-dashed border-slate-300 outline-none uppercase text-xs font-bold text-slate-600" />
-                            </td>
-                            <td className="p-3 text-center">
-                              <input type="number" step="0.01" value={item.quantity} onChange={e => updateItemInEtapa(etapa.id, item.id, 'quantity', parseFloat(e.target.value) || 0)} className="w-20 p-2 border border-slate-200 rounded-md text-center bg-white font-medium focus:border-[#c79229] outline-none" />
-                            </td>
-                            <td className="p-3 text-right">
-                              <div className="flex items-center justify-end gap-1">
-                                <span className="text-xs text-slate-400">R$</span>
-                                <input type="number" step="0.01" value={displayUnitPrice} onChange={e => updateItemInEtapa(etapa.id, item.id, 'unitPrice', parseFloat(e.target.value) || 0)} disabled={hasChildren && item.origin === 'PERSONALIZADO'} className={`w-24 p-2 border border-slate-200 rounded-md text-right font-medium outline-none ${hasChildren && item.origin === 'PERSONALIZADO' ? 'bg-slate-100 text-slate-500 cursor-not-allowed' : 'bg-white focus:border-[#c79229]'}`} />
-                              </div>
-                            </td>
-                            <td className="p-3 text-right font-bold text-[#181418]">
-                              R$ {lineTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                            </td>
-                            <td className="p-3 text-center">
-                              <button onClick={() => removeItemFromEtapa(etapa.id, item.id)} className="text-slate-300 hover:text-red-500 transition-colors p-1.5 rounded hover:bg-red-50 opacity-0 group-hover:opacity-100">
-                                <Trash2 size={18} />
-                              </button>
-                            </td>
-                          </tr>
-                          {isExpanded && item.children && item.children.map((sub: any) => (
-                            <tr key={sub.id} className="bg-slate-100/50 border-t border-dashed border-slate-200">
-                              <td className="p-2 text-right pr-4"><span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider pl-4">└ Insumo</span></td>
-                              <td className="p-2 text-center"><span className="font-mono text-xs text-slate-500">{sub.code || '-'}</span></td>
-                              <td className="p-2 pl-4">
-                                <input value={sub.name} onChange={e => updateSubItem(etapa.id, item.id, sub.id, 'name', e.target.value)} className="w-full bg-white border border-slate-200 p-1.5 rounded text-sm outline-none focus:border-[#c79229]" placeholder="Descrição do insumo interno..." />
+                                <span className={`text-[10px] font-black px-2 py-1 rounded-full ${isComposicao ? 'bg-blue-100 text-blue-700' : 'bg-orange-100 text-orange-700'}`}>
+                                  {isComposicao ? 'COMP' : 'INS'}
+                                </span>
                               </td>
-                              <td className="p-2 text-center"><input value={sub.unit} onChange={e => updateSubItem(etapa.id, item.id, sub.id, 'unit', e.target.value)} className="w-10 text-center bg-transparent border-b border-dashed border-slate-300 text-xs outline-none" /></td>
-                              <td className="p-2 text-center"><input type="number" step="0.0000001" value={sub.quantity} onChange={e => updateSubItem(etapa.id, item.id, sub.id, 'quantity', parseFloat(e.target.value) || 0)} className="w-20 text-center bg-white border border-slate-200 p-1 rounded outline-none" /></td>
-                              <td className="p-2 text-right"><input type="number" step="0.01" value={sub.unitPrice} onChange={e => updateSubItem(etapa.id, item.id, sub.id, 'unitPrice', parseFloat(e.target.value) || 0)} className="w-20 text-right bg-white border border-slate-200 p-1 rounded outline-none" /></td>
-                              <td className="p-2 text-right text-slate-500 text-sm font-medium">R$ {(sub.quantity * sub.unitPrice).toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
-                              <td className="p-2 text-center"><button onClick={() => removeSubItem(etapa.id, item.id, sub.id)} className="text-red-300 hover:text-red-500"><X size={14} /></button></td>
-                            </tr>
-                          ))}
-                          {isExpanded && (
-                            <tr className="bg-slate-100/50 border-b border-slate-200">
-                              <td colSpan={2}></td>
-                              <td colSpan={6} className="p-2 pb-4">
-                                <button onClick={() => addSubItemToItem(etapa.id, item.id, 'INSUMO')} className="text-xs bg-white border border-slate-300 text-slate-600 px-3 py-1 rounded shadow-sm hover:bg-slate-50 font-bold flex items-center gap-1">+ ADICIONAR INSUMO</button>
+                              <td className="p-3 text-center">
+                                <div className="flex flex-col items-center">
+                                  <span className="font-mono font-bold text-slate-700 flex items-center gap-1">
+                                    {item.code || '-'}
+                                    {item.origin === 'PERSONALIZADO' && <span className="w-2 h-2 rounded-full bg-yellow-400" title="Personalizado"></span>}
+                                  </span>
+                                  <span className="text-[10px] uppercase text-slate-400 font-bold">{item.banco} {item.version > 1 ? ` v${item.version}` : ''}</span>
+                                </div>
+                              </td>
+                              <td className="p-3">
+                                <div className="flex items-center gap-2">
+                                  <input
+                                    list={`service-options-${etapa.id}-${item.id}`}
+                                    placeholder="Buscar no Banco ou digitar novo..."
+                                    className="flex-1 p-2.5 border border-slate-200 bg-white hover:border-slate-300 rounded-md focus:border-[#c79229] focus:ring-1 focus:ring-[#c79229] outline-none text-slate-800 transition-all font-medium"
+                                    value={item.name}
+                                    onChange={(e) => handleServiceChange(etapa.id, item.id, e.target.value)}
+                                  />
+                                  {isComposicao && (
+                                    <button onClick={() => { toggleExpand(item.id); if (!isExpanded) addSubItemToItem(etapa.id, item.id, 'INSUMO'); }} className="text-slate-400 hover:text-[#c79229] p-2 bg-white border border-slate-200 rounded" title="Editar Composição / Adicionar Insumo">
+                                      <Edit2 size={16} />
+                                    </button>
+                                  )}
+                                </div>
+                                <datalist id={`service-options-${etapa.id}-${item.id}`}>
+                                  {sinapiResults.map((res: any, idx2: number) => (
+                                    <option key={`res-${idx2}`} value={`${res.code} - ${res.description}`} />
+                                  ))}
+                                  {services.map(srv => (
+                                    <option key={`srv-${srv.id}`} value={srv.name} />
+                                  ))}
+                                </datalist>
+                              </td>
+                              <td className="p-3 text-center">
+                                <input value={item.unit} onChange={e => updateItemInEtapa(etapa.id, item.id, 'unit', e.target.value)} className="w-12 text-center bg-transparent border-b border-dashed border-slate-300 outline-none uppercase text-xs font-bold text-slate-600" />
+                              </td>
+                              <td className="p-3 text-center">
+                                <input type="number" step="0.01" value={item.quantity} onChange={e => updateItemInEtapa(etapa.id, item.id, 'quantity', parseFloat(e.target.value) || 0)} className="w-20 p-2 border border-slate-200 rounded-md text-center bg-white font-medium focus:border-[#c79229] outline-none" />
+                              </td>
+                              <td className="p-3 text-right">
+                                <div className="flex items-center justify-end gap-1">
+                                  <span className="text-xs text-slate-400">R$</span>
+                                  <input type="number" step="0.01" value={displayUnitPrice} onChange={e => updateItemInEtapa(etapa.id, item.id, 'unitPrice', parseFloat(e.target.value) || 0)} disabled={hasChildren && item.origin === 'PERSONALIZADO'} className={`w-24 p-2 border border-slate-200 rounded-md text-right font-medium outline-none ${hasChildren && item.origin === 'PERSONALIZADO' ? 'bg-slate-100 text-slate-500 cursor-not-allowed' : 'bg-white focus:border-[#c79229]'}`} />
+                                </div>
+                              </td>
+                              <td className="p-3 text-right font-bold text-[#181418]">
+                                R$ {lineTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </td>
+                              <td className="p-3 text-center">
+                                <button onClick={() => removeItemFromEtapa(etapa.id, item.id)} className="text-slate-300 hover:text-red-500 transition-colors p-1.5 rounded hover:bg-red-50 opacity-0 group-hover:opacity-100">
+                                  <Trash2 size={18} />
+                                </button>
                               </td>
                             </tr>
-                          )}
-                        </React.Fragment>
-                      );
-                    })}
-                    {etapa.items.length === 0 && (
-                      <tr><td colSpan={8} className="p-8 text-center text-slate-400 italic bg-white flex-col flex items-center gap-2"><Package size={32} className="opacity-20" /> Adicione composições ou insumos nesta etapa.</td></tr>
+                            {isExpanded && item.children && item.children.map((sub: any) => (
+                              <tr key={sub.id} className="bg-slate-100/50 border-t border-dashed border-slate-200">
+                                <td className="p-2 text-right pr-4"><span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider pl-4">└ Insumo</span></td>
+                                <td className="p-2 text-center"><span className="font-mono text-xs text-slate-500">{sub.code || '-'}</span></td>
+                                <td className="p-2 pl-4">
+                                  <input value={sub.name} onChange={e => updateSubItem(etapa.id, item.id, sub.id, 'name', e.target.value)} className="w-full bg-white border border-slate-200 p-1.5 rounded text-sm outline-none focus:border-[#c79229]" placeholder="Descrição do insumo interno..." />
+                                </td>
+                                <td className="p-2 text-center"><input value={sub.unit} onChange={e => updateSubItem(etapa.id, item.id, sub.id, 'unit', e.target.value)} className="w-10 text-center bg-transparent border-b border-dashed border-slate-300 text-xs outline-none" /></td>
+                                <td className="p-2 text-center"><input type="number" step="0.0000001" value={sub.quantity} onChange={e => updateSubItem(etapa.id, item.id, sub.id, 'quantity', parseFloat(e.target.value) || 0)} className="w-20 text-center bg-white border border-slate-200 p-1 rounded outline-none" /></td>
+                                <td className="p-2 text-right"><input type="number" step="0.01" value={sub.unitPrice} onChange={e => updateSubItem(etapa.id, item.id, sub.id, 'unitPrice', parseFloat(e.target.value) || 0)} className="w-20 text-right bg-white border border-slate-200 p-1 rounded outline-none" /></td>
+                                <td className="p-2 text-right text-slate-500 text-sm font-medium">R$ {(sub.quantity * sub.unitPrice).toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+                                <td className="p-2 text-center"><button onClick={() => removeSubItem(etapa.id, item.id, sub.id)} className="text-red-300 hover:text-red-500"><X size={14} /></button></td>
+                              </tr>
+                            ))}
+                            {isExpanded && (
+                              <tr className="bg-slate-100/50 border-b border-slate-200">
+                                <td colSpan={2}></td>
+                                <td colSpan={6} className="p-2 pb-4">
+                                  <button onClick={() => addSubItemToItem(etapa.id, item.id, 'INSUMO')} className="text-xs bg-white border border-slate-300 text-slate-600 px-3 py-1 rounded shadow-sm hover:bg-slate-50 font-bold flex items-center gap-1">+ ADICIONAR INSUMO</button>
+                                </td>
+                              </tr>
+                            )}
+                          </React.Fragment>
+                        );
+                      })}
+                      {etapa.items.length === 0 && (
+                        <tr><td colSpan={8} className="p-8 text-center text-slate-400 italic bg-white flex-col flex items-center gap-2"><Package size={32} className="opacity-20" /> Adicione composições ou insumos nesta etapa.</td></tr>
+                      )}
+                    </tbody>
+                    {etapa.items.length > 0 && (
+                      <tfoot className="bg-slate-50/50">
+                        <tr>
+                          <td colSpan={6} className="text-right p-3 text-sm font-bold text-slate-500 uppercase">Subtotal da Etapa</td>
+                          <td className="p-3 text-right font-black text-[#c79229] whitespace-nowrap">R$ {calculateEtapaTotal(etapa).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                          <td></td>
+                        </tr>
+                      </tfoot>
                     )}
-                  </tbody>
-                  {etapa.items.length > 0 && (
-                    <tfoot className="bg-slate-50/50">
-                      <tr>
-                        <td colSpan={6} className="text-right p-3 text-sm font-bold text-slate-500 uppercase">Subtotal da Etapa</td>
-                        <td className="p-3 text-right font-black text-[#c79229] whitespace-nowrap">R$ {calculateEtapaTotal(etapa).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                        <td></td>
-                      </tr>
-                    </tfoot>
-                  )}
-                </table>
+                  </table>
+                </div>
               </div>
-            </div>
-          ))}
+            ))}
 
-          {etapas.length > 0 && (
-            <div className="bg-[#181418] rounded-lg p-6 flex flex-col md:flex-row justify-between items-center text-white mt-8 shadow-xl">
-              <div className="mb-4 md:mb-0 text-center md:text-left">
-                <h3 className="text-slate-400 uppercase text-xs font-bold tracking-widest mb-1">Custo Total Direto (Sem BDI)</h3>
-                <div className="text-xl">R$ {calculateSubtotal().toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+            {etapas.length > 0 && (
+              <div className="bg-[#181418] rounded-lg p-6 flex flex-col md:flex-row justify-between items-center text-white mt-8 shadow-xl">
+                <div className="mb-4 md:mb-0 text-center md:text-left">
+                  <h3 className="text-slate-400 uppercase text-xs font-bold tracking-widest mb-1">Custo Total Direto (Sem BDI)</h3>
+                  <div className="text-xl">R$ {calculateSubtotal().toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                </div>
+                <div className="text-center md:text-right">
+                  <h3 className="text-[#c79229] uppercase text-xs font-bold tracking-widest mb-1">Total Geral com BDI ({bdi}%)</h3>
+                  <div className="text-3xl font-black text-white drop-shadow-md">R$ {calculateTotal().toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                </div>
               </div>
-              <div className="text-center md:text-right">
-                <h3 className="text-[#c79229] uppercase text-xs font-bold tracking-widest mb-1">Total Geral com BDI ({bdi}%)</h3>
-                <div className="text-3xl font-black text-white drop-shadow-md">R$ {calculateTotal().toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
-              </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
-      </div>
+      </div> {/* <-- Fecha tab orcamento --> */}
 
-      <div className="flex justify-end space-x-3 pt-4 border-t border-slate-100">
+      {activeTab === 'followup' && initialData && (
+        <ProposalFollowUpTab proposalId={initialData.id} />
+      )}
+
+      <div className="flex justify-end space-x-3 pt-6 mt-6 border-t border-slate-200">
         <button
           type="button"
           onClick={onCancel}
@@ -1095,6 +1200,8 @@ const CreateProposal = ({ onCancel, onSave, initialData }: { onCancel: () => voi
 const Proposals: React.FC<ProposalsProps> = ({ viewMode = 'list', filterStatus }) => {
   const navigate = useNavigate();
   const { proposals, addProposal, updateProposal, deleteProposal, updateProposalStatus, clients } = useData();
+  const { currentUser } = useAuth();
+
   const [isCreating, setIsCreating] = useState(viewMode === 'create');
   const [editingProposal, setEditingProposal] = useState<Proposal | null>(null);
   const [previewProposal, setPreviewProposal] = useState<Proposal | null>(null);
@@ -1197,14 +1304,16 @@ const Proposals: React.FC<ProposalsProps> = ({ viewMode = 'list', filterStatus }
                   </button>
                 </div>
               )}
-              <button
-                onClick={handleCreateNew}
-                className="flex items-center space-x-2 px-4 py-2 bg-[#c79229] text-[#181418] font-bold rounded-lg hover:bg-[#a67922] shadow-sm transition-colors"
-              >
-                <Plus size={18} />
-                <span className="hidden sm:inline">Nova Proposta</span>
-                <span className="sm:hidden">Novo</span>
-              </button>
+              {currentUser?.permissions.editProposals && (
+                <button
+                  onClick={handleCreateNew}
+                  className="flex items-center space-x-2 px-4 py-2 bg-[#c79229] text-[#181418] font-bold rounded-lg hover:bg-[#a67922] shadow-sm transition-colors"
+                >
+                  <Plus size={18} />
+                  <span className="hidden sm:inline">Nova Proposta</span>
+                  <span className="sm:hidden">Novo</span>
+                </button>
+              )}
             </div>
           </div>
 
@@ -1236,7 +1345,9 @@ const Proposals: React.FC<ProposalsProps> = ({ viewMode = 'list', filterStatus }
                         <span className="font-bold text-[#c79229]">R$ {proposal.total.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                         <div className="flex opacity-0 group-hover:opacity-100 transition-opacity gap-1">
                           <button onClick={(e) => { e.stopPropagation(); handlePreview(proposal); }} className="p-1.5 text-slate-400 hover:text-[#c79229] hover:bg-[#c79229]/10 rounded"><Printer size={14} /></button>
-                          <button onClick={(e) => { e.stopPropagation(); handleEdit(proposal); }} className="p-1.5 text-blue-400 hover:text-blue-600 hover:bg-blue-50 rounded"><Edit2 size={14} /></button>
+                          {currentUser?.permissions.editProposals && (
+                            <button onClick={(e) => { e.stopPropagation(); handleEdit(proposal); }} className="p-1.5 text-blue-400 hover:text-blue-600 hover:bg-blue-50 rounded"><Edit2 size={14} /></button>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -1273,7 +1384,9 @@ const Proposals: React.FC<ProposalsProps> = ({ viewMode = 'list', filterStatus }
                         <span className="font-bold text-green-600">R$ {proposal.total.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                         <div className="flex opacity-0 group-hover:opacity-100 transition-opacity gap-1">
                           <button onClick={(e) => { e.stopPropagation(); handlePreview(proposal); }} className="p-1.5 text-slate-400 hover:text-[#c79229] hover:bg-[#c79229]/10 rounded"><Printer size={14} /></button>
-                          <button onClick={(e) => { e.stopPropagation(); handleEdit(proposal); }} className="p-1.5 text-blue-400 hover:text-blue-600 hover:bg-blue-50 rounded"><Edit2 size={14} /></button>
+                          {currentUser?.permissions.editProposals && (
+                            <button onClick={(e) => { e.stopPropagation(); handleEdit(proposal); }} className="p-1.5 text-blue-400 hover:text-blue-600 hover:bg-blue-50 rounded"><Edit2 size={14} /></button>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -1309,7 +1422,9 @@ const Proposals: React.FC<ProposalsProps> = ({ viewMode = 'list', filterStatus }
                       <div className="flex justify-between items-center mt-2 pt-2 border-t border-slate-100">
                         <span className="font-bold text-slate-400">R$ {proposal.total.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                         <div className="flex opacity-0 group-hover:opacity-100 transition-opacity gap-1">
-                          <button onClick={(e) => { e.stopPropagation(); handleDelete(proposal.id, e); }} className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded"><Trash2 size={14} /></button>
+                          {currentUser?.permissions.editProposals && (
+                            <button onClick={(e) => { e.stopPropagation(); handleDelete(proposal.id, e); }} className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded"><Trash2 size={14} /></button>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -1357,21 +1472,25 @@ const Proposals: React.FC<ProposalsProps> = ({ viewMode = 'list', filterStatus }
                         <Printer size={18} />
                       </button>
 
-                      <button
-                        onClick={() => handleEdit(proposal)}
-                        title="Editar Proposta"
-                        className="p-2 text-blue-500 hover:text-blue-700 border border-blue-200 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors shadow-sm"
-                      >
-                        <Edit2 size={18} />
-                      </button>
+                      {currentUser?.permissions.editProposals && (
+                        <>
+                          <button
+                            onClick={() => handleEdit(proposal)}
+                            title="Editar Proposta"
+                            className="p-2 text-blue-500 hover:text-blue-700 border border-blue-200 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors shadow-sm"
+                          >
+                            <Edit2 size={18} />
+                          </button>
 
-                      <button
-                        onClick={(e) => handleDelete(proposal.id, e)}
-                        title="Excluir Proposta"
-                        className="p-2 text-red-500 hover:text-red-700 border border-red-200 bg-red-50 rounded-lg hover:bg-red-100 transition-colors shadow-sm"
-                      >
-                        <Trash2 size={18} />
-                      </button>
+                          <button
+                            onClick={(e) => handleDelete(proposal.id, e)}
+                            title="Excluir Proposta"
+                            className="p-2 text-red-500 hover:text-red-700 border border-red-200 bg-red-50 rounded-lg hover:bg-red-100 transition-colors shadow-sm"
+                          >
+                            <Trash2 size={18} />
+                          </button>
+                        </>
+                      )}
 
                       {proposal.status === Status.PENDING ? (
                         <button

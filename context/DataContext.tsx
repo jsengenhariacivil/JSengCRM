@@ -1,7 +1,7 @@
 
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
-import { Client, Project, FinancialRecord, Service, Proposal, ProposalItem, ProposalEtapa, SinapiService, Supplier, TeamMember, PaymentRecord, Status, UserData, UserPermissions, AgendaEvento } from '../types';
+import { Client, Project, FinancialRecord, Service, Proposal, ProposalItem, ProposalEtapa, SinapiService, Supplier, TeamMember, PaymentRecord, Status, UserData, UserPermissions, AgendaEvento, AppNotification, ProposalHistory } from '../types';
 
 interface DataContextType {
   // Base SINAPI (Mock)
@@ -77,19 +77,28 @@ interface DataContextType {
   deleteAgendaEvent: (id: string) => Promise<void>;
   syncAgendaEvent: (origemModulo: 'OBRA' | 'ORCAMENTO' | 'FINANCEIRO', idReferencia: string, eventoData: Partial<AgendaEvento>) => Promise<void>;
 
+  // --- NOTIFICACOES E FOLLOW UP ---
+  notifications: AppNotification[];
+  markNotificationAsRead: (id: string) => Promise<void>;
+  addNotification: (notification: Omit<AppNotification, 'id' | 'created_at'>) => Promise<void>;
+  proposalHistory: ProposalHistory[];
+  addProposalHistory: (history: Omit<ProposalHistory, 'id' | 'created_at'>) => Promise<void>;
+
   loading: boolean;
   refreshData: () => Promise<void>;
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
 
-// --- PERFIS PRÉ-DEFINIDOS (ROLE DEFINITIONS) ---
 export const ROLE_DEFINITIONS: Record<string, UserPermissions> = {
   'Administrador': {
     viewFinancial: true,
     editFinancial: true,
     viewProjects: true,
     editProjects: true,
+    viewProposals: true,
+    editProposals: true,
+    viewTeam: true,
     manageSettings: true
   },
   'Gerente': {
@@ -97,6 +106,9 @@ export const ROLE_DEFINITIONS: Record<string, UserPermissions> = {
     editFinancial: false,
     viewProjects: true,
     editProjects: true,
+    viewProposals: true,
+    editProposals: true,
+    viewTeam: true,
     manageSettings: false
   },
   'Financeiro': {
@@ -104,6 +116,19 @@ export const ROLE_DEFINITIONS: Record<string, UserPermissions> = {
     editFinancial: true,
     viewProjects: true,
     editProjects: false,
+    viewProposals: false,
+    editProposals: false,
+    viewTeam: true,
+    manageSettings: false
+  },
+  'Comercial': {
+    viewFinancial: false,
+    editFinancial: false,
+    viewProjects: true,
+    editProjects: false,
+    viewProposals: true,
+    editProposals: true,
+    viewTeam: false,
     manageSettings: false
   },
   'Engenharia': {
@@ -111,6 +136,9 @@ export const ROLE_DEFINITIONS: Record<string, UserPermissions> = {
     editFinancial: false,
     viewProjects: true,
     editProjects: true,
+    viewProposals: true,
+    editProposals: false,
+    viewTeam: false,
     manageSettings: false
   },
   'RH': {
@@ -118,6 +146,9 @@ export const ROLE_DEFINITIONS: Record<string, UserPermissions> = {
     editFinancial: false,
     viewProjects: false,
     editProjects: false,
+    viewProposals: false,
+    editProposals: false,
+    viewTeam: true,
     manageSettings: false
   },
   'Visitante': {
@@ -125,6 +156,9 @@ export const ROLE_DEFINITIONS: Record<string, UserPermissions> = {
     editFinancial: false,
     viewProjects: false,
     editProjects: false,
+    viewProposals: false,
+    editProposals: false,
+    viewTeam: false,
     manageSettings: false
   }
 };
@@ -175,6 +209,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [payments, setPayments] = useState<PaymentRecord[]>([]);
   const [users, setUsers] = useState<UserData[]>([]);
   const [agendaEventos, setAgendaEventos] = useState<AgendaEvento[]>([]);
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
+  const [proposalHistory, setProposalHistory] = useState<ProposalHistory[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Função para carregar todos os dados
@@ -185,7 +221,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       const loadAllData = async () => {
         const [
           clientsData, projectsData, financialsData, servicesData,
-          proposalsData, suppliersData, teamData, paymentsData, usersData, agendaData
+          proposalsData, suppliersData, teamData, paymentsData, usersData, agendaData,
+          notificationsData, proposalHistoryData
         ] = await Promise.all([
           supabase.from('clients').select('*'),
           supabase.from('projects').select('*, clients(name)'),
@@ -196,7 +233,9 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           supabase.from('team_members').select('*'),
           supabase.from('payment_records').select('*'),
           supabase.from('users').select('*'),
-          supabase.from('agenda_eventos').select('*').order('data_inicio', { ascending: true })
+          supabase.from('agenda_eventos').select('*').order('data_inicio', { ascending: true }),
+          supabase.from('notifications').select('*').order('created_at', { ascending: false }),
+          supabase.from('proposal_history').select('*').order('created_at', { ascending: false })
         ]);
 
         if (clientsData.data) {
@@ -402,6 +441,29 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             criadoAutomatico: a.criado_automatico,
             eventoCritico: a.evento_critico,
             createdAt: a.created_at
+          })));
+        }
+
+        if (notificationsData.data) {
+          setNotifications(notificationsData.data.map(n => ({
+            id: n.id,
+            title: n.title,
+            message: n.message,
+            type: n.type,
+            is_read: n.is_read,
+            user_id: n.user_id,
+            created_at: n.created_at
+          })));
+        }
+
+        if (proposalHistoryData.data) {
+          setProposalHistory(proposalHistoryData.data.map(ph => ({
+            id: ph.id,
+            proposal_id: ph.proposal_id,
+            description: ph.description,
+            contact_type: ph.contact_type,
+            user_name: ph.user_name,
+            created_at: ph.created_at
           })));
         }
       };
@@ -847,8 +909,17 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     setProposals(prev => prev.map(p => p.id === proposal.id ? proposal : p));
 
-    // Integração Financeira Automática
+    // Integração Financeira e Central de Notificações
     if (proposal.status === Status.APPROVED) {
+
+      // Dispara Notificação Global (Sininho)
+      addNotification({
+        title: 'Proposta Aprovada! 🎉',
+        message: `A proposta do cliente ${proposal.clientName} foi aprovada. Valor total: R$ ${proposal.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}.`,
+        type: 'success',
+        is_read: false
+      });
+
       const jaExiste = financials.find(f => f.description === `Receita Ref. Proposta #${proposal.id}`);
       if (!jaExiste) {
         await addFinancialRecord({
@@ -1131,6 +1202,29 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
+  // --- NOTIFICACOES E FOLLOW UP ---
+  const markNotificationAsRead = async (id: string) => {
+    const { error } = await supabase.from('notifications').update({ is_read: true }).eq('id', id);
+    if (error) console.error('Error marking as read:', error);
+    setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: true } : n));
+  };
+
+  const addNotification = async (notification: Omit<AppNotification, 'id' | 'created_at'>) => {
+    const { data, error } = await supabase.from('notifications').insert([notification]).select();
+    if (error) console.error('Error adding notification:', error);
+    if (data) {
+      setNotifications(prev => [data[0], ...prev]);
+    }
+  };
+
+  const addProposalHistory = async (history: Omit<ProposalHistory, 'id' | 'created_at'>) => {
+    const { data, error } = await supabase.from('proposal_history').insert([history]).select();
+    if (error) console.error('Error adding proposal history:', error);
+    if (data) {
+      setProposalHistory(prev => [data[0], ...prev]);
+    }
+  };
+
   return (
     <DataContext.Provider value={{
       sinapiDatabase: MOCK_SINAPI_DB,
@@ -1154,6 +1248,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       payments, addPayment, updatePayment, deletePayment,
       users, addUser, updateUser, deleteUser,
       agendaEventos, addAgendaEvent, updateAgendaEvent, deleteAgendaEvent, syncAgendaEvent,
+      notifications, markNotificationAsRead, addNotification,
+      proposalHistory, addProposalHistory,
       loading,
       refreshData
     }}>
