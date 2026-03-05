@@ -1,8 +1,8 @@
-
 import React, { useState } from 'react';
-import { Plus, MapPin, Calendar, DollarSign, Clock, X, Save, Building, User, Trash2 } from 'lucide-react';
+import { Plus, MapPin, Calendar, DollarSign, Clock, X, Save, Building, User, Trash2, LineChart as LineChartIcon, FileText } from 'lucide-react';
 import { useData } from '../context/DataContext';
 import { Status, Project } from '../types';
+import { ResponsiveContainer, ComposedChart, Line, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend } from 'recharts';
 
 interface ProjectCardProps {
   project: Project;
@@ -85,10 +85,11 @@ const ProjectCard: React.FC<ProjectCardProps> = ({ project, onDetails, onEdit, o
 };
 
 const Projects: React.FC = () => {
-  const { projects, addProject, updateProject, deleteProject, clients } = useData();
+  const { projects, addProject, updateProject, deleteProject, clients, financials } = useData();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
+  const [detailsTab, setDetailsTab] = useState<'geral' | 'curva_s'>('geral');
 
   // Form State
   const [formData, setFormData] = useState<Partial<Project>>({
@@ -131,7 +132,64 @@ const Projects: React.FC = () => {
 
   const handleDetails = (project: Project) => {
     setSelectedProject(project);
+    setDetailsTab('geral');
     setIsDetailsOpen(true);
+  };
+
+  const generateSCurveData = (project: Project) => {
+    const start = new Date(project.startDate);
+    const end = new Date(project.endDate);
+    const today = new Date();
+    const totalDays = Math.max(1, (end.getTime() - start.getTime()) / (1000 * 3600 * 24));
+
+    const points = 10;
+    const data = [];
+
+    const projectExpenses = financials
+      .filter(f => f.projectId === project.id && f.type === 'Despesa')
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+    let accumulatedExpense = 0;
+
+    for (let i = 0; i <= points; i++) {
+      const t = i / points;
+      const currentDate = new Date(start.getTime() + t * totalDays * 1000 * 3600 * 24);
+
+      // Matemática: Smoothstep approach (Curva em "S" natural)
+      const plannedProgress = Math.min(100, Math.max(0, (t * t * (3 - 2 * t)) * 100));
+      const plannedBudget = (project.budget * plannedProgress) / 100;
+
+      accumulatedExpense = projectExpenses
+        .filter(f => new Date(f.date) <= currentDate)
+        .reduce((sum, f) => sum + f.amount, 0);
+
+      let actualProgress = null;
+      let actualExpense = null;
+
+      if (currentDate <= today || i === 0) {
+        const daysPassed = Math.max(0, (currentDate.getTime() - start.getTime()) / (1000 * 3600 * 24));
+        const daysToToday = Math.max(1, (today.getTime() - start.getTime()) / (1000 * 3600 * 24));
+
+        // Se a obra já passou da data de fim e temos progresso
+        if (today > end && i === points) {
+          actualProgress = project.progress;
+          actualExpense = accumulatedExpense;
+        } else {
+          const actualT = Math.min(1, daysPassed / daysToToday);
+          actualProgress = project.progress * actualT;
+          actualExpense = accumulatedExpense;
+        }
+      }
+
+      data.push({
+        name: currentDate.toLocaleDateString('pt-BR', { month: 'short', day: '2-digit' }),
+        'Físico Planejado (%)': Number(plannedProgress.toFixed(1)),
+        'Físico Realizado (%)': actualProgress !== null ? Number(actualProgress.toFixed(1)) : null,
+        'Custo Planejado (R$)': Number(plannedBudget.toFixed(2)),
+        'Custo Realizado (R$)': actualExpense !== null ? Number(actualExpense.toFixed(2)) : null,
+      });
+    }
+    return data;
   };
 
   const handleSave = async (e: React.FormEvent) => {
@@ -402,52 +460,99 @@ const Projects: React.FC = () => {
               </button>
             </div>
 
-            <div className="p-6 space-y-4">
-              <div className="flex items-start gap-3">
-                <User className="text-slate-400 mt-1" size={20} />
-                <div>
-                  <p className="text-sm text-slate-500">Cliente</p>
-                  <p className="font-medium text-[#181418]">{selectedProject.clientName}</p>
-                </div>
-              </div>
+            <div className="flex bg-slate-100 p-1 rounded-lg border border-slate-200 mt-4 mx-6">
+              <button
+                onClick={() => setDetailsTab('geral')}
+                className={`flex-1 py-1.5 text-sm font-medium rounded-md flex justify-center items-center gap-2 transition-colors ${detailsTab === 'geral' ? 'bg-white shadow-sm text-[#181418]' : 'text-slate-500 hover:text-slate-700'}`}
+              >
+                <FileText size={16} /> Visão Geral
+              </button>
+              <button
+                onClick={() => setDetailsTab('curva_s')}
+                className={`flex-1 py-1.5 text-sm font-medium rounded-md flex justify-center items-center gap-2 transition-colors ${detailsTab === 'curva_s' ? 'bg-white shadow-sm text-[#c79229]' : 'text-slate-500 hover:text-slate-700'}`}
+              >
+                <LineChartIcon size={16} /> Curva S (Avanço)
+              </button>
+            </div>
 
-              <div className="flex items-start gap-3">
-                <MapPin className="text-slate-400 mt-1" size={20} />
-                <div>
-                  <p className="text-sm text-slate-500">Endereço</p>
-                  <p className="font-medium text-[#181418]">{selectedProject.address}</p>
-                </div>
-              </div>
+            <div className="p-6 pt-4 space-y-4">
+              {detailsTab === 'geral' ? (
+                <>
+                  <div className="flex items-start gap-3">
+                    <User className="text-slate-400 mt-1" size={20} />
+                    <div>
+                      <p className="text-sm text-slate-500">Cliente</p>
+                      <p className="font-medium text-[#181418]">{selectedProject.clientName}</p>
+                    </div>
+                  </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="flex items-start gap-3">
-                  <Calendar className="text-slate-400 mt-1" size={20} />
-                  <div>
-                    <p className="text-sm text-slate-500">Período</p>
-                    <p className="font-medium text-[#181418] text-sm">
-                      {new Date(selectedProject.startDate).toLocaleDateString()} até <br />
-                      {new Date(selectedProject.endDate).toLocaleDateString()}
-                    </p>
+                  <div className="flex items-start gap-3">
+                    <MapPin className="text-slate-400 mt-1" size={20} />
+                    <div>
+                      <p className="text-sm text-slate-500">Endereço</p>
+                      <p className="font-medium text-[#181418]">{selectedProject.address}</p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="flex items-start gap-3">
+                      <Calendar className="text-slate-400 mt-1" size={20} />
+                      <div>
+                        <p className="text-sm text-slate-500">Período</p>
+                        <p className="font-medium text-[#181418] text-sm">
+                          {new Date(selectedProject.startDate).toLocaleDateString()} até <br />
+                          {new Date(selectedProject.endDate).toLocaleDateString()}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-3">
+                      <DollarSign className="text-slate-400 mt-1" size={20} />
+                      <div>
+                        <p className="text-sm text-slate-500">Orçamento</p>
+                        <p className="font-medium text-[#181418]">R$ {selectedProject.budget.toLocaleString()}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-4">
+                    <div className="flex justify-between text-sm mb-1">
+                      <span className="text-slate-500">Progresso</span>
+                      <span className="font-bold text-[#c79229]">{selectedProject.progress}%</span>
+                    </div>
+                    <div className="w-full bg-slate-100 rounded-full h-2">
+                      <div className="bg-[#c79229] h-2 rounded-full" style={{ width: `${selectedProject.progress}%` }}></div>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div className="space-y-6">
+                  <p className="text-sm text-slate-500 text-center mb-2">
+                    A Curva S compara o avanço <strong className="text-[#c79229]">Físico (%)</strong> e <strong className="text-blue-600">Financeiro (R$)</strong> planejado contra o realizado.
+                  </p>
+
+                  <div className="h-64 w-full bg-slate-50 border border-slate-100 rounded-lg p-2">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <ComposedChart data={generateSCurveData(selectedProject)} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                        <XAxis dataKey="name" tick={{ fontSize: 10, fill: '#64748b' }} tickLine={false} axisLine={false} />
+                        <YAxis yAxisId="left" tick={{ fontSize: 10, fill: '#64748b' }} tickLine={false} axisLine={false} domain={[0, 100]} />
+                        <YAxis yAxisId="right" orientation="right" tickFormatter={(value) => `R$${(value / 1000).toFixed(0)}k`} tick={{ fontSize: 10, fill: '#64748b' }} tickLine={false} axisLine={false} />
+                        <RechartsTooltip
+                          contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                          labelStyle={{ fontWeight: 'bold', color: '#1e293b', marginBottom: '4px' }}
+                        />
+                        <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '10px' }} />
+                        <Area yAxisId="left" type="monotone" dataKey="Físico Planejado (%)" fill="#c79229" stroke="none" fillOpacity={0.1} />
+                        <Line yAxisId="left" type="monotone" dataKey="Físico Planejado (%)" stroke="#c79229" strokeWidth={2} dot={false} strokeDasharray="5 5" />
+                        <Line yAxisId="left" type="monotone" dataKey="Físico Realizado (%)" stroke="#c79229" strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 6 }} />
+
+                        <Line yAxisId="right" type="monotone" dataKey="Custo Planejado (R$)" stroke="#3b82f6" strokeWidth={2} dot={false} strokeDasharray="5 5" />
+                        <Line yAxisId="right" type="monotone" dataKey="Custo Realizado (R$)" stroke="#2563eb" strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 6 }} />
+                      </ComposedChart>
+                    </ResponsiveContainer>
                   </div>
                 </div>
-                <div className="flex items-start gap-3">
-                  <DollarSign className="text-slate-400 mt-1" size={20} />
-                  <div>
-                    <p className="text-sm text-slate-500">Orçamento</p>
-                    <p className="font-medium text-[#181418]">R$ {selectedProject.budget.toLocaleString()}</p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="mt-4">
-                <div className="flex justify-between text-sm mb-1">
-                  <span className="text-slate-500">Progresso</span>
-                  <span className="font-bold text-[#c79229]">{selectedProject.progress}%</span>
-                </div>
-                <div className="w-full bg-slate-100 rounded-full h-2">
-                  <div className="bg-[#c79229] h-2 rounded-full" style={{ width: `${selectedProject.progress}%` }}></div>
-                </div>
-              </div>
+              )}
             </div>
 
             <div className="p-4 bg-slate-50 flex justify-end">
