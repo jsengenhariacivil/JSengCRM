@@ -5,10 +5,11 @@ import { useData } from '../context/DataContext';
 import { AgendaEvento } from '../types';
 
 export default function Agenda() {
-    const { agendaEventos, addAgendaEvent, updateAgendaEvent, deleteAgendaEvent, users } = useData();
+    const { agendaEventos, addAgendaEvent, updateAgendaEvent, deleteAgendaEvent, users, teamMembers } = useData();
 
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingEvent, setEditingEvent] = useState<AgendaEvento | null>(null);
+    const [duracaoMinutos, setDuracaoMinutos] = useState(30);
     const [viewMode, setViewMode] = useState<'LIST' | 'CALENDAR'>('CALENDAR');
     const [statusFilter, setStatusFilter] = useState<'PENDENTE' | 'CONCLUIDO' | 'CANCELADO' | 'TODOS'>('PENDENTE');
     const [formData, setFormData] = useState<Partial<AgendaEvento>>({
@@ -24,14 +25,56 @@ export default function Agenda() {
         criadoAutomatico: false
     });
 
+    const getLocalString = (isoString: string | undefined | null) => {
+        if (!isoString) return '';
+        const d = new Date(isoString);
+        if (isNaN(d.getTime())) return '';
+        const pad = (n: number) => n.toString().padStart(2, '0');
+        return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         try {
+            // Verificar sobreposição local de horário de 30 em 30 min (double booking)
+            if (formData.dataInicio) {
+                const inicioRef = new Date(formData.dataInicio).getTime();
+                const fimRef = inicioRef + duracaoMinutos * 60000;
+
+                const overbooking = agendaEventos.find(ev => {
+                    if (ev.id === editingEvent?.id) return false;
+                    if (ev.origemModulo !== 'MANUAL') return false; // Permite obras ou prazos que caiam no mesmo dia, mas restringe os manuais (reuniões).
+                    if (ev.status === 'CANCELADO' || ev.status === 'CONCLUIDO') return false;
+                    if (!ev.dataInicio) return false;
+
+                    const evInicio = new Date(ev.dataInicio).getTime();
+                    const evFim = ev.dataFim ? new Date(ev.dataFim).getTime() : evInicio + 30 * 60000;
+
+                    // Checa se os intervalos se cruzam
+                    return (inicioRef < evFim && fimRef > evInicio);
+                });
+
+                if (overbooking) {
+                    alert('Conflito de agendamento! Já existe um compromisso para este bloco de horário.');
+                    return;
+                }
+            }
+
+            // Calcular o fim baseado na duração
+            const novaDataInicio = formData.dataInicio ? new Date(formData.dataInicio).toISOString() : '';
+            let novaDataFim = '';
+            if (novaDataInicio) {
+                const fim = new Date(new Date(novaDataInicio).getTime() + duracaoMinutos * 60000);
+                novaDataFim = fim.toISOString();
+            }
+
             if (editingEvent) {
-                await updateAgendaEvent({ ...editingEvent, ...formData } as AgendaEvento);
+                await updateAgendaEvent({ ...editingEvent, ...formData, dataInicio: novaDataInicio, dataFim: novaDataFim } as AgendaEvento);
             } else {
                 await addAgendaEvent({
                     ...formData,
+                    dataInicio: novaDataInicio,
+                    dataFim: novaDataFim,
                     id: '',
                     origemModulo: 'MANUAL',
                     criadoAutomatico: false,
@@ -47,6 +90,13 @@ export default function Agenda() {
     const openEdit = (evento: AgendaEvento) => {
         setEditingEvent(evento);
         setFormData(evento);
+        if (evento.dataInicio && evento.dataFim) {
+            const di = new Date(evento.dataInicio).getTime();
+            const df = new Date(evento.dataFim).getTime();
+            setDuracaoMinutos(Math.max(30, (df - di) / 60000));
+        } else {
+            setDuracaoMinutos(30);
+        }
         setIsModalOpen(true);
     };
 
@@ -269,20 +319,57 @@ export default function Agenda() {
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
                                     <label className="block text-sm font-medium mb-1">Tipo de Evento</label>
-                                    <input required placeholder="Ex: Reunião, Visita" value={formData.tipoEvento || ''} onChange={e => setFormData({ ...formData, tipoEvento: e.target.value })} className="w-full p-2 border rounded" />
+                                    <input list="tipo-evento-options" required placeholder="Ex: Reunião Presencial" value={formData.tipoEvento || ''} onChange={e => setFormData({ ...formData, tipoEvento: e.target.value })} className="w-full p-2 border rounded" />
+                                    <datalist id="tipo-evento-options">
+                                        <option value="Reunião Presencial" />
+                                        <option value="Videoconferência" />
+                                        <option value="Visita Técnica" />
+                                        <option value="Vistoria" />
+                                        <option value="Fechamento de Contrato" />
+                                        <option value="Acompanhamento de Obra" />
+                                    </datalist>
                                 </div>
-                                <div>
-                                    <label className="block text-sm font-medium mb-1">Data/Hora</label>
-                                    <input required type="datetime-local" value={formData.dataInicio ? formData.dataInicio.slice(0, 16) : ''} onChange={e => setFormData({ ...formData, dataInicio: new Date(e.target.value).toISOString() })} className="w-full p-2 border rounded" />
+                                <div className="grid grid-cols-2 gap-2">
+                                    <div>
+                                        <label className="block text-sm font-medium mb-1">Início (Horário)</label>
+                                        <input required type="datetime-local" step="1800" value={getLocalString(formData.dataInicio)} onChange={e => {
+                                            // Ao mudar local, converte para ISO UTC e injeta
+                                            const v = e.target.value;
+                                            if (v) {
+                                                const dt = new Date(v);
+                                                // Arredondar para o bloco de 30 min mais proximo para forçar step programático caso browser não respeite
+                                                const mins = dt.getMinutes();
+                                                dt.setMinutes(mins < 15 ? 0 : (mins < 45 ? 30 : 60));
+                                                setFormData({ ...formData, dataInicio: dt.toISOString() });
+                                            }
+                                        }} className="w-full p-2 border rounded" />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium mb-1">Duração</label>
+                                        <select value={duracaoMinutos} onChange={e => setDuracaoMinutos(Number(e.target.value))} className="w-full p-2 border rounded">
+                                            <option value={30}>30 min</option>
+                                            <option value={60}>1 hora</option>
+                                            <option value={90}>1h 30m</option>
+                                            <option value={120}>2 horas</option>
+                                            <option value={180}>3 horas</option>
+                                            <option value={240}>4 horas</option>
+                                        </select>
+                                    </div>
                                 </div>
                             </div>
                             <div>
                                 <label className="block text-sm font-medium mb-1">Responsável</label>
-                                <input value={formData.responsavel || ''} onChange={e => setFormData({ ...formData, responsavel: e.target.value })} className="w-full p-2 border rounded" />
+                                <select value={formData.responsavel || ''} onChange={e => setFormData({ ...formData, responsavel: e.target.value })} className="w-full p-2 border rounded">
+                                    <option value="">Selecione um funcionário...</option>
+                                    <option value="Eu Mesm(a)">Eu Mesm(a)</option>
+                                    {teamMembers.map(tm => (
+                                        <option key={tm.id} value={tm.name}>{tm.name} - {tm.role}</option>
+                                    ))}
+                                </select>
                             </div>
                             <div>
                                 <label className="block text-sm font-medium mb-1">Descrição</label>
-                                <textarea rows={3} value={formData.descricao || ''} onChange={e => setFormData({ ...formData, descricao: e.target.value })} className="w-full p-2 border rounded" />
+                                <textarea rows={3} value={formData.descricao || ''} onChange={e => setFormData({ ...formData, descricao: e.target.value })} className="w-full p-2 border rounded" placeholder="Anotações do evento..." />
                             </div>
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
