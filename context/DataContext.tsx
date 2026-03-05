@@ -915,7 +915,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       // Dispara Notificação Global (Sininho)
       addNotification({
         title: 'Proposta Aprovada! 🎉',
-        message: `A proposta do cliente ${proposal.clientName} foi aprovada. Valor total: R$ ${proposal.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}.`,
+        message: `A proposta do cliente ${proposal.clientName} foi aprovada. Valor total: R$ ${(proposal.total || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}.`,
         type: 'success',
         is_read: false
       });
@@ -926,7 +926,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           id: '',
           type: 'Receita',
           description: `Receita Ref. Proposta #${proposal.id}`,
-          amount: proposal.total,
+          amount: proposal.total || 0,
           date: proposal.date ? new Date(proposal.date).toISOString() : new Date().toISOString(),
           status: Status.PENDING,
           category: 'Projeto',

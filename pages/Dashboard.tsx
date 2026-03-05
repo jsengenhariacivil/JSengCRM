@@ -175,7 +175,7 @@ const Dashboard: React.FC = () => {
 
   const totalPretensao = useMemo(() => proposals
     .filter(p => p.status === Status.PENDING)
-    .reduce((acc, curr) => acc + curr.total, 0), [proposals]);
+    .reduce((acc, curr) => acc + (curr.total || 0), 0), [proposals]);
 
   const pendingProposalsCount = proposals.filter(p => p.status === Status.PENDING).length;
 
@@ -192,7 +192,7 @@ const Dashboard: React.FC = () => {
 
     return {
       stagnantCount: stagnantList.length,
-      stagnantValue: stagnantList.reduce((acc, curr) => acc + curr.total, 0)
+      stagnantValue: stagnantList.reduce((acc, curr) => acc + (curr.total || 0), 0)
     };
   }, [proposals]);
 
@@ -245,7 +245,7 @@ const Dashboard: React.FC = () => {
           <div>
             <h3 className="text-amber-800 font-bold text-lg tracking-tight">Atenção ao Funil de Vendas</h3>
             <p className="text-amber-700 mt-1 leading-relaxed">
-              Existem <strong>{stagnantCount}</strong> propostas comerciais pendentes de negociação há mais de 7 dias. O valor estagnado no funil representa <strong>R$ {stagnantValue.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>.<br />
+              Existem <strong>{stagnantCount}</strong> propostas comerciais pendentes de negociação há mais de 7 dias. O valor estagnado no funil representa <strong>R$ {(stagnantValue || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>.<br />
               Recomendamos acessar a área de Propostas e realizar um <strong className="text-amber-900 border-b border-amber-900/30">Follow-up</strong> com os clientes para aquecer essas oportunidades.
             </p>
           </div>
