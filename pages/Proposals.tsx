@@ -324,11 +324,11 @@ const PrintPreviewModal = ({ proposal, onClose, clients }: { proposal: Proposal,
 };
 
 // Sub-component for Creating a Proposal
-const CreateProposal = ({ onCancel, onSave }: { onCancel: () => void, onSave: (proposal: Proposal) => void }) => {
+const CreateProposal = ({ onCancel, onSave, initialData }: { onCancel: () => void, onSave: (proposal: Proposal) => void, initialData?: Proposal }) => {
   const { clients, services, sinapiDatabase } = useData();
-  const [selectedClient, setSelectedClient] = useState('');
-  const [validityDate, setValidityDate] = useState(new Date().toISOString().split('T')[0]);
-  const [bdi, setBdi] = useState<number>(20);
+  const [selectedClient, setSelectedClient] = useState(initialData?.clientId || '');
+  const [validityDate, setValidityDate] = useState(initialData?.date ? new Date(initialData.date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]);
+  const [bdi, setBdi] = useState<number>(initialData?.bdi !== undefined ? initialData.bdi : 20);
   const [proposalSinapiState, setProposalSinapiState] = useState('SP');
   const [proposalSinapiDeson, setProposalSinapiDeson] = useState(false);
   const [proposalSinapiType, setProposalSinapiType] = useState('AMBOS');
@@ -336,7 +336,7 @@ const CreateProposal = ({ onCancel, onSave }: { onCancel: () => void, onSave: (p
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const [etapas, setEtapas] = useState<any[]>([
+  const [etapas, setEtapas] = useState<any[]>(initialData?.etapas || [
     { id: `etapa_${Date.now()}`, name: "1. SERVIÇOS PRELIMINARES", order: 1, items: [] }
   ]);
 
@@ -737,11 +737,11 @@ const CreateProposal = ({ onCancel, onSave }: { onCancel: () => void, onSave: (p
     const total = calculateTotal();
 
     const newProposal: Proposal = {
-      id: Date.now().toString(),
+      id: initialData?.id || Date.now().toString(),
       clientId: selectedClient,
       clientName: clients.find(c => c.id === selectedClient)?.name || '',
       date: new Date().toISOString(),
-      status: Status.PENDING,
+      status: initialData?.status || Status.PENDING,
       total: total,
       bdi: bdi,
       etapas: etapas.map((e, idx) => ({
@@ -1095,17 +1095,42 @@ const CreateProposal = ({ onCancel, onSave }: { onCancel: () => void, onSave: (p
 
 const Proposals: React.FC<ProposalsProps> = ({ viewMode = 'list', filterStatus }) => {
   const navigate = useNavigate();
-  const { proposals, addProposal, updateProposalStatus, clients } = useData();
+  const { proposals, addProposal, updateProposal, deleteProposal, updateProposalStatus, clients } = useData();
   const [isCreating, setIsCreating] = useState(viewMode === 'create');
+  const [editingProposal, setEditingProposal] = useState<Proposal | null>(null);
   const [previewProposal, setPreviewProposal] = useState<Proposal | null>(null);
 
   useEffect(() => {
     setIsCreating(viewMode === 'create');
+    if (viewMode !== 'create') setEditingProposal(null);
   }, [viewMode]);
 
-  const handleSaveProposal = async (newProposal: Proposal) => {
-    await addProposal(newProposal);
+  const handleCreateNew = () => {
+    setEditingProposal(null);
+    setIsCreating(true);
+    navigate('/propostas/nova');
+  };
+
+  const handleEdit = (proposal: Proposal) => {
+    setEditingProposal(proposal);
+    setIsCreating(true);
+  };
+
+  const handleDelete = async (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (window.confirm("Atenção! Tem certeza de que deseja EXCLUIR esta proposta? Esta ação não pode ser desfeita.")) {
+      await deleteProposal(id);
+    }
+  };
+
+  const handleSaveProposal = async (savedProposal: Proposal) => {
+    if (editingProposal) {
+      await updateProposal(savedProposal);
+    } else {
+      await addProposal(savedProposal);
+    }
     setIsCreating(false);
+    setEditingProposal(null);
     navigate('/propostas');
   };
 
@@ -1140,7 +1165,7 @@ const Proposals: React.FC<ProposalsProps> = ({ viewMode = 'list', filterStatus }
               </p>
             </div>
             <button
-              onClick={() => navigate('/propostas/nova')}
+              onClick={handleCreateNew}
               className="flex items-center space-x-2 px-4 py-2 bg-[#c79229] text-[#181418] font-bold rounded-lg hover:bg-[#a67922] shadow-sm transition-colors"
             >
               <Plus size={18} />
@@ -1184,6 +1209,22 @@ const Proposals: React.FC<ProposalsProps> = ({ viewMode = 'list', filterStatus }
                       <Printer size={18} />
                     </button>
 
+                    <button
+                      onClick={() => handleEdit(proposal)}
+                      title="Editar Proposta"
+                      className="p-2 text-blue-500 hover:text-blue-700 border border-blue-200 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors shadow-sm"
+                    >
+                      <Edit2 size={18} />
+                    </button>
+
+                    <button
+                      onClick={(e) => handleDelete(proposal.id, e)}
+                      title="Excluir Proposta"
+                      className="p-2 text-red-500 hover:text-red-700 border border-red-200 bg-red-50 rounded-lg hover:bg-red-100 transition-colors shadow-sm"
+                    >
+                      <Trash2 size={18} />
+                    </button>
+
                     {proposal.status === Status.PENDING ? (
                       <button
                         onClick={() => handleApprove(proposal.id)}
@@ -1207,7 +1248,8 @@ const Proposals: React.FC<ProposalsProps> = ({ viewMode = 'list', filterStatus }
         </>
       ) : (
         <CreateProposal
-          onCancel={() => navigate('/propostas')}
+          initialData={editingProposal || undefined}
+          onCancel={() => { setIsCreating(false); setEditingProposal(null); navigate('/propostas'); }}
           onSave={handleSaveProposal}
         />
       )}

@@ -34,8 +34,8 @@ const StatCard = ({ title, value, subtext, icon: Icon, trend }: { title: string,
         <h3 className="text-2xl font-bold text-[#181418]">{value}</h3>
       </div>
       <div className={`p-3 rounded-lg ${trend === 'down' ? 'bg-red-50 text-red-600' :
-          trend === 'brand' ? 'bg-[#181418] text-[#c79229]' :
-            'bg-[#c79229]/10 text-[#c79229]'
+        trend === 'brand' ? 'bg-[#181418] text-[#c79229]' :
+          'bg-[#c79229]/10 text-[#c79229]'
         }`}>
         <Icon size={24} />
       </div>
@@ -173,6 +173,12 @@ const Dashboard: React.FC = () => {
     .filter(f => f.type === 'Receita') // Removido filtro de Status.PAID
     .reduce((acc, curr) => acc + curr.amount, 0), [financials]);
 
+  const totalPretensao = useMemo(() => proposals
+    .filter(p => p.status === Status.PENDING)
+    .reduce((acc, curr) => acc + curr.total, 0), [proposals]);
+
+  const pendingProposalsCount = proposals.filter(p => p.status === Status.PENDING).length;
+
   const activeProjects = projects.filter(p => p.status === Status.IN_PROGRESS).length;
 
   // --- AGENDA STATS ---
@@ -217,7 +223,7 @@ const Dashboard: React.FC = () => {
       </div>
 
       {/* LINHA 1: KPIs Principais */}
-      <div className="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-5 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-3 2xl:grid-cols-6 gap-6">
         <StatCard
           title="Faturamento (Lançado)"
           value={`R$ ${totalRevenue.toLocaleString()}`}
@@ -226,10 +232,17 @@ const Dashboard: React.FC = () => {
           trend="brand"
         />
         <StatCard
+          title="Pretensão Comercial"
+          value={`R$ ${totalPretensao.toLocaleString()}`}
+          subtext={`${pendingProposalsCount} propostas pendentes`}
+          icon={Target}
+          trend="neutral"
+        />
+        <StatCard
           title="Taxa de Conversão"
           value={`${proposalStats.conversionRate}%`}
           subtext={`${proposalStats.data.find(d => d.name === 'Aprovadas')?.value || 0} propostas fechadas`}
-          icon={Target}
+          icon={Activity}
           trend="up"
         />
         <StatCard

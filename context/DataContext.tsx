@@ -45,7 +45,9 @@ interface DataContextType {
 
   proposals: Proposal[];
   addProposal: (proposal: Proposal) => Promise<void>;
+  updateProposal: (proposal: Proposal) => Promise<void>;
   updateProposalStatus: (id: string, status: Status) => Promise<void>;
+  deleteProposal: (id: string) => Promise<void>;
 
   suppliers: Supplier[];
   addSupplier: (supplier: Supplier) => Promise<void>;
@@ -716,6 +718,22 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
       setProposals(prev => [{ ...proposal, id: proposalData.id }, ...prev]);
 
+      // Integração Financeira Automática
+      if (proposal.status === Status.APPROVED) {
+        const jaExiste = financials.find(f => f.description === `Receita Ref. Proposta #${proposalData.id}`);
+        if (!jaExiste) {
+          await addFinancialRecord({
+            id: '',
+            type: 'Receita',
+            description: `Receita Ref. Proposta #${proposalData.id}`,
+            amount: proposal.total,
+            date: proposal.date ? new Date(proposal.date).toISOString() : new Date().toISOString(),
+            status: Status.PENDING,
+            category: 'Projeto',
+          });
+        }
+      }
+
       // Sincronizar com a Agenda
       if (proposal.date) {
         const dataVencimento = new Date(proposal.date.length === 10 ? `${proposal.date}T09:00:00` : proposal.date);
@@ -738,6 +756,124 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const updateProposalStatus = async (id: string, status: Status) => {
     await supabase.from('proposals').update({ status }).eq('id', id);
     setProposals(prev => prev.map(p => p.id === id ? { ...p, status } : p));
+
+    // Integração Financeira Automática
+    if (status === Status.APPROVED) {
+      const proposal = proposals.find(p => p.id === id);
+      if (proposal) {
+        const jaExiste = financials.find(f => f.description === `Receita Ref. Proposta #${proposal.id}`);
+        if (!jaExiste) {
+          await addFinancialRecord({
+            id: '',
+            type: 'Receita',
+            description: `Receita Ref. Proposta #${proposal.id}`,
+            amount: proposal.total,
+            date: proposal.date ? new Date(proposal.date).toISOString() : new Date().toISOString(),
+            status: Status.PENDING,
+            category: 'Projeto',
+          });
+        }
+      }
+    }
+  };
+
+  const updateProposal = async (proposal: Proposal) => {
+    if (!proposal.id) return;
+
+    // Atualiza cabeçalho
+    const { error: proposalError } = await supabase.from('proposals').update({
+      client_id: proposal.clientId,
+      total: proposal.total,
+      bdi: proposal.bdi || 0,
+      status: proposal.status,
+      date: proposal.date
+    }).eq('id', proposal.id);
+
+    if (proposalError) {
+      console.error('Error updating proposal:', proposalError);
+      alert('Erro Fatal ao atualizar Proposta: ' + proposalError.message);
+      return;
+    }
+
+    // Deleta árvore antiga (graças ao CASCADE do BD ou faremos manual abaixo para segurança)
+    await supabase.from('proposal_etapas').delete().eq('proposal_id', proposal.id);
+    await supabase.from('proposal_items').delete().eq('proposal_id', proposal.id);
+
+    // Reinsere a árvore atualizada
+    if (proposal.etapas && proposal.etapas.length > 0) {
+      for (const etapa of proposal.etapas) {
+        const { data: etapaData, error: etapaError } = await supabase.from('proposal_etapas').insert([{
+          proposal_id: proposal.id,
+          name: etapa.name,
+          order: etapa.order
+        }]).select().single();
+
+        if (etapaError) {
+          console.error('Erro ao salvar etapa na atualização:', etapaError);
+          continue;
+        }
+
+        if (etapaData) {
+          const insertItemsRecursive = async (items: ProposalItem[], parentId: string | null = null) => {
+            for (const item of items) {
+              const { data: itemData, error: itemError } = await supabase.from('proposal_items').insert([{
+                proposal_id: proposal.id,
+                etapa_id: etapaData.id,
+                parent_id: parentId,
+                service_id: item.serviceId && item.serviceId.length >= 32 ? item.serviceId : null,
+                code: item.code || (item.serviceId && item.serviceId.length < 32 ? item.serviceId : ''),
+                banco: item.banco || 'PROPRIO',
+                name: item.name,
+                type: item.type || 'INSUMO',
+                origin: item.origin || 'BASE',
+                version: item.version || 1,
+                quantity: item.quantity,
+                unit_price: item.unitPrice,
+                unit: item.unit || 'un',
+                order: item.order || 0
+              }]).select().single();
+
+              if (!itemError && itemData && item.children && item.children.length > 0) {
+                await insertItemsRecursive(item.children, itemData.id);
+              }
+            }
+          };
+          if (etapa.items) {
+            await insertItemsRecursive(etapa.items);
+          }
+        }
+      }
+    }
+
+    setProposals(prev => prev.map(p => p.id === proposal.id ? proposal : p));
+
+    // Integração Financeira Automática
+    if (proposal.status === Status.APPROVED) {
+      const jaExiste = financials.find(f => f.description === `Receita Ref. Proposta #${proposal.id}`);
+      if (!jaExiste) {
+        await addFinancialRecord({
+          id: '',
+          type: 'Receita',
+          description: `Receita Ref. Proposta #${proposal.id}`,
+          amount: proposal.total,
+          date: proposal.date ? new Date(proposal.date).toISOString() : new Date().toISOString(),
+          status: Status.PENDING,
+          category: 'Projeto',
+        });
+      }
+    }
+  };
+
+  const deleteProposal = async (id: string) => {
+    const { error } = await supabase.from('proposals').delete().eq('id', id);
+    if (!error) {
+      setProposals(prev => prev.filter(p => p.id !== id));
+      // Apagar da Agenda também, se existir
+      supabase.from('agenda_eventos').delete().eq('id_referencia', id).then();
+    } else {
+      console.error('Erro ao excluir proposta:', error);
+      alert('Erro ao excluir proposta: ' + error.message);
+    }
   };
 
   // --- SUPPLIERS ---
@@ -1008,7 +1144,11 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       projects, addProject, updateProject, deleteProject,
       financials, addFinancialRecord, updateFinancialRecord, deleteFinancialRecord,
       services, addService, updateService, deleteService,
-      proposals, addProposal, updateProposalStatus,
+      proposals,
+      addProposal,
+      updateProposal,
+      updateProposalStatus,
+      deleteProposal,
       suppliers, addSupplier, updateSupplier, deleteSupplier,
       teamMembers, addTeamMember, updateTeamMember, deleteTeamMember,
       payments, addPayment, updatePayment, deletePayment,
