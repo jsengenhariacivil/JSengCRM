@@ -57,12 +57,12 @@ const NotificationBell = ({ isDarkBg = false }: { isDarkBg?: boolean }) => {
   const unreadCount = notifications.filter(n => !n.is_read).length;
 
   return (
-    <div className="relative z-50">
+    <div className="relative z-30">
       <button
         onClick={() => setIsOpen(!isOpen)}
         className={`relative p-2 transition-colors rounded-full flex items-center justify-center ${isDarkBg
-            ? 'text-slate-300 hover:text-[#c79229] hover:bg-white/5'
-            : 'text-slate-500 hover:text-[#c79229] hover:bg-slate-200/50 bg-white shadow-sm border border-slate-200'
+          ? 'text-slate-300 hover:text-[#c79229] hover:bg-white/5'
+          : 'text-slate-500 hover:text-[#c79229] hover:bg-slate-200/50 bg-white shadow-sm border border-slate-200'
           }`}
       >
         <Bell size={isDarkBg ? 24 : 20} />
@@ -348,7 +348,8 @@ const Layout: React.FC = () => {
 
         {/* Content Scrollable Area */}
         <main className="flex-1 overflow-y-auto p-4 md:p-8 bg-slate-50 relative">
-          <div className="hidden md:flex absolute top-6 right-8 z-40 items-center space-x-4">
+          {/* Desktop Top Bar com Sino */}
+          <div className="hidden md:flex justify-end mb-2">
             <NotificationBell isDarkBg={false} />
           </div>
           <Outlet />

@@ -823,17 +823,30 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     if (status === Status.APPROVED) {
       const proposal = proposals.find(p => p.id === id);
       if (proposal) {
+        const safeTotal = proposal.total || 0;
         const jaExiste = financials.find(f => f.description === `Receita Ref. Proposta #${proposal.id}`);
-        if (!jaExiste) {
+        if (!jaExiste && safeTotal > 0) {
           await addFinancialRecord({
             id: '',
             type: 'Receita',
             description: `Receita Ref. Proposta #${proposal.id}`,
-            amount: proposal.total,
+            amount: safeTotal,
             date: proposal.date ? new Date(proposal.date).toISOString() : new Date().toISOString(),
             status: Status.PENDING,
             category: 'Projeto',
           });
+        }
+
+        // Dispara Notificação
+        try {
+          await addNotification({
+            title: 'Proposta Aprovada! 🎉',
+            message: `Proposta #${proposal.id.substring(0, 8)} do cliente ${proposal.clientName} aprovada. Valor: R$ ${safeTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}.`,
+            type: 'success',
+            is_read: false
+          });
+        } catch (e) {
+          console.error('Erro ao criar notificação:', e);
         }
       }
     }
@@ -911,22 +924,27 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     // Integração Financeira e Central de Notificações
     if (proposal.status === Status.APPROVED) {
+      const safeTotal = proposal.total || 0;
 
       // Dispara Notificação Global (Sininho)
-      addNotification({
-        title: 'Proposta Aprovada! 🎉',
-        message: `A proposta do cliente ${proposal.clientName} foi aprovada. Valor total: R$ ${(proposal.total || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}.`,
-        type: 'success',
-        is_read: false
-      });
+      try {
+        await addNotification({
+          title: 'Proposta Atualizada ✅',
+          message: `Proposta do cliente ${proposal.clientName} atualizada. Valor: R$ ${safeTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}.`,
+          type: 'info',
+          is_read: false
+        });
+      } catch (e) {
+        console.error('Erro ao criar notificação:', e);
+      }
 
       const jaExiste = financials.find(f => f.description === `Receita Ref. Proposta #${proposal.id}`);
-      if (!jaExiste) {
+      if (!jaExiste && safeTotal > 0) {
         await addFinancialRecord({
           id: '',
           type: 'Receita',
           description: `Receita Ref. Proposta #${proposal.id}`,
-          amount: proposal.total || 0,
+          amount: safeTotal,
           date: proposal.date ? new Date(proposal.date).toISOString() : new Date().toISOString(),
           status: Status.PENDING,
           category: 'Projeto',

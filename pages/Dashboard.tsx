@@ -129,19 +129,24 @@ const Dashboard: React.FC = () => {
     const serviceMap: Record<string, number> = {};
 
     proposals
-      .filter(p => p.status !== Status.REJECTED) // Inclui Aprovadas E Pendentes (pipeline de vendas)
+      .filter(p => p.status !== Status.REJECTED)
       .forEach(p => {
-        p.items.forEach(item => {
-          // Agrupa por nome do serviço (simplificado)
-          const serviceName = item.name.split('-')[0].trim(); // Pega a primeira parte do nome se houver traço
-          serviceMap[serviceName] = (serviceMap[serviceName] || 0) + (item.quantity * item.unitPrice);
+        // Extrai items de etapas (nova estrutura) ou do campo items legado
+        const allItems = (p.etapas && p.etapas.length > 0)
+          ? p.etapas.flatMap(e => e.items || [])
+          : (p.items || []);
+
+        allItems.forEach(item => {
+          if (!item || !item.name) return;
+          const serviceName = item.name.split('-')[0].trim();
+          serviceMap[serviceName] = (serviceMap[serviceName] || 0) + ((item.quantity || 0) * (item.unitPrice || 0));
         });
       });
 
     return Object.entries(serviceMap)
       .map(([name, value]) => ({ name, value }))
       .sort((a, b) => b.value - a.value)
-      .slice(0, 5); // Top 5 Serviços
+      .slice(0, 5);
   }, [proposals]);
 
   // --- 5. PERFORMANCE DE EQUIPE (Baseado em Pagamentos/Volume) ---
@@ -256,7 +261,7 @@ const Dashboard: React.FC = () => {
       <div className="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-3 2xl:grid-cols-6 gap-6">
         <StatCard
           title="Faturamento (Lançado)"
-          value={`R$ ${totalRevenue.toLocaleString()}`}
+          value={`R$ ${(totalRevenue || 0).toLocaleString()}`}
           subtext="Receita total (Previsto + Realizado)"
           icon={TrendingUp}
           trend="brand"
