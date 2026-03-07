@@ -1,7 +1,7 @@
 
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
-import { Client, Project, FinancialRecord, Service, Proposal, Supplier, TeamMember, PaymentRecord, Status, UserData, UserPermissions } from '../types';
+import { Client, Project, FinancialRecord, Service, Proposal, Supplier, TeamMember, PaymentRecord, Status, UserData, UserPermissions, Measurement, DailyReport, ProjectTask, ProjectMilestone } from '../types';
 
 interface DataContextType {
   // Configurações da Empresa
@@ -62,6 +62,24 @@ interface DataContextType {
   addUser: (user: UserData) => Promise<void>;
   updateUser: (user: UserData) => Promise<void>;
   deleteUser: (id: number) => Promise<void>;
+
+  // Engenharia (Fase 2)
+  measurements: Measurement[];
+  addMeasurement: (measurement: Measurement) => Promise<void>;
+  dailyReports: DailyReport[];
+  addDailyReport: (report: DailyReport) => Promise<void>;
+  updateDailyReport: (report: DailyReport) => Promise<void>;
+
+  // Planejamento (Fase 2 - Etapa 2)
+  projectTasks: ProjectTask[];
+  addProjectTask: (task: ProjectTask) => Promise<void>;
+  updateProjectTask: (task: ProjectTask) => Promise<void>;
+  deleteProjectTask: (id: string) => Promise<void>;
+
+  projectMilestones: ProjectMilestone[];
+  addProjectMilestone: (milestone: ProjectMilestone) => Promise<void>;
+  updateProjectMilestone: (milestone: ProjectMilestone) => Promise<void>;
+  deleteProjectMilestone: (id: string) => Promise<void>;
 
   loading: boolean;
   refreshData: () => Promise<void>;
@@ -135,6 +153,10 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [payments, setPayments] = useState<PaymentRecord[]>([]);
   const [users, setUsers] = useState<UserData[]>([]);
+  const [measurements, setMeasurements] = useState<Measurement[]>([]);
+  const [dailyReports, setDailyReports] = useState<DailyReport[]>([]);
+  const [projectTasks, setProjectTasks] = useState<ProjectTask[]>([]);
+  const [projectMilestones, setProjectMilestones] = useState<ProjectMilestone[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Função para carregar todos os dados
@@ -274,6 +296,69 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             editProjects: u.edit_projects,
             manageSettings: u.manage_settings
           }
+        })));
+      }
+
+      // Carregar Medições
+      const { data: measurementsData } = await supabase.from('measurements').select('*').order('date', { ascending: false });
+      if (measurementsData) {
+        setMeasurements(measurementsData.map(m => ({
+          id: m.id,
+          projectId: m.project_id,
+          description: m.description,
+          date: m.date,
+          percentage: parseFloat(m.percentage),
+          value: parseFloat(m.value),
+          status: m.status as Status
+        })));
+      }
+
+      // Carregar RDOs
+      const { data: rdosData } = await supabase.from('daily_reports').select('*, daily_report_images(*)').order('date', { ascending: false });
+      if (rdosData) {
+        setDailyReports(rdosData.map(r => ({
+          id: r.id,
+          projectId: r.project_id,
+          date: r.date,
+          weatherMorning: r.weather_morning,
+          weatherAfternoon: r.weather_afternoon,
+          laborTotal: r.labor_total,
+          equipmentNotes: r.equipment_notes,
+          activitiesNotes: r.activities_notes,
+          occurrencesNotes: r.occurrences_notes,
+          createdAt: r.created_at,
+          images: r.daily_report_images?.map((img: any) => ({
+            id: img.id,
+            reportId: img.report_id,
+            url: img.url,
+            caption: img.caption
+          }))
+        })));
+      }
+
+      // Carregar Tarefas
+      const { data: tasksData } = await supabase.from('project_tasks').select('*');
+      if (tasksData) {
+        setProjectTasks(tasksData.map(t => ({
+          id: t.id,
+          projectId: t.project_id,
+          title: t.title,
+          startDate: t.start_date,
+          endDate: t.end_date,
+          progress: t.progress,
+          dependencies: t.dependencies
+        })));
+      }
+
+      // Carregar Marcos
+      const { data: milestonesData } = await supabase.from('project_milestones').select('*');
+      if (milestonesData) {
+        setProjectMilestones(milestonesData.map(m => ({
+          id: m.id,
+          projectId: m.project_id,
+          title: m.title,
+          date: m.date,
+          isCompleted: m.is_completed
         })));
       }
 
@@ -598,6 +683,135 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setUsers(prev => prev.filter(u => u.id !== id));
   };
 
+  // --- MEASUREMENTS ---
+  const addMeasurement = async (measurement: Measurement) => {
+    const { data, error } = await supabase.from('measurements').insert([{
+      project_id: measurement.projectId,
+      description: measurement.description,
+      date: measurement.date,
+      percentage: measurement.percentage,
+      value: measurement.value,
+      status: measurement.status
+    }]).select().single();
+
+    if (!error && data) {
+      setMeasurements(prev => [{ ...measurement, id: data.id }, ...prev]);
+
+      // Atualizar progresso da obra
+      const project = projects.find(p => p.id === measurement.projectId);
+      if (project) {
+        const newProgress = Math.min(100, (project.progress || 0) + measurement.percentage);
+        await updateProject({ ...project, progress: newProgress });
+      }
+
+      // Adicionar registro financeiro (Receita)
+      await addFinancialRecord({
+        id: `M-${data.id}`,
+        type: 'Receita',
+        description: `Medição: ${measurement.description} - Obra: ${project?.title || measurement.projectId}`,
+        amount: measurement.value,
+        date: measurement.date,
+        status: measurement.status,
+        category: 'Obra',
+        projectId: measurement.projectId
+      });
+    }
+  };
+
+  // --- DAILY REPORTS ---
+  const addDailyReport = async (report: DailyReport) => {
+    const { data, error } = await supabase.from('daily_reports').insert([{
+      project_id: report.projectId,
+      date: report.date,
+      weather_morning: report.weatherMorning,
+      weather_afternoon: report.weatherAfternoon,
+      labor_total: report.laborTotal,
+      equipment_notes: report.equipmentNotes,
+      activities_notes: report.activitiesNotes,
+      occurrences_notes: report.occurrencesNotes
+    }]).select().single();
+
+    if (!error && data) {
+      setDailyReports(prev => [{ ...report, id: data.id }, ...prev]);
+    }
+  };
+
+  const updateDailyReport = async (report: DailyReport) => {
+    await supabase.from('daily_reports').update({
+      date: report.date,
+      weather_morning: report.weatherMorning,
+      weather_afternoon: report.weatherAfternoon,
+      labor_total: report.laborTotal,
+      equipment_notes: report.equipmentNotes,
+      activities_notes: report.activitiesNotes,
+      occurrences_notes: report.occurrencesNotes
+    }).eq('id', report.id);
+
+    setDailyReports(prev => prev.map(r => r.id === report.id ? report : r));
+  };
+
+  // --- PROJECT TASKS ---
+  const addProjectTask = async (task: ProjectTask) => {
+    const { data, error } = await supabase.from('project_tasks').insert([{
+      project_id: task.projectId,
+      title: task.title,
+      start_date: task.startDate,
+      end_date: task.endDate,
+      progress: task.progress,
+      dependencies: task.dependencies
+    }]).select().single();
+
+    if (!error && data) {
+      setProjectTasks(prev => [...prev, { ...task, id: data.id }]);
+    }
+  };
+
+  const updateProjectTask = async (task: ProjectTask) => {
+    await supabase.from('project_tasks').update({
+      title: task.title,
+      start_date: task.startDate,
+      end_date: task.endDate,
+      progress: task.progress,
+      dependencies: task.dependencies
+    }).eq('id', task.id);
+
+    setProjectTasks(prev => prev.map(t => t.id === task.id ? task : t));
+  };
+
+  const deleteProjectTask = async (id: string) => {
+    await supabase.from('project_tasks').delete().eq('id', id);
+    setProjectTasks(prev => prev.filter(t => t.id !== id));
+  };
+
+  // --- PROJECT MILESTONES ---
+  const addProjectMilestone = async (milestone: ProjectMilestone) => {
+    const { data, error } = await supabase.from('project_milestones').insert([{
+      project_id: milestone.projectId,
+      title: milestone.title,
+      date: milestone.date,
+      is_completed: milestone.isCompleted
+    }]).select().single();
+
+    if (!error && data) {
+      setProjectMilestones(prev => [...prev, { ...milestone, id: data.id }]);
+    }
+  };
+
+  const updateProjectMilestone = async (milestone: ProjectMilestone) => {
+    await supabase.from('project_milestones').update({
+      title: milestone.title,
+      date: milestone.date,
+      is_completed: milestone.isCompleted
+    }).eq('id', milestone.id);
+
+    setProjectMilestones(prev => prev.map(m => m.id === milestone.id ? milestone : m));
+  };
+
+  const deleteProjectMilestone = async (id: string) => {
+    await supabase.from('project_milestones').delete().eq('id', id);
+    setProjectMilestones(prev => prev.filter(m => m.id !== id));
+  };
+
   return (
     <DataContext.Provider value={{
       companyName, setCompanyName,
@@ -615,6 +829,10 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       teamMembers, addTeamMember, updateTeamMember, deleteTeamMember,
       payments, addPayment, updatePayment, deletePayment,
       users, addUser, updateUser, deleteUser,
+      measurements, addMeasurement,
+      dailyReports, addDailyReport, updateDailyReport,
+      projectTasks, addProjectTask, updateProjectTask, deleteProjectTask,
+      projectMilestones, addProjectMilestone, updateProjectMilestone, deleteProjectMilestone,
       loading,
       refreshData
     }}>

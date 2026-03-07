@@ -107,3 +107,56 @@ export interface UserData {
   permissions: UserPermissions;
   password?: string; // Opcional para o mock, em prod seria hash
 }
+
+// --- NOVAS INTERFACES DE ENGENHARIA (FASE 2) ---
+
+export interface Measurement {
+  id: string;
+  projectId: string;
+  description: string;
+  date: string;
+  percentage: number; // Percentual desta medição (ex: 15%)
+  value: number; // Valor financeiro correspondente
+  status: Status;
+}
+
+export interface DailyReport {
+  id: string;
+  projectId: string;
+  date: string;
+  weatherMorning: 'Ensolaorado' | 'Chuva' | 'Nublado' | 'Instável';
+  weatherAfternoon: 'Ensolaorado' | 'Chuva' | 'Nublado' | 'Instável';
+  laborTotal: number;
+  equipmentNotes: string;
+  activitiesNotes: string;
+  occurrencesNotes: string;
+  images?: DailyReportImage[];
+  createdAt: string;
+}
+
+export interface DailyReportImage {
+  id: string;
+  reportId: string;
+  url: string;
+  caption?: string;
+}
+
+// --- NOVAS INTERFACES DE PLANEJAMENTO (ETAPA 2) ---
+
+export interface ProjectTask {
+  id: string;
+  projectId: string;
+  title: string;
+  startDate: string;
+  endDate: string;
+  progress: number;
+  dependencies?: string[];
+}
+
+export interface ProjectMilestone {
+  id: string;
+  projectId: string;
+  title: string;
+  date: string;
+  isCompleted: boolean;
+}

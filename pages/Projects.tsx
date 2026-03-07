@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Plus, MapPin, Calendar, DollarSign, Clock, X, Save, Building, User } from 'lucide-react';
+import { Plus, MapPin, Calendar, DollarSign, Clock, X, Save, Building, User, Ruler, FileText, Sun, Cloud, CloudRain, CloudLightning, Image as ImageIcon } from 'lucide-react';
 import { useData } from '../context/DataContext';
 import { Status, Project } from '../types';
 
@@ -81,6 +81,26 @@ const Projects: React.FC = () => {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
+  const [activeTab, setActiveTab] = useState<'info' | 'measurements' | 'rdo' | 'cronograma'>('info');
+  const { measurements, addMeasurement, dailyReports, addDailyReport, projectTasks, addProjectTask, deleteProjectTask, projectMilestones, addProjectMilestone, deleteProjectMilestone, updateProjectMilestone } = useData();
+
+  // State para novas medições
+  const [newMeasure, setNewMeasure] = useState({ description: '', percentage: 0, date: new Date().toISOString().split('T')[0] });
+
+  // State para novo RDO
+  const [newRDO, setNewRDO] = useState({
+    date: new Date().toISOString().split('T')[0],
+    weatherMorning: 'Ensolaorado' as any,
+    weatherAfternoon: 'Ensolaorado' as any,
+    laborTotal: 0,
+    equipmentNotes: '',
+    activitiesNotes: '',
+    occurrencesNotes: ''
+  });
+
+  // State para novas Tarefas e Marcos (Etapa 2)
+  const [newTask, setNewTask] = useState({ title: '', startDate: '', endDate: '', progress: 0 });
+  const [newMilestone, setNewMilestone] = useState({ title: '', date: '', isCompleted: false });
 
   // Form State
   const [formData, setFormData] = useState<Partial<Project>>({
@@ -123,6 +143,7 @@ const Projects: React.FC = () => {
 
   const handleDetails = (project: Project) => {
     setSelectedProject(project);
+    setActiveTab('info');
     setIsDetailsOpen(true);
   };
 
@@ -366,73 +387,433 @@ const Projects: React.FC = () => {
       {/* DETAILS MODAL */}
       {isDetailsOpen && selectedProject && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-lg overflow-hidden">
-            <div className="flex justify-between items-start p-6 border-b border-slate-100">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-4xl overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="flex justify-between items-start p-6 border-b border-slate-100 bg-slate-50">
               <div>
                 <h3 className="text-xl font-bold text-[#181418]">{selectedProject.title}</h3>
-                <span className={`inline-block mt-2 px-2 py-0.5 rounded text-xs font-semibold bg-[#c79229]/20 text-[#c79229]`}>
-                  {selectedProject.status}
-                </span>
+                <p className="text-sm text-slate-500">{selectedProject.clientName}</p>
               </div>
               <button onClick={() => setIsDetailsOpen(false)} className="text-slate-400 hover:text-slate-600">
                 <X size={20} />
               </button>
             </div>
 
-            <div className="p-6 space-y-4">
-              <div className="flex items-start gap-3">
-                <User className="text-slate-400 mt-1" size={20} />
-                <div>
-                  <p className="text-sm text-slate-500">Cliente</p>
-                  <p className="font-medium text-[#181418]">{selectedProject.clientName}</p>
-                </div>
-              </div>
-
-              <div className="flex items-start gap-3">
-                <MapPin className="text-slate-400 mt-1" size={20} />
-                <div>
-                  <p className="text-sm text-slate-500">Endereço</p>
-                  <p className="font-medium text-[#181418]">{selectedProject.address}</p>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="flex items-start gap-3">
-                  <Calendar className="text-slate-400 mt-1" size={20} />
-                  <div>
-                    <p className="text-sm text-slate-500">Período</p>
-                    <p className="font-medium text-[#181418] text-sm">
-                      {new Date(selectedProject.startDate).toLocaleDateString()} até <br />
-                      {new Date(selectedProject.endDate).toLocaleDateString()}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-3">
-                  <DollarSign className="text-slate-400 mt-1" size={20} />
-                  <div>
-                    <p className="text-sm text-slate-500">Orçamento</p>
-                    <p className="font-medium text-[#181418]">R$ {selectedProject.budget.toLocaleString()}</p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="mt-4">
-                <div className="flex justify-between text-sm mb-1">
-                  <span className="text-slate-500">Progresso</span>
-                  <span className="font-bold text-[#c79229]">{selectedProject.progress}%</span>
-                </div>
-                <div className="w-full bg-slate-100 rounded-full h-2">
-                  <div className="bg-[#c79229] h-2 rounded-full" style={{ width: `${selectedProject.progress}%` }}></div>
-                </div>
-              </div>
+            {/* Tabs Navigation */}
+            <div className="flex border-b border-slate-100 px-6 bg-white">
+              <button
+                onClick={() => setActiveTab('info')}
+                className={`py-4 px-6 text-sm font-bold border-b-2 transition-colors ${activeTab === 'info' ? 'border-[#c79229] text-[#c79229]' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
+              >
+                Informações
+              </button>
+              <button
+                onClick={() => setActiveTab('measurements')}
+                className={`py-4 px-6 text-sm font-bold border-b-2 transition-colors ${activeTab === 'measurements' ? 'border-[#c79229] text-[#c79229]' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
+              >
+                Medições
+              </button>
+              <button
+                onClick={() => setActiveTab('rdo')}
+                className={`py-4 px-6 text-sm font-bold border-b-2 transition-colors ${activeTab === 'rdo' ? 'border-[#c79229] text-[#c79229]' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
+              >
+                RDO
+              </button>
+              <button
+                onClick={() => setActiveTab('cronograma')}
+                className={`py-4 px-6 text-sm font-bold border-b-2 transition-colors ${activeTab === 'cronograma' ? 'border-[#c79229] text-[#c79229]' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
+              >
+                Cronograma
+              </button>
             </div>
 
-            <div className="p-4 bg-slate-50 flex justify-end">
+            <div className="flex-1 overflow-y-auto p-6">
+              {activeTab === 'info' && (
+                <div className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-4">
+                      <div className="flex items-start gap-3">
+                        <User className="text-[#c79229] mt-1" size={20} />
+                        <div>
+                          <p className="text-xs text-slate-400 uppercase font-bold tracking-wider">Cliente</p>
+                          <p className="font-medium text-[#181418]">{selectedProject.clientName}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-start gap-3">
+                        <MapPin className="text-[#c79229] mt-1" size={20} />
+                        <div>
+                          <p className="text-xs text-slate-400 uppercase font-bold tracking-wider">Endereço</p>
+                          <p className="font-medium text-[#181418]">{selectedProject.address}</p>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="space-y-4">
+                      <div className="flex items-start gap-3">
+                        <Calendar className="text-[#c79229] mt-1" size={20} />
+                        <div>
+                          <p className="text-xs text-slate-400 uppercase font-bold tracking-wider">Período</p>
+                          <p className="font-medium text-[#181418]">
+                            {new Date(selectedProject.startDate).toLocaleDateString()} — {new Date(selectedProject.endDate).toLocaleDateString()}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-start gap-3">
+                        <DollarSign className="text-[#c79229] mt-1" size={20} />
+                        <div>
+                          <p className="text-xs text-slate-400 uppercase font-bold tracking-wider">Investimento</p>
+                          <p className="font-medium text-[#181418]">R$ {selectedProject.budget.toLocaleString()}</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="text-sm font-bold text-slate-700">Progresso Geral</span>
+                      <span className="text-sm font-black text-[#c79229]">{selectedProject.progress}%</span>
+                    </div>
+                    <div className="w-full bg-white rounded-full h-3 border border-slate-200">
+                      <div className="bg-[#c79229] h-3 rounded-full transition-all duration-1000 shadow-[0_0_10px_rgba(199,146,41,0.3)]" style={{ width: `${selectedProject.progress}%` }}></div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {activeTab === 'measurements' && (
+                <div className="space-y-6">
+                  {/* Novo Lançamento de Medição */}
+                  <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                    <h4 className="text-sm font-bold text-[#181418] mb-4 flex items-center gap-2">
+                      <Plus size={16} className="text-[#c79229]" /> Novo Lançamento de Medição
+                    </h4>
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                      <div className="md:col-span-2">
+                        <input
+                          type="text"
+                          placeholder="Descrição (ex: Alvenaria 1º Pavimento)"
+                          className="w-full border border-slate-300 rounded-lg p-2 text-sm focus:ring-1 focus:ring-[#c79229] outline-none"
+                          value={newMeasure.description}
+                          onChange={e => setNewMeasure({ ...newMeasure, description: e.target.value })}
+                        />
+                      </div>
+                      <div className="relative">
+                        <input
+                          type="number"
+                          placeholder="%"
+                          className="w-full border border-slate-300 rounded-lg p-2 pr-6 text-sm focus:ring-1 focus:ring-[#c79229] outline-none"
+                          value={newMeasure.percentage || ''}
+                          onChange={e => setNewMeasure({ ...newMeasure, percentage: parseFloat(e.target.value) })}
+                        />
+                        <span className="absolute right-3 top-2 text-slate-400 text-sm">%</span>
+                      </div>
+                      <button
+                        onClick={async () => {
+                          if (!newMeasure.description || !newMeasure.percentage) return;
+                          const value = (selectedProject.budget * newMeasure.percentage) / 100;
+                          await addMeasurement({
+                            ...newMeasure,
+                            id: Date.now().toString(),
+                            projectId: selectedProject.id,
+                            value,
+                            status: Status.PAID
+                          });
+                          setNewMeasure({ description: '', percentage: 0, date: new Date().toISOString().split('T')[0] });
+                        }}
+                        className="bg-[#c79229] text-[#181418] font-bold rounded-lg py-2 hover:bg-[#a67922] shadow-sm text-sm"
+                      >
+                        Lançar Medição
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Histórico de Medições */}
+                  <div className="space-y-3">
+                    <h4 className="text-sm font-bold text-slate-500 uppercase tracking-wider">Histórico de Execução</h4>
+                    <div className="border border-slate-100 rounded-xl overflow-hidden bg-white">
+                      <table className="w-full text-left text-sm">
+                        <thead className="bg-slate-50 text-slate-400 font-bold uppercase text-[10px]">
+                          <tr>
+                            <th className="px-4 py-3">Descrição</th>
+                            <th className="px-4 py-3">Data</th>
+                            <th className="px-4 py-3 text-center">% Obra</th>
+                            <th className="px-4 py-3 text-right">Valor (R$)</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-50">
+                          {measurements.filter(m => m.projectId === selectedProject.id).length > 0 ? (
+                            measurements.filter(m => m.projectId === selectedProject.id).map(m => (
+                              <tr key={m.id} className="hover:bg-slate-50 transition-colors">
+                                <td className="px-4 py-3 font-medium text-[#181418]">{m.description}</td>
+                                <td className="px-4 py-3 text-slate-500">{new Date(m.date).toLocaleDateString()}</td>
+                                <td className="px-4 py-3 text-center">
+                                  <span className="bg-[#c79229]/10 text-[#c79229] px-2 py-0.5 rounded-full font-bold">+{m.percentage}%</span>
+                                </td>
+                                <td className="px-4 py-3 text-right font-medium text-green-600">R$ {m.value.toLocaleString()}</td>
+                              </tr>
+                            ))
+                          ) : (
+                            <tr>
+                              <td colSpan={4} className="px-4 py-8 text-center text-slate-400 italic">Nenhuma medição realizada nesta obra.</td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {activeTab === 'rdo' && (
+                <div className="space-y-6">
+                  {/* Formulário RDO Simplificado */}
+                  <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                    <h4 className="text-sm font-bold text-[#181418] mb-4 flex items-center gap-2">
+                      <FileText size={16} className="text-[#c79229]" /> Novo Diário de Obra (RDO)
+                    </h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-3">
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <label className="text-[10px] font-bold text-slate-400 uppercase">Clima (Manhã)</label>
+                            <select
+                              className="w-full border border-slate-300 rounded-lg p-2 text-sm outline-none"
+                              value={newRDO.weatherMorning}
+                              onChange={e => setNewRDO({ ...newRDO, weatherMorning: e.target.value as any })}
+                            >
+                              <option value="Ensolaorado">☀️ Sol</option>
+                              <option value="Chuva">🌧️ Chuva</option>
+                              <option value="Nublado">☁️ Nublado</option>
+                              <option value="Instável">🌦️ Instável</option>
+                            </select>
+                          </div>
+                          <div>
+                            <label className="text-[10px] font-bold text-slate-400 uppercase">Clima (Tarde)</label>
+                            <select
+                              className="w-full border border-slate-300 rounded-lg p-2 text-sm outline-none"
+                              value={newRDO.weatherAfternoon}
+                              onChange={e => setNewRDO({ ...newRDO, weatherAfternoon: e.target.value as any })}
+                            >
+                              <option value="Ensolaorado">☀️ Sol</option>
+                              <option value="Chuva">🌧️ Chuva</option>
+                              <option value="Nublado">☁️ Nublado</option>
+                              <option value="Instável">🌦️ Instável</option>
+                            </select>
+                          </div>
+                        </div>
+                        <div>
+                          <label className="text-[10px] font-bold text-slate-400 uppercase">Efetivo de Pessoal</label>
+                          <input
+                            type="number"
+                            className="w-full border border-slate-300 rounded-lg p-2 text-sm outline-none"
+                            placeholder="Fretistas, Serventes, etc."
+                            value={newRDO.laborTotal || ''}
+                            onChange={e => setNewRDO({ ...newRDO, laborTotal: parseInt(e.target.value) })}
+                          />
+                        </div>
+                      </div>
+                      <div className="space-y-3">
+                        <div>
+                          <label className="text-[10px] font-bold text-slate-400 uppercase">Atividades Executadas</label>
+                          <textarea
+                            className="w-full border border-slate-300 rounded-lg p-2 text-sm outline-none h-24 resize-none"
+                            placeholder="Descreva o que foi feito hoje..."
+                            value={newRDO.activitiesNotes}
+                            onChange={e => setNewRDO({ ...newRDO, activitiesNotes: e.target.value })}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                    <div className="mt-4 flex justify-end">
+                      <button
+                        onClick={async () => {
+                          if (!newRDO.activitiesNotes) return;
+                          await addDailyReport({
+                            ...newRDO,
+                            id: Date.now().toString(),
+                            projectId: selectedProject.id,
+                            createdAt: new Date().toISOString()
+                          });
+                          setNewRDO({
+                            date: new Date().toISOString().split('T')[0],
+                            weatherMorning: 'Ensolaorado' as any,
+                            weatherAfternoon: 'Ensolaorado' as any,
+                            laborTotal: 0,
+                            equipmentNotes: '',
+                            activitiesNotes: '',
+                            occurrencesNotes: ''
+                          });
+                        }}
+                        className="bg-[#c79229] text-[#181418] font-bold rounded-lg px-6 py-2 hover:bg-[#a67922] shadow-sm text-sm"
+                      >
+                        Salvar RDO
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Listagem de RDOs */}
+                  <div className="space-y-4">
+                    <h4 className="text-sm font-bold text-slate-500 uppercase tracking-wider">Últimos Relatórios</h4>
+                    {dailyReports.filter(r => r.projectId === selectedProject.id).length > 0 ? (
+                      dailyReports.filter(r => r.projectId === selectedProject.id).map(r => (
+                        <div key={r.id} className="border border-slate-100 rounded-xl p-4 bg-white shadow-sm hover:border-[#c79229]/30 transition-colors">
+                          <div className="flex justify-between items-start mb-3">
+                            <div className="flex items-center gap-3">
+                              <div className="bg-slate-100 px-3 py-1 rounded text-xs font-bold text-slate-600">
+                                {new Date(r.date + 'T12:00:00').toLocaleDateString()}
+                              </div>
+                              <div className="flex items-center gap-1 text-xs text-slate-400">
+                                {r.weatherMorning === 'Ensolaorado' ? <Sun size={14} className="text-yellow-500" /> : <CloudRain size={14} className="text-blue-400" />}
+                                {r.weatherAfternoon === 'Ensolaorado' ? <Sun size={14} className="text-yellow-500" /> : <CloudRain size={14} className="text-blue-400" />}
+                              </div>
+                            </div>
+                            <span className="text-[10px] font-bold text-slate-300 uppercase">Efetivo: {r.laborTotal}</span>
+                          </div>
+                          <p className="text-sm text-slate-700 whitespace-pre-wrap">{r.activitiesNotes}</p>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="text-center py-8 text-slate-400 italic">Nenhum diário de obra registrado.</div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {activeTab === 'cronograma' && (
+                <div className="space-y-8">
+                  {/* Cronograma / Gantt Simplificado */}
+                  <section>
+                    <div className="flex justify-between items-center mb-4">
+                      <h4 className="text-lg font-bold text-[#181418]">Cronograma de Obra</h4>
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          placeholder="Nova Tarefa..."
+                          value={newTask.title}
+                          onChange={(e) => setNewTask({ ...newTask, title: e.target.value })}
+                          className="text-sm border border-slate-200 rounded px-2 py-1"
+                        />
+                        <input
+                          type="date"
+                          value={newTask.startDate}
+                          onChange={(e) => setNewTask({ ...newTask, startDate: e.target.value })}
+                          className="text-sm border border-slate-200 rounded px-2 py-1"
+                        />
+                        <input
+                          type="date"
+                          value={newTask.endDate}
+                          onChange={(e) => setNewTask({ ...newTask, endDate: e.target.value })}
+                          className="text-sm border border-slate-200 rounded px-2 py-1"
+                        />
+                        <button
+                          onClick={() => {
+                            if (newTask.title && newTask.startDate && newTask.endDate) {
+                              addProjectTask({ ...newTask, id: '', projectId: selectedProject.id });
+                              setNewTask({ title: '', startDate: '', endDate: '', progress: 100 });
+                            }
+                          }}
+                          className="bg-[#c79229] text-[#181418] px-3 py-1 rounded text-xs font-bold"
+                        >
+                          + Add
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="bg-slate-50 rounded-xl border border-slate-100 p-4 overflow-x-auto">
+                      <div className="min-w-[600px] space-y-4">
+                        {projectTasks.filter(t => t.projectId === selectedProject.id).length === 0 ? (
+                          <p className="text-center text-slate-400 py-8 italic">Sem tarefas cadastradas.</p>
+                        ) : (
+                          projectTasks.filter(t => t.projectId === selectedProject.id).map(task => (
+                            <div key={task.id} className="relative">
+                              <div className="flex justify-between text-xs text-slate-500 mb-1 px-1">
+                                <span>{task.title}</span>
+                                <div className="flex gap-2">
+                                  <span>{new Date(task.startDate + 'T12:00:00').toLocaleDateString()} - {new Date(task.endDate + 'T12:00:00').toLocaleDateString()}</span>
+                                  <button onClick={() => deleteProjectTask(task.id)} className="text-red-400 hover:text-red-600">×</button>
+                                </div>
+                              </div>
+                              <div className="h-6 bg-slate-200 rounded-full overflow-hidden flex items-center">
+                                <div
+                                  className="h-full bg-[#c79229] flex items-center justify-end px-2 text-[10px] font-bold text-white transition-all"
+                                  style={{ width: `${task.progress || 100}%` }}
+                                >
+                                  {task.progress || 100}%
+                                </div>
+                              </div>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </div>
+                  </section>
+
+                  {/* Marcos de Obra (Milestones) */}
+                  <section>
+                    <div className="flex justify-between items-center mb-4">
+                      <h4 className="text-lg font-bold text-[#181418]">Marcos Críticos (Milestones)</h4>
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          placeholder="Ex: Entrega de Chaves"
+                          value={newMilestone.title}
+                          onChange={(e) => setNewMilestone({ ...newMilestone, title: e.target.value })}
+                          className="text-sm border border-slate-200 rounded px-2 py-1"
+                        />
+                        <input
+                          type="date"
+                          value={newMilestone.date}
+                          onChange={(e) => setNewMilestone({ ...newMilestone, date: e.target.value })}
+                          className="text-sm border border-slate-200 rounded px-2 py-1"
+                        />
+                        <button
+                          onClick={() => {
+                            if (newMilestone.title && newMilestone.date) {
+                              addProjectMilestone({ ...newMilestone, id: '', projectId: selectedProject.id });
+                              setNewMilestone({ title: '', date: '', isCompleted: false });
+                            }
+                          }}
+                          className="bg-[#181418] text-white px-3 py-1 rounded text-xs font-bold"
+                        >
+                          + Milestone
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {projectMilestones.filter(m => m.projectId === selectedProject.id).length === 0 ? (
+                        <div className="col-span-2 text-center text-slate-400 py-4 italic">Sem marcos cadastrados.</div>
+                      ) : (
+                        projectMilestones.filter(m => m.projectId === selectedProject.id).map(m => (
+                          <div key={m.id} className="flex items-center justify-between p-3 bg-white border border-slate-100 rounded-lg shadow-sm">
+                            <div className="flex items-center gap-3">
+                              <input
+                                type="checkbox"
+                                checked={m.isCompleted}
+                                onChange={() => updateProjectMilestone({ ...m, isCompleted: !m.isCompleted })}
+                                className="w-4 h-4 accent-[#c79229]"
+                              />
+                              <div>
+                                <p className={`text-sm font-bold ${m.isCompleted ? 'text-slate-400 line-through' : 'text-[#181418]'}`}>{m.title}</p>
+                                <p className="text-[10px] text-slate-400 uppercase font-bold">{new Date(m.date + 'T12:00:00').toLocaleDateString()}</p>
+                              </div>
+                            </div>
+                            <button onClick={() => deleteProjectMilestone(m.id)} className="p-1 text-slate-300 hover:text-red-500">
+                              <X size={14} />
+                            </button>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </section>
+                </div>
+              )}
+            </div>
+
+            <div className="p-4 bg-slate-50 border-t border-slate-100 flex justify-end">
               <button
                 onClick={() => setIsDetailsOpen(false)}
-                className="px-4 py-2 bg-white border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 font-medium"
+                className="px-6 py-2 bg-white border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 font-bold transition-all"
               >
-                Fechar
+                Concluído
               </button>
             </div>
           </div>
