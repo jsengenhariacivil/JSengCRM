@@ -30,6 +30,7 @@ export interface Project {
   endDate: string;
   budget: number;
   progress: number; // 0-100
+  proposalId?: string; // Link to the original proposal if automated
 }
 
 export interface FinancialRecord {

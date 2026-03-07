@@ -622,7 +622,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         start_date: project.startDate,
         end_date: project.endDate,
         budget: project.budget,
-        progress: project.progress
+        progress: project.progress,
+        proposal_id: project.proposalId
       }]).select().single();
 
       if (error) {
@@ -865,18 +866,22 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
       setProposals(prev => [{ ...proposal, id: proposalData.id }, ...prev]);
 
-      // Integração Financeira Automática
+      // Integração Automática com Obras
       if (proposal.status === Status.APPROVED) {
-        const jaExiste = financials.find(f => f.description === `Receita Ref. Proposta #${proposalData.id}`);
-        if (!jaExiste) {
-          await addFinancialRecord({
+        const jaExisteObra = projects.find(p => p.proposalId === proposalData.id);
+        if (!jaExisteObra) {
+          await addProject({
             id: '',
-            type: 'Receita',
-            description: `Receita Ref. Proposta #${proposalData.id}`,
-            amount: proposal.total,
-            date: proposal.date ? new Date(proposal.date).toISOString() : new Date().toISOString(),
+            title: `Obra: ${proposal.clientName} - #${proposalData.id.substring(0, 8)}`,
+            clientId: proposal.clientId,
+            clientName: proposal.clientName,
+            address: proposal.clientName, // Placeholder or fetch client address
             status: Status.PENDING,
-            category: 'Projeto',
+            startDate: proposal.date || new Date().toISOString().split('T')[0],
+            endDate: '',
+            budget: proposal.total,
+            progress: 0,
+            proposalId: proposalData.id
           });
         }
       }
@@ -904,21 +909,26 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     await supabase.from('proposals').update({ status }).eq('id', id);
     setProposals(prev => prev.map(p => p.id === id ? { ...p, status } : p));
 
-    // Integração Financeira Automática
+    // Integração Automática com Obras
     if (status === Status.APPROVED) {
       const proposal = proposals.find(p => p.id === id);
       if (proposal) {
+        const jaExisteObra = projects.find(p => p.proposalId === id);
         const safeTotal = proposal.total || 0;
-        const jaExiste = financials.find(f => f.description === `Receita Ref. Proposta #${proposal.id}`);
-        if (!jaExiste && safeTotal > 0) {
-          await addFinancialRecord({
+
+        if (!jaExisteObra) {
+          await addProject({
             id: '',
-            type: 'Receita',
-            description: `Receita Ref. Proposta #${proposal.id}`,
-            amount: safeTotal,
-            date: proposal.date ? new Date(proposal.date).toISOString() : new Date().toISOString(),
+            title: `Obra: ${proposal.clientName} - #${proposal.id.substring(0, 8)}`,
+            clientId: proposal.clientId,
+            clientName: proposal.clientName,
+            address: '', // Placeholder
             status: Status.PENDING,
-            category: 'Projeto',
+            startDate: proposal.date || new Date().toISOString().split('T')[0],
+            endDate: '',
+            budget: safeTotal,
+            progress: 0,
+            proposalId: proposal.id
           });
         }
 
