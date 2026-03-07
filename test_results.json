@@ -1,0 +1,19 @@
+{
+  "CLT": "new row violates row-level security policy for table \"team_members\"",
+  "PJ": "invalid input syntax for type uuid: \"177256760818305690392154024784\"",
+  "Estagio": "invalid input syntax for type uuid: \"17725676088970713141344293485\"",
+  "Estagiário": "invalid input syntax for type uuid: \"177256760917207903678330648907\"",
+  "Estagiario": "invalid input syntax for type uuid: \"177256760949808025414579142357\"",
+  "Prestador": "invalid input syntax for type uuid: \"17725676097920651394204191251\"",
+  "Empresa": "invalid input syntax for type uuid: \"177256761005106608801794315747\"",
+  "Funcionario": "invalid input syntax for type uuid: \"177256761033108795638004187706\"",
+  "Funcionário": "invalid input syntax for type uuid: \"177256761065900872883044008067\"",
+  "Fornecedor": "invalid input syntax for type uuid: \"177256761097903287113473443781\"",
+  "Interno": "invalid input syntax for type uuid: \"1772567611294032485867354122133\"",
+  "Externo": "invalid input syntax for type uuid: \"177256761152601650333614966163\"",
+  "Empregado": "new row violates row-level security policy for table \"team_members\"",
+  "Contratado": "invalid input syntax for type uuid: \"177256761205804572169026718995\"",
+  "Terceirizado": "invalid input syntax for type uuid: \"177256761229708360417644342348\"",
+  "Pessoa Física": "invalid input syntax for type uuid: \"177256761257205427167610720438\"",
+  "Pessoa Jurídica": "invalid input syntax for type uuid: \"177256761282705388382473480171\""
+}

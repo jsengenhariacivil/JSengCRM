@@ -33,15 +33,17 @@ const Login: React.FC = () => {
         setError('');
         setIsLoading(true);
 
-        const result = await login(email, password);
+        try {
+            const result = await login(email, password);
 
-        if (result.success) {
-            navigate('/');
-        } else {
-            setError(result.error || 'Erro ao fazer login');
+            if (result.success) {
+                navigate('/');
+            } else {
+                setError(result.error || 'Erro ao fazer login');
+            }
+        } finally {
+            setIsLoading(false);
         }
-
-        setIsLoading(false);
     };
 
     const handleRegister = async (e: React.FormEvent) => {
@@ -75,7 +77,6 @@ const Login: React.FC = () => {
 
             if (authError) {
                 setError(authError.message);
-                setIsLoading(false);
                 return;
             }
 
@@ -97,7 +98,6 @@ const Login: React.FC = () => {
 
                 if (dbError) {
                     setError('Erro ao criar usuário no banco de dados: ' + dbError.message);
-                    setIsLoading(false);
                     return;
                 }
 
@@ -111,10 +111,9 @@ const Login: React.FC = () => {
                     setIsRegistering(false);
                 }
             }
-
-            setIsLoading(false);
         } catch (error: any) {
             setError(error.message || 'Erro ao criar conta');
+        } finally {
             setIsLoading(false);
         }
     };

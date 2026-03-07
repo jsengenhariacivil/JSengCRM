@@ -1,0 +1,6 @@
+{
+  "": "new row violates row-level security policy for table \"team_members\"",
+  "null": "new row violates row-level security policy for table \"team_members\"",
+  "undefined": "new row violates row-level security policy for table \"team_members\"",
+  "BANANA": "new row violates row-level security policy for table \"team_members\""
+}

@@ -25,8 +25,8 @@ const Clients: React.FC = () => {
   });
 
   const filteredClients = clients.filter(c =>
-    c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    c.document.includes(searchTerm)
+    (c.name || '').toLowerCase().includes((searchTerm || '').toLowerCase()) ||
+    (c.document || '').includes(searchTerm || '')
   );
 
   // --- Handlers ---
@@ -60,20 +60,27 @@ const Clients: React.FC = () => {
     setOpenMenuId(null);
   };
 
+  const [errorMsg, setErrorMsg] = useState('');
+
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+    setErrorMsg('');
     if (!formData.name || !formData.document) return;
 
-    if (editingClient) {
-      await updateClient({ ...editingClient, ...formData } as Client);
-    } else {
-      const newClient = {
-        ...formData as Client,
-        id: (Date.now()).toString() // ID simples baseado em timestamp
-      };
-      await addClient(newClient);
+    try {
+      if (editingClient) {
+        await updateClient({ ...editingClient, ...formData } as Client);
+      } else {
+        const newClient = {
+          ...formData as Client,
+          id: (Date.now()).toString() // ID simples baseado em timestamp
+        };
+        await addClient(newClient);
+      }
+      setIsFormOpen(false);
+    } catch (err: any) {
+      setErrorMsg(err.message || 'Erro ao salvar cliente. Verifique se o banco de dados está online.');
     }
-    setIsFormOpen(false);
   };
 
   const toggleMenu = (id: string) => {
@@ -274,6 +281,12 @@ const Clients: React.FC = () => {
                 />
               </div>
 
+              {errorMsg && (
+                <div className="p-3 bg-red-100 text-red-700 rounded-lg text-sm border border-red-200">
+                  {errorMsg}
+                </div>
+              )}
+
               <div className="pt-4 flex justify-end gap-3 mt-4">
                 <button
                   type="button"
@@ -344,7 +357,7 @@ const Clients: React.FC = () => {
                     {getClientHistory(historyClient.id).proposals.map(p => (
                       <div key={p.id} className="border border-slate-200 rounded-lg p-4 flex justify-between items-center">
                         <div>
-                          <p className="font-bold text-slate-800">Proposta #{p.id.padStart(4, '0')}</p>
+                          <p className="font-bold text-slate-800">Proposta #{p.id.substring(0, 8).toUpperCase()}</p>
                           <p className="text-xs text-slate-500">{new Date(p.date).toLocaleDateString()} - {p.status}</p>
                         </div>
                         <span className="font-medium text-slate-700">R$ {p.total.toLocaleString()}</span>

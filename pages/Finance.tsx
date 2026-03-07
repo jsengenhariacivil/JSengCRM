@@ -1,11 +1,11 @@
 
 import React, { useState } from 'react';
-import { Plus, Filter, Download, ArrowUpCircle, ArrowDownCircle, X, Save, Pencil } from 'lucide-react';
+import { Plus, Filter, Download, ArrowUpCircle, ArrowDownCircle, X, Save, Pencil, Trash2 } from 'lucide-react';
 import { useData } from '../context/DataContext';
 import { Status, FinancialRecord } from '../types';
 
 const Finance: React.FC = () => {
-  const { financials, addFinancialRecord, updateFinancialRecord } = useData();
+  const { financials, addFinancialRecord, updateFinancialRecord, deleteFinancialRecord } = useData();
   const [filterType, setFilterType] = useState<'All' | 'Receita' | 'Despesa'>('All');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -64,8 +64,6 @@ const Finance: React.FC = () => {
   };
 
   const handleOpenNew = () => {
-    if (filterType === 'All') return;
-
     setEditingId(null);
     const defaultType = filterType === 'Despesa' ? 'Despesa' : 'Receita';
 
@@ -121,6 +119,12 @@ const Finance: React.FC = () => {
     });
   };
 
+  const handleDelete = async (id: string) => {
+    if (window.confirm("Tem certeza que deseja excluir este registro?")) {
+      await deleteFinancialRecord(id);
+    }
+  };
+
   return (
     <div className="space-y-6 relative">
       {/* Header */}
@@ -139,12 +143,7 @@ const Finance: React.FC = () => {
           </button>
           <button
             onClick={handleOpenNew}
-            disabled={filterType === 'All'}
-            title={filterType === 'All' ? "Selecione a aba Receitas ou Despesas para adicionar" : "Nova Transação"}
-            className={`flex items-center space-x-2 px-4 py-2 rounded-lg font-bold shadow-sm transition-colors ${filterType === 'All'
-                ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
-                : 'bg-[#c79229] text-[#181418] hover:bg-[#a67922]'
-              }`}
+            className="flex items-center space-x-2 px-4 py-2 rounded-lg font-bold shadow-sm transition-colors bg-[#c79229] text-[#181418] hover:bg-[#a67922]"
           >
             <Plus size={18} />
             <span>Nova Transação</span>
@@ -159,8 +158,8 @@ const Finance: React.FC = () => {
             key={type}
             onClick={() => setFilterType(type as any)}
             className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${filterType === type
-                ? 'bg-white text-[#c79229] shadow-sm font-bold'
-                : 'text-slate-600 hover:text-slate-900'
+              ? 'bg-white text-[#c79229] shadow-sm font-bold'
+              : 'text-slate-600 hover:text-slate-900'
               }`}
           >
             {type === 'All' ? 'Todas' : type === 'Receita' ? 'Receitas' : 'Despesas'}
@@ -212,12 +211,22 @@ const Finance: React.FC = () => {
                     </span>
                   </td>
                   <td className="px-6 py-4 text-right text-slate-400">
-                    <button
-                      onClick={() => handleEdit(item)}
-                      className="hover:text-[#c79229] flex items-center justify-end gap-1 w-full font-medium"
-                    >
-                      Editar
-                    </button>
+                    <div className="flex justify-end gap-3">
+                      <button
+                        onClick={() => handleEdit(item)}
+                        className="hover:text-[#c79229] transition-colors"
+                        title="Editar"
+                      >
+                        <Pencil size={18} />
+                      </button>
+                      <button
+                        onClick={() => handleDelete(item.id)}
+                        className="hover:text-red-500 transition-colors"
+                        title="Excluir"
+                      >
+                        <Trash2 size={18} />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               )) : (

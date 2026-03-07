@@ -23,8 +23,8 @@ const Suppliers: React.FC = () => {
   });
 
   const filteredSuppliers = suppliers.filter(s =>
-    s.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    s.document.includes(searchTerm)
+    (s.name || '').toLowerCase().includes((searchTerm || '').toLowerCase()) ||
+    (s.document || '').includes(searchTerm || '')
   );
 
   // --- HANDLERS ---
@@ -59,16 +59,20 @@ const Suppliers: React.FC = () => {
     e.preventDefault();
     if (!formData.name) return;
 
-    if (editingId) {
-      await updateSupplier({ ...formData, id: editingId } as Supplier);
-    } else {
-      const newSupplier: Supplier = {
-        ...formData as Supplier,
-        id: (Date.now()).toString()
-      };
-      await addSupplier(newSupplier);
+    try {
+      if (editingId) {
+        await updateSupplier({ ...formData, id: editingId } as Supplier);
+      } else {
+        const newSupplier: Supplier = {
+          ...formData as Supplier,
+          id: (Date.now()).toString()
+        };
+        await addSupplier(newSupplier);
+      }
+      setIsModalOpen(false);
+    } catch (error: any) {
+      alert('Erro ao salvar fornecedor: ' + error.message);
     }
-    setIsModalOpen(false);
   };
 
   const toggleMenu = (id: string, e: React.MouseEvent) => {
@@ -199,21 +203,20 @@ const Suppliers: React.FC = () => {
 
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Categoria</label>
-                <input
-                  type="text"
-                  list="categories"
+                <select
+                  required
                   value={formData.category}
                   onChange={(e) => setFormData({ ...formData, category: e.target.value })}
                   className="w-full border border-slate-300 rounded-lg p-2.5 bg-white focus:ring-2 focus:ring-[#c79229] outline-none"
-                  placeholder="Ex: Materiais Básicos"
-                />
-                <datalist id="categories">
-                  <option value="Materiais Básicos" />
-                  <option value="Elétrica e Hidráulica" />
-                  <option value="Maquinário" />
-                  <option value="Acabamentos" />
-                  <option value="Serviços" />
-                </datalist>
+                >
+                  <option value="">Selecione...</option>
+                  <option value="Materiais Básicos">Materiais Básicos</option>
+                  <option value="Elétrica e Hidráulica">Elétrica e Hidráulica</option>
+                  <option value="Maquinário">Maquinário</option>
+                  <option value="Acabamentos">Acabamentos</option>
+                  <option value="Serviços">Serviços</option>
+                  <option value="Outros">Outros</option>
+                </select>
               </div>
 
               <div>

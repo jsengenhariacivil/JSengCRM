@@ -1,14 +1,14 @@
 
 import React, { useState, useEffect } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { 
-  LayoutDashboard, 
-  Wallet, 
-  HardHat, 
-  Users, 
-  FileText, 
-  Menu, 
-  X, 
+import {
+  LayoutDashboard,
+  Wallet,
+  HardHat,
+  Users,
+  FileText,
+  Menu,
+  X,
   Settings,
   ChevronDown,
   ChevronRight,
@@ -24,24 +24,25 @@ import {
   Calendar,
   Banknote,
   PieChart,
-  LogOut
+  LogOut,
+  Bell
 } from 'lucide-react';
 import { useData } from '../context/DataContext';
 import { useAuth } from '../context/AuthContext';
 
 const SidebarItem = ({ to, icon: Icon, label, onClick, isSubItem = false }: { to: string, icon: any, label: string, onClick?: () => void, isSubItem?: boolean }) => {
   const location = useLocation();
-  const isActive = location.pathname === to || (to !== '/' && location.pathname.startsWith(to) && to !== '/propostas' && to !== '/equipe'); 
-  
-  const activeStyle = isActive 
-    ? 'bg-[#c79229] text-[#181418] font-bold shadow-md' 
+  const isActive = location.pathname === to || (to !== '/' && location.pathname.startsWith(to) && to !== '/propostas' && to !== '/equipe');
+
+  const activeStyle = isActive
+    ? 'bg-[#c79229] text-[#181418] font-bold shadow-md'
     : 'text-slate-400 hover:text-[#c79229] hover:bg-[#181418]/50';
 
   return (
-    <NavLink 
-      to={to} 
+    <NavLink
+      to={to}
       onClick={onClick}
-      end={to === '/'} 
+      end={to === '/'}
       className={`flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${activeStyle} ${isSubItem ? 'pl-11 py-2 text-sm' : ''}`}
     >
       <Icon size={isSubItem ? 18 : 20} />
@@ -50,11 +51,73 @@ const SidebarItem = ({ to, icon: Icon, label, onClick, isSubItem = false }: { to
   );
 };
 
+const NotificationBell = ({ isDarkBg = false }: { isDarkBg?: boolean }) => {
+  const { notifications, markNotificationAsRead } = useData();
+  const [isOpen, setIsOpen] = useState(false);
+  const unreadCount = notifications.filter(n => !n.is_read).length;
+
+  return (
+    <div className="relative z-30">
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className={`relative p-2 transition-colors rounded-full flex items-center justify-center ${isDarkBg
+          ? 'text-slate-300 hover:text-[#c79229] hover:bg-white/5'
+          : 'text-slate-500 hover:text-[#c79229] hover:bg-slate-200/50 bg-white shadow-sm border border-slate-200'
+          }`}
+      >
+        <Bell size={isDarkBg ? 24 : 20} />
+        {unreadCount > 0 && (
+          <span className={`absolute ${isDarkBg ? 'top-0 right-0' : '-top-1 -right-1'} w-5 h-5 bg-red-500 text-white text-[10px] font-bold flex items-center justify-center rounded-full border-2 ${isDarkBg ? 'border-[#181418]' : 'border-white'}`}>
+            {unreadCount > 9 ? '9+' : unreadCount}
+          </span>
+        )}
+      </button>
+
+      {isOpen && (
+        <div className="absolute right-0 mt-3 w-80 bg-white rounded-xl shadow-2xl border border-slate-200 overflow-hidden transform origin-top-right transition-all animate-in fade-in zoom-in-95 duration-200">
+          <div className="bg-[#181418] text-[#c79229] px-4 py-3 font-semibold flex justify-between items-center">
+            <span>Notificações</span>
+            {unreadCount > 0 && (
+              <span className="text-xs bg-[#c79229]/20 px-2 py-1 rounded-full text-white">{unreadCount} novas</span>
+            )}
+          </div>
+          <div className="max-h-80 overflow-y-auto">
+            {notifications.length === 0 ? (
+              <div className="p-6 text-center text-slate-500 text-sm">Pronto, você está atualizado!</div>
+            ) : (
+              notifications.map(n => (
+                <div
+                  key={n.id}
+                  className={`p-4 border-b border-slate-100 transition-colors ${!n.is_read ? 'bg-amber-50/30 hover:bg-amber-50/80 cursor-pointer' : 'opacity-70 hover:bg-slate-50'}`}
+                  onClick={() => {
+                    if (!n.is_read) markNotificationAsRead(n.id);
+                  }}
+                >
+                  <div className="flex items-start justify-between">
+                    <h4 className={`text-sm tracking-tight ${!n.is_read ? 'font-bold text-slate-800' : 'font-medium text-slate-600'}`}>
+                      {n.title}
+                    </h4>
+                    {!n.is_read && <div className="w-2 h-2 rounded-full bg-red-500 flex-shrink-0 mt-1.5 ml-3"></div>}
+                  </div>
+                  <p className="text-xs text-slate-500 mt-1.5 leading-relaxed">{n.message}</p>
+                  <span className="text-[10px] text-slate-400 mt-2 block font-medium">
+                    {new Date(n.created_at).toLocaleDateString('pt-BR')} às {new Date(n.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                  </span>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 const Layout: React.FC = () => {
   const { companyName, companyLogo } = useData();
   const { currentUser, logout } = useAuth();
   const navigate = useNavigate();
-  
+
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isCadastrosOpen, setIsCadastrosOpen] = useState(false);
   const [isPropostasOpen, setIsPropostasOpen] = useState(false);
@@ -89,12 +152,14 @@ const Layout: React.FC = () => {
   // Permissions Check Helpers
   const canViewFinancial = currentUser?.permissions.viewFinancial;
   const canViewProjects = currentUser?.permissions.viewProjects;
+  const canViewProposals = currentUser?.permissions.viewProposals;
+  const canViewTeam = currentUser?.permissions.viewTeam;
   const canManageSettings = currentUser?.permissions.manageSettings;
 
   const NavContent = ({ mobile = false }) => (
     <>
       <SidebarItem to="/" icon={LayoutDashboard} label="Dashboard" onClick={mobile ? toggleMenu : undefined} />
-      
+
       {canViewFinancial && (
         <>
           <SidebarItem to="/financeiro" icon={Wallet} label="Financeiro" onClick={mobile ? toggleMenu : undefined} />
@@ -105,11 +170,11 @@ const Layout: React.FC = () => {
       {canViewProjects && (
         <SidebarItem to="/obras" icon={HardHat} label="Obras" onClick={mobile ? toggleMenu : undefined} />
       )}
-      
-      {/* Propostas (Assumindo que todos exceto Visitante podem ver) */}
-      {(canViewFinancial || canViewProjects) && (
+
+      {/* Propostas */}
+      {canViewProposals && (
         <div className="space-y-1">
-          <button 
+          <button
             onClick={togglePropostas}
             className={`w-full flex items-center justify-between px-4 py-3 rounded-lg transition-colors text-slate-400 hover:text-[#c79229] hover:bg-[#181418]/50`}
           >
@@ -130,10 +195,10 @@ const Layout: React.FC = () => {
         </div>
       )}
 
-      {/* Equipe (RH ou Financeiro ou Admin) */}
-      {(canViewFinancial || canManageSettings) && (
+      {/* Equipe */}
+      {canViewTeam && (
         <div className="space-y-1">
-          <button 
+          <button
             onClick={toggleEquipe}
             className={`w-full flex items-center justify-between px-4 py-3 rounded-lg transition-colors text-slate-400 hover:text-[#c79229] hover:bg-[#181418]/50`}
           >
@@ -149,17 +214,17 @@ const Layout: React.FC = () => {
               <SidebarItem to="/equipe/funcionarios" icon={User} label="Funcionários" isSubItem onClick={mobile ? toggleMenu : undefined} />
               <SidebarItem to="/equipe/prestadores" icon={UserCog} label="Prestadores" isSubItem onClick={mobile ? toggleMenu : undefined} />
               {canViewFinancial && (
-                  <SidebarItem to="/equipe/pagamentos" icon={Banknote} label="Pagamentos" isSubItem onClick={mobile ? toggleMenu : undefined} />
+                <SidebarItem to="/equipe/pagamentos" icon={Banknote} label="Pagamentos" isSubItem onClick={mobile ? toggleMenu : undefined} />
               )}
             </div>
           )}
         </div>
       )}
-      
+
       {/* Cadastros (Geralmente operacional/financeiro) */}
       {(canViewFinancial || canViewProjects) && (
         <div className="space-y-1">
-          <button 
+          <button
             onClick={toggleCadastros}
             className={`w-full flex items-center justify-between px-4 py-3 rounded-lg transition-colors text-slate-400 hover:text-[#c79229] hover:bg-[#181418]/50`}
           >
@@ -180,15 +245,20 @@ const Layout: React.FC = () => {
         </div>
       )}
 
+      {/* Agenda (Todos podem ver ou apenas gerentes?) Vou assumir que quem ve financeiro ou obras pode ver */}
+      {(canViewFinancial || canViewProjects) && (
+        <SidebarItem to="/agenda" icon={Calendar} label="Agenda Gerencial" onClick={mobile ? toggleMenu : undefined} />
+      )}
+
       {/* Configurações apenas para quem tem permissão */}
       {canManageSettings && (
         <div className="pt-6 mt-6 border-t border-[#c79229]/20">
-             <SidebarItem to="/configuracoes" icon={Settings} label="Configurações" onClick={mobile ? toggleMenu : undefined} />
+          <SidebarItem to="/configuracoes" icon={Settings} label="Configurações" onClick={mobile ? toggleMenu : undefined} />
         </div>
       )}
 
       {/* Logout Button */}
-      <button 
+      <button
         onClick={handleLogout}
         className="w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors text-red-400 hover:text-red-500 hover:bg-red-900/10 mt-2"
       >
@@ -205,16 +275,16 @@ const Layout: React.FC = () => {
         <div className="p-6 border-b border-[#c79229]/20 flex flex-col items-center space-y-4 text-center justify-center min-h-[140px]">
           <div className="w-full flex justify-center">
             {companyLogo ? (
-               <img 
-                 src={companyLogo} 
-                 alt={companyName} 
-                 className="max-h-24 max-w-full object-contain mx-auto" 
-               />
+              <img
+                src={companyLogo}
+                alt={companyName}
+                className="max-h-24 max-w-full object-contain mx-auto"
+              />
             ) : (
-               <div>
-                  <h1 className="text-xl font-bold tracking-tight text-white leading-tight">{companyName}</h1>
-                  <p className="text-[10px] text-[#c79229] uppercase tracking-widest mt-1">Construção & Reforma</p>
-               </div>
+              <div>
+                <h1 className="text-xl font-bold tracking-tight text-white leading-tight">{companyName}</h1>
+                <p className="text-[10px] text-[#c79229] uppercase tracking-widest mt-1">Construção & Reforma</p>
+              </div>
             )}
           </div>
         </div>
@@ -241,12 +311,12 @@ const Layout: React.FC = () => {
         <div className="fixed inset-0 z-50 bg-[#181418]/50 md:hidden" onClick={toggleMenu}>
           <div className="absolute left-0 top-0 bottom-0 w-64 bg-[#181418] text-white p-4 shadow-xl border-r border-[#c79229]" onClick={e => e.stopPropagation()}>
             <div className="flex justify-between items-center mb-8">
-               <div className="flex flex-col items-start space-y-2 w-full">
-                 {companyLogo ? (
-                    <img src={companyLogo} alt="Logo" className="max-h-16 w-auto object-contain" />
-                 ) : (
-                    <span className="text-lg font-bold">{companyName}</span>
-                 )}
+              <div className="flex flex-col items-start space-y-2 w-full">
+                {companyLogo ? (
+                  <img src={companyLogo} alt="Logo" className="max-h-16 w-auto object-contain" />
+                ) : (
+                  <span className="text-lg font-bold">{companyName}</span>
+                )}
               </div>
               <button onClick={toggleMenu}><X className="text-[#c79229]" /></button>
             </div>
@@ -262,19 +332,26 @@ const Layout: React.FC = () => {
         {/* Top Header Mobile */}
         <header className="md:hidden bg-[#181418] shadow-md h-16 flex items-center justify-between px-4 z-10 border-b border-[#c79229]">
           <div className="flex items-center space-x-2">
-             {companyLogo ? (
-                <img src={companyLogo} alt="Logo" className="h-10 w-auto object-contain" />
-             ) : (
-                <span className="font-bold text-white text-lg">{companyName}</span>
-             )}
+            {companyLogo ? (
+              <img src={companyLogo} alt="Logo" className="h-10 w-auto object-contain" />
+            ) : (
+              <span className="font-bold text-white text-lg">{companyName}</span>
+            )}
           </div>
-          <button onClick={toggleMenu} className="p-2 text-[#c79229] hover:bg-white/10 rounded-lg transition-colors">
-            <Menu size={24} />
-          </button>
+          <div className="flex items-center space-x-3">
+            <NotificationBell isDarkBg={true} />
+            <button onClick={toggleMenu} className="p-2 text-[#c79229] hover:bg-white/10 rounded-lg transition-colors">
+              <Menu size={24} />
+            </button>
+          </div>
         </header>
 
         {/* Content Scrollable Area */}
-        <main className="flex-1 overflow-y-auto p-4 md:p-8 bg-slate-50">
+        <main className="flex-1 overflow-y-auto p-4 md:p-8 bg-slate-50 relative">
+          {/* Desktop Top Bar com Sino */}
+          <div className="hidden md:flex justify-end mb-2">
+            <NotificationBell isDarkBg={false} />
+          </div>
           <Outlet />
         </main>
       </div>

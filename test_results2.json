@@ -1,0 +1,19 @@
+{
+  "CLT": "new row violates row-level security policy for table \"team_members\"",
+  "PJ": "new row violates row-level security policy for table \"team_members\"",
+  "Estagio": "new row violates row-level security policy for table \"team_members\"",
+  "Estagiário": "new row violates row-level security policy for table \"team_members\"",
+  "Estagiario": "new row violates row-level security policy for table \"team_members\"",
+  "Prestador": "new row violates row-level security policy for table \"team_members\"",
+  "Empresa": "new row violates row-level security policy for table \"team_members\"",
+  "Funcionario": "new row violates row-level security policy for table \"team_members\"",
+  "Funcionário": "new row violates row-level security policy for table \"team_members\"",
+  "Fornecedor": "new row violates row-level security policy for table \"team_members\"",
+  "Interno": "new row violates row-level security policy for table \"team_members\"",
+  "Externo": "new row violates row-level security policy for table \"team_members\"",
+  "Empregado": "new row violates row-level security policy for table \"team_members\"",
+  "Contratado": "new row violates row-level security policy for table \"team_members\"",
+  "Terceirizado": "new row violates row-level security policy for table \"team_members\"",
+  "Pessoa Física": "new row violates row-level security policy for table \"team_members\"",
+  "Pessoa Jurídica": "new row violates row-level security policy for table \"team_members\""
+}

@@ -20,17 +20,19 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   // Função para buscar dados do usuário do banco
   const fetchUserData = async (userId: string): Promise<UserData | null> => {
     try {
-      const { data, error } = await supabase
-        .from('users')
-        .select('*')
-        .eq('id', userId)
-        .single();
+      const timeoutPromise = new Promise<{ data: null, error: Error }>((resolve) => setTimeout(() => resolve({ data: null, error: new Error('fetchUserData Timeout') }), 8000));
+      const fetchRequest = supabase.from('users').select('*').eq('id', userId).single();
+      const { data, error } = await Promise.race([fetchRequest, timeoutPromise]) as any;
 
-      if (error) throw error;
+      if (error) {
+        console.warn('Supabase fetch errored or timed out for user', userId, error.message);
+        // We do not throw, we just return null so the app doesn't crash/hang
+        return null;
+      }
 
       if (data) {
         return {
-          id: parseInt(data.id),
+          id: data.id,
           name: data.name,
           email: data.email,
           role: data.role,
@@ -39,32 +41,47 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             editFinancial: data.edit_financial,
             viewProjects: data.view_projects,
             editProjects: data.edit_projects,
+            viewProposals: data.view_proposals ?? ['Administrador', 'Gerente', 'Comercial', 'Engenharia'].includes(data.role),
+            editProposals: data.edit_proposals ?? ['Administrador', 'Gerente', 'Comercial'].includes(data.role),
+            viewTeam: data.view_team ?? ['Administrador', 'Gerente', 'Financeiro', 'RH'].includes(data.role),
             manageSettings: data.manage_settings,
           },
         };
       }
 
+      console.warn('fetchUserData found no user for ID:', userId);
       return null;
-    } catch (error) {
-      console.error('Error fetching user data:', error);
+    } catch (error: any) {
+      console.error('Error fetching user data:', error.message || error);
       return null;
     }
   };
 
   // Verifica sessão ao iniciar
   useEffect(() => {
+    let mounted = true;
+
     const initAuth = async () => {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
+        const timeoutPromise = new Promise<{ data: { session: null }, error: Error }>((resolve) => setTimeout(() => resolve({ data: { session: null }, error: new Error('Auth Timeout') }), 8000));
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const authRequest: any = supabase.auth.getSession();
 
-        if (session?.user) {
+        const { data: { session }, error: sessionError } = await Promise.race([authRequest, timeoutPromise]) as any;
+
+        if (sessionError) {
+          console.error('Supabase getSession error or timeout:', sessionError.message);
+          // Don't throw, just allow the app to finish loading as unauthenticated
+        }
+
+        if (session?.user && mounted) {
           const userData = await fetchUserData(session.user.id);
-          setCurrentUser(userData);
+          if (mounted) setCurrentUser(userData);
         }
       } catch (error) {
         console.error('Error initializing auth:', error);
       } finally {
-        setLoading(false);
+        if (mounted) setLoading(false);
       }
     };
 
@@ -72,25 +89,77 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     // Listener para mudanças de autenticação
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log('Auth state changed:', event);
       if (event === 'SIGNED_IN' && session?.user) {
-        const userData = await fetchUserData(session.user.id);
-        setCurrentUser(userData);
+        try {
+          const userData = await fetchUserData(session.user.id);
+          if (userData && mounted) {
+            setCurrentUser(userData);
+          }
+        } catch (err) {
+          console.error('Failed to update user session on event', err);
+        }
       } else if (event === 'SIGNED_OUT') {
-        setCurrentUser(null);
+        if (mounted) setCurrentUser(null);
+      } else if (event === 'USER_UPDATED' && session?.user) {
+        try {
+          const userData = await fetchUserData(session.user.id);
+          if (userData && mounted) {
+            setCurrentUser(userData);
+          }
+        } catch (err) {
+          console.error('Failed to update user session on event', err);
+        }
       }
     });
 
+    // Configurando um verificador periódico da sessão (Refresh Token Heartbeat)
+    const sessionHeartbeat = setInterval(async () => {
+      try {
+        if (!mounted) return;
+        const { data: { session }, error } = await supabase.auth.getSession();
+
+        // Verificamos o estado atual via setter funcional para evitar closure stale
+        setCurrentUser(prevUser => {
+          if (error || (!session && prevUser)) {
+            console.warn('Sessão expirada silenciosamente ou erro de heartbeat:', error);
+            return null;
+          } else if (session && !prevUser) {
+            console.log('Restaurando sessão a partir do heartbeat');
+            // Como estamos num recálculo síncrono reativo, não podemos fazer await no prevUser. 
+            // Ao invés disso, delegaremos para fora da closure:
+          }
+          return prevUser;
+        });
+
+        // Verificação assíncrona isolada do setter para não usar dados antigos da closure
+        if (session) {
+          const currentData = await fetchUserData(session.user.id);
+          // Se o currentData for null (talvez erro de rede ou user apagado), DEIXAMOS QUETO
+          // O hook onAuthStateChange cuidará se a sessão expirar de fato.
+          if (currentData && mounted) {
+            setCurrentUser(currentData);
+          }
+        }
+
+      } catch (err) {
+        console.error('Falha no heartbeat de sessão', err);
+      }
+    }, 5 * 60 * 1000); // Checa a cada 5 minutos
+
     return () => {
+      mounted = false;
       subscription.unsubscribe();
+      clearInterval(sessionHeartbeat);
     };
   }, []);
 
   const login = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const result: any = await supabase.auth.signInWithPassword({ email, password });
+      const data = result.data;
+      const error = result.error;
 
       if (error) {
         return { success: false, error: error.message };
