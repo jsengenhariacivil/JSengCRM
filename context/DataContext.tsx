@@ -283,7 +283,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             startDate: p.start_date,
             endDate: p.end_date,
             budget: parseFloat(p.budget),
-            progress: p.progress
+            progress: p.progress,
+            proposalId: p.proposal_id
           })));
         }
 
@@ -868,21 +869,26 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
       // Integração Automática com Obras
       if (proposal.status === Status.APPROVED) {
-        const jaExisteObra = projects.find(p => p.proposalId === proposalData.id);
-        if (!jaExisteObra) {
-          await addProject({
-            id: '',
-            title: `Obra: ${proposal.clientName} - #${proposalData.id.substring(0, 8)}`,
-            clientId: proposal.clientId,
-            clientName: proposal.clientName,
-            address: proposal.clientName, // Placeholder or fetch client address
-            status: Status.PENDING,
-            startDate: proposal.date || new Date().toISOString().split('T')[0],
-            endDate: '',
-            budget: proposal.total,
-            progress: 0,
-            proposalId: proposalData.id
-          });
+        try {
+          const jaExisteObra = projects.find(p => p.proposalId === proposalData.id);
+          if (!jaExisteObra) {
+            await addProject({
+              id: '',
+              title: `Obra: ${proposal.clientName} - #${proposalData.id.substring(0, 8)}`,
+              clientId: proposal.clientId,
+              clientName: proposal.clientName,
+              address: '',
+              status: Status.PENDING,
+              startDate: proposal.date || new Date().toISOString().split('T')[0],
+              endDate: '',
+              budget: proposal.total,
+              progress: 0,
+              proposalId: proposalData.id
+            });
+          }
+        } catch (err) {
+          console.error('Erro na integração automática com obras:', err);
+          alert('A proposta foi salva, mas houve um erro ao criar a obra. Verifique se a coluna "proposal_id" existe na tabela "projects" do Supabase.');
         }
       }
 
@@ -913,23 +919,28 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     if (status === Status.APPROVED) {
       const proposal = proposals.find(p => p.id === id);
       if (proposal) {
-        const jaExisteObra = projects.find(p => p.proposalId === id);
         const safeTotal = proposal.total || 0;
+        try {
+          const jaExisteObra = projects.find(p => p.proposalId === id);
 
-        if (!jaExisteObra) {
-          await addProject({
-            id: '',
-            title: `Obra: ${proposal.clientName} - #${proposal.id.substring(0, 8)}`,
-            clientId: proposal.clientId,
-            clientName: proposal.clientName,
-            address: '', // Placeholder
-            status: Status.PENDING,
-            startDate: proposal.date || new Date().toISOString().split('T')[0],
-            endDate: '',
-            budget: safeTotal,
-            progress: 0,
-            proposalId: proposal.id
-          });
+          if (!jaExisteObra) {
+            await addProject({
+              id: '',
+              title: `Obra: ${proposal.clientName} - #${proposal.id.substring(0, 8)}`,
+              clientId: proposal.clientId,
+              clientName: proposal.clientName,
+              address: '', // Placeholder
+              status: Status.PENDING,
+              startDate: proposal.date || new Date().toISOString().split('T')[0],
+              endDate: '',
+              budget: safeTotal,
+              progress: 0,
+              proposalId: proposal.id
+            });
+          }
+        } catch (err) {
+          console.error('Erro na integração automática com obras:', err);
+          alert('O status foi atualizado, mas houve um erro ao criar a obra. Verifique se a coluna "proposal_id" existe na tabela "projects" no seu Supabase.');
         }
 
         // Dispara Notificação
