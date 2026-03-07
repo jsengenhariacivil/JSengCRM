@@ -1,7 +1,7 @@
 
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
-import { Client, Project, FinancialRecord, Service, Proposal, ProposalItem, ProposalEtapa, SinapiService, Supplier, TeamMember, PaymentRecord, Status, UserData, UserPermissions, AgendaEvento, AppNotification, ProposalHistory, Measurement, DailyReport, ProjectTask, ProjectMilestone } from '../types';
+import { Client, Project, FinancialRecord, Service, Proposal, ProposalItem, ProposalEtapa, SinapiService, Supplier, TeamMember, PaymentRecord, Status, UserData, UserPermissions, AgendaEvento, AppNotification, ProposalHistory, Measurement, DailyReport, ProjectTask, ProjectMilestone, Lead, LeadInteraction, InventoryItem, InventoryMovement, Goal } from '../types';
 
 interface DataContextType {
   // Base SINAPI (Mock)
@@ -101,6 +101,26 @@ interface DataContextType {
   addProjectMilestone: (milestone: ProjectMilestone) => Promise<void>;
   updateProjectMilestone: (milestone: ProjectMilestone) => Promise<void>;
   deleteProjectMilestone: (id: string) => Promise<void>;
+
+  // --- CRM / LEADS ---
+  leads: Lead[];
+  addLead: (lead: Lead) => Promise<void>;
+  updateLead: (lead: Lead) => Promise<void>;
+  deleteLead: (id: string) => Promise<void>;
+  addLeadInteraction: (interaction: Omit<LeadInteraction, 'id' | 'createdAt'>) => Promise<void>;
+
+  // --- INVENTORY ---
+  inventoryItems: InventoryItem[];
+  addInventoryItem: (item: InventoryItem) => Promise<void>;
+  updateInventoryItem: (item: InventoryItem) => Promise<void>;
+  deleteInventoryItem: (id: string) => Promise<void>;
+  addInventoryMovement: (movement: Omit<InventoryMovement, 'id' | 'date'>) => Promise<void>;
+
+  // --- GOALS ---
+  goals: Goal[];
+  addGoal: (goal: Goal) => Promise<void>;
+  updateGoal: (goal: Goal) => Promise<void>;
+  deleteGoal: (id: string) => Promise<void>;
 
   loading: boolean;
   refreshData: () => Promise<void>;
@@ -233,6 +253,9 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [dailyReports, setDailyReports] = useState<DailyReport[]>([]);
   const [projectTasks, setProjectTasks] = useState<ProjectTask[]>([]);
   const [projectMilestones, setProjectMilestones] = useState<ProjectMilestone[]>([]);
+  const [leads, setLeads] = useState<Lead[]>([]);
+  const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
+  const [goals, setGoals] = useState<Goal[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Função para carregar todos os dados
@@ -244,7 +267,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         const [
           clientsData, projectsData, financialsData, servicesData,
           proposalsData, suppliersData, teamData, paymentsData, usersData, agendaData,
-          notificationsData, proposalHistoryData
+          notificationsData, proposalHistoryData, leadsData, inventoryData, goalsData
         ] = await Promise.all([
           supabase.from('clients').select('*'),
           supabase.from('projects').select('*, clients(name)'),
@@ -257,7 +280,10 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           supabase.from('users').select('*'),
           supabase.from('agenda_eventos').select('*').order('data_inicio', { ascending: true }),
           supabase.from('notifications').select('*').order('created_at', { ascending: false }),
-          supabase.from('proposal_history').select('*').order('created_at', { ascending: false })
+          supabase.from('proposal_history').select('*').order('created_at', { ascending: false }),
+          supabase.from('leads').select('*').order('created_at', { ascending: false }),
+          supabase.from('inventory_items').select('*'),
+          supabase.from('goals').select('*')
         ]);
 
         if (clientsData.data) {
@@ -441,6 +467,9 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
               editFinancial: u.edit_financial,
               viewProjects: u.view_projects,
               editProjects: u.edit_projects,
+              viewProposals: u.view_proposals || false,
+              editProposals: u.edit_proposals || false,
+              viewTeam: u.view_team || false,
               manageSettings: u.manage_settings
             }
           })));
@@ -487,6 +516,51 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             contact_type: ph.contact_type,
             user_name: ph.user_name,
             created_at: ph.created_at
+          })));
+        }
+
+        if (leadsData.data) {
+          setLeads(leadsData.data.map(l => ({
+            id: l.id,
+            name: l.name,
+            company: l.company,
+            email: l.email,
+            phone: l.phone,
+            status: l.status,
+            source: l.source,
+            notes: l.notes,
+            value: parseFloat(l.value) || 0,
+            assignedTo: l.assigned_to,
+            createdAt: l.created_at,
+            lastContact: l.last_contact
+          })));
+        }
+
+        if (inventoryData.data) {
+          setInventoryItems(inventoryData.data.map(i => ({
+            id: i.id,
+            name: i.name,
+            category: i.category,
+            unit: i.unit,
+            quantity: i.quantity,
+            minQuantity: i.min_quantity,
+            location: i.location,
+            unitPrice: parseFloat(i.unit_price) || 0,
+            lastRestocked: i.last_restocked,
+            supplierId: i.supplier_id,
+            status: i.status
+          })));
+        }
+
+        if (goalsData.data) {
+          setGoals(goalsData.data.map(g => ({
+            id: g.id,
+            title: g.title,
+            target: parseFloat(g.target) || 0,
+            current: parseFloat(g.current) || 0,
+            type: g.type,
+            deadline: g.deadline,
+            status: g.status
           })));
         }
       };
@@ -1458,6 +1532,141 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       setProposalHistory(prev => [data[0], ...prev]);
     }
   };
+
+  // --- CRM / LEADS ---
+  const addLead = async (lead: Lead) => {
+    const { data, error } = await supabase.from('leads').insert([{
+      name: lead.name,
+      company: lead.company,
+      email: lead.email,
+      phone: lead.phone,
+      status: lead.status,
+      source: lead.source,
+      notes: lead.notes,
+      value: lead.value,
+      assigned_to: lead.assignedTo
+    }]).select().single();
+    if (!error && data) setLeads(prev => [data, ...prev]);
+  };
+
+  const updateLead = async (lead: Lead) => {
+    await supabase.from('leads').update({
+      name: lead.name,
+      company: lead.company,
+      email: lead.email,
+      phone: lead.phone,
+      status: lead.status,
+      source: lead.source,
+      notes: lead.notes,
+      value: lead.value,
+      assigned_to: lead.assignedTo,
+      last_contact: lead.lastContact
+    }).eq('id', lead.id);
+    setLeads(prev => prev.map(l => l.id === lead.id ? lead : l));
+  };
+
+  const deleteLead = async (id: string) => {
+    await supabase.from('leads').delete().eq('id', id);
+    setLeads(prev => prev.filter(l => l.id !== id));
+  };
+
+  const addLeadInteraction = async (interaction: Omit<LeadInteraction, 'id' | 'createdAt'>) => {
+    await supabase.from('lead_interactions').insert([{
+      lead_id: interaction.leadId,
+      type: interaction.type,
+      content: interaction.content,
+      user_name: interaction.userName
+    }]);
+  };
+
+  // --- INVENTORY ---
+  const addInventoryItem = async (item: InventoryItem) => {
+    const { data, error } = await supabase.from('inventory_items').insert([{
+      name: item.name,
+      category: item.category,
+      unit: item.unit,
+      quantity: item.quantity,
+      min_quantity: item.minQuantity,
+      location: item.location,
+      unit_price: item.unitPrice,
+      supplier_id: item.supplierId,
+      status: item.status
+    }]).select().single();
+    if (!error && data) setInventoryItems(prev => [...prev, data]);
+  };
+
+  const updateInventoryItem = async (item: InventoryItem) => {
+    await supabase.from('inventory_items').update({
+      name: item.name,
+      category: item.category,
+      unit: item.unit,
+      quantity: item.quantity,
+      min_quantity: item.minQuantity,
+      location: item.location,
+      unit_price: item.unitPrice,
+      supplier_id: item.supplierId,
+      status: item.status
+    }).eq('id', item.id);
+    setInventoryItems(prev => prev.map(i => i.id === item.id ? item : i));
+  };
+
+  const deleteInventoryItem = async (id: string) => {
+    await supabase.from('inventory_items').delete().eq('id', id);
+    setInventoryItems(prev => prev.filter(i => i.id !== id));
+  };
+
+  const addInventoryMovement = async (movement: Omit<InventoryMovement, 'id' | 'date'>) => {
+    const { data, error } = await supabase.from('inventory_movements').insert([{
+      item_id: movement.itemId,
+      type: movement.type,
+      quantity: movement.quantity,
+      reason: movement.reason,
+      user_name: movement.userName,
+      project_id: movement.projectId
+    }]).select().single();
+
+    if (!error && data) {
+      // Atualizar quantidade no estado local
+      setInventoryItems(prev => prev.map(i => {
+        if (i.id === movement.itemId) {
+          const newQty = movement.type === 'Entrada' ? i.quantity + movement.quantity : i.quantity - movement.quantity;
+          return { ...i, quantity: newQty };
+        }
+        return i;
+      }));
+    }
+  };
+
+  // --- GOALS ---
+  const addGoal = async (goal: Goal) => {
+    const { data, error } = await supabase.from('goals').insert([{
+      id: goal.id,
+      title: goal.title,
+      target: goal.target,
+      current: goal.current,
+      type: goal.type,
+      deadline: goal.deadline,
+      status: goal.status
+    }]).select().single();
+    if (!error && data) setGoals(prev => [...prev, goal]);
+  };
+
+  const updateGoal = async (goal: Goal) => {
+    await supabase.from('goals').update({
+      title: goal.title,
+      target: goal.target,
+      current: goal.current,
+      type: goal.type,
+      deadline: goal.deadline,
+      status: goal.status
+    }).eq('id', goal.id);
+    setGoals(prev => prev.map(g => g.id === goal.id ? goal : g));
+  };
+
+  const deleteGoal = async (id: string) => {
+    await supabase.from('goals').delete().eq('id', id);
+    setGoals(prev => prev.filter(g => g.id !== id));
+  };
   return (
     <DataContext.Provider value={{
       sinapiDatabase: MOCK_SINAPI_DB,
@@ -1487,6 +1696,9 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       dailyReports, addDailyReport, updateDailyReport,
       projectTasks, addProjectTask, updateProjectTask, deleteProjectTask,
       projectMilestones, addProjectMilestone, updateProjectMilestone, deleteProjectMilestone,
+      leads, addLead, updateLead, deleteLead, addLeadInteraction,
+      inventoryItems, addInventoryItem, updateInventoryItem, deleteInventoryItem, addInventoryMovement,
+      goals, addGoal, updateGoal, deleteGoal,
       loading,
       refreshData
     }}>

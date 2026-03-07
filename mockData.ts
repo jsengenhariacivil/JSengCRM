@@ -28,6 +28,6 @@ export const mockServices: Service[] = [
 ];
 
 export const mockProposals: Proposal[] = [
-  { id: '1', clientId: '2', clientName: 'João da Silva', date: '2023-09-01', status: Status.APPROVED, total: 25000, items: [] },
-  { id: '2', clientId: '1', clientName: 'Construtora Horizonte', date: '2024-01-15', status: Status.PENDING, total: 12000, items: [] },
+  { id: '1', clientId: '2', clientName: 'João da Silva', date: '2023-09-01', status: Status.APPROVED, total: 25000, etapas: [], items: [] },
+  { id: '2', clientId: '1', clientName: 'Construtora Horizonte', date: '2024-01-15', status: Status.PENDING, total: 12000, etapas: [], items: [] },
 ];

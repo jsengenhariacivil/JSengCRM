@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Save, User, Building, Bell, Plus, Trash2, Shield, Mail, X, CheckSquare, Square, Key, Upload, Image as ImageIcon, Briefcase, Edit, Loader2, Database, Download } from 'lucide-react';
+import { Save, User, Building, Bell, Plus, Trash2, Shield, Mail, X, CheckSquare, Square, Key, Upload, Image as ImageIcon, Briefcase, Edit, Loader2, Database, Download, TrendingUp } from 'lucide-react';
 import { useData, ROLE_DEFINITIONS } from '../context/DataContext';
 import { supabase } from '../supabaseClient';
 import { UserData, UserPermissions } from '../types';
@@ -14,10 +14,11 @@ const Settings: React.FC = () => {
     companyPhone, setCompanyPhone,
     companyAddress, setCompanyAddress,
     companyEmail, setCompanyEmail,
-    users, addUser, updateUser, deleteUser
+    users, addUser, updateUser, deleteUser,
+    goals, addGoal, updateGoal, deleteGoal
   } = useData();
 
-  const [activeTab, setActiveTab] = useState<'company' | 'users' | 'notifications' | 'sinapi'>('company');
+  const [activeTab, setActiveTab] = useState<'company' | 'users' | 'notifications' | 'sinapi' | 'goals'>('company');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isUploadingLogo, setIsUploadingLogo] = useState(false);
 
@@ -292,6 +293,16 @@ const Settings: React.FC = () => {
           >
             <Database size={18} />
             Base SINAPI Oficial
+          </button>
+          <button
+            onClick={() => setActiveTab('goals')}
+            className={`px-6 py-4 font-medium text-sm flex items-center gap-2 transition-colors whitespace-nowrap ${activeTab === 'goals'
+              ? 'text-[#c79229] border-b-2 border-[#c79229] font-bold'
+              : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'
+              }`}
+          >
+            <TrendingUp size={18} />
+            Metas do Sistema
           </button>
         </div>
 
@@ -596,6 +607,98 @@ const Settings: React.FC = () => {
                     <p className={`mt-2 text-sm ${sinapiStatus.status === 'error' ? 'text-red-600' : 'text-slate-600'}`}>
                       {sinapiStatus.message}
                     </p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* TAB: GOALS */}
+          {activeTab === 'goals' && (
+            <div className="space-y-6 max-w-4xl">
+              <div className="flex justify-between items-center mb-6">
+                <div>
+                  <h3 className="text-lg font-bold text-[#181418]">Metas de Performance</h3>
+                  <p className="text-sm text-slate-500">Defina objetivos mensuráveis para sua empresa.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const title = window.prompt('Título da Meta:');
+                    const target = parseFloat(window.prompt('Valor Alvo (R$ ou Qtd):') || '0');
+                    if (title && target > 0) {
+                      addGoal({
+                        id: Date.now().toString(),
+                        title,
+                        target,
+                        current: 0,
+                        deadline: new Date(new Date().setMonth(new Date().getMonth() + 1)).toISOString(),
+                        type: 'financial',
+                        status: 'active'
+                      });
+                    }
+                  }}
+                  className="flex items-center gap-2 px-4 py-2 bg-[#c79229] text-[#181418] rounded-lg font-bold shadow-sm hover:bg-[#a67922] transition-colors"
+                >
+                  <Plus size={18} /> Criar Meta
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {goals.map(goal => (
+                  <div key={goal.id} className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                    <div className="flex justify-between items-start mb-4">
+                      <div>
+                        <h4 className="font-bold text-slate-800">{goal.title}</h4>
+                        <p className="text-xs text-slate-400">Prazo: {new Date(goal.deadline).toLocaleDateString('pt-BR')}</p>
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const newCurrent = parseFloat(window.prompt('Novo valor atual:', goal.current.toString()) || '0');
+                            updateGoal({ ...goal, current: newCurrent });
+                          }}
+                          className="p-1.5 text-slate-400 hover:text-[#c79229] transition-colors"
+                        >
+                          <Edit size={16} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (window.confirm('Excluir esta meta?')) deleteGoal(goal.id);
+                          }}
+                          className="p-1.5 text-slate-400 hover:text-red-500 transition-colors"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <div className="flex justify-between text-sm">
+                        <span className="text-slate-500">Progresso</span>
+                        <span className="font-bold text-slate-700">
+                          {((goal.current / goal.target) * 100).toFixed(1)}%
+                        </span>
+                      </div>
+                      <div className="w-full bg-slate-100 rounded-full h-2">
+                        <div
+                          className="bg-[#c79229] h-2 rounded-full transition-all duration-500"
+                          style={{ width: `${Math.min((goal.current / goal.target) * 100, 100)}%` }}
+                        ></div>
+                      </div>
+                      <div className="flex justify-between text-xs text-slate-400">
+                        <span>Atual: {goal.type === 'financial' ? `R$ ${goal.current.toLocaleString()}` : goal.current}</span>
+                        <span>Alvo: {goal.type === 'financial' ? `R$ ${goal.target.toLocaleString()}` : goal.target}</span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                {goals.length === 0 && (
+                  <div className="col-span-2 py-12 text-center border-2 border-dashed border-slate-200 rounded-xl">
+                    <TrendingUp size={48} className="text-slate-200 mx-auto mb-3" />
+                    <p className="text-slate-500">Nenhuma meta definida. Comece criando uma agora!</p>
                   </div>
                 )}
               </div>

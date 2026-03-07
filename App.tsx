@@ -15,6 +15,9 @@ import Suppliers from './pages/Suppliers';
 import ServicesPage from './pages/ServicesPage';
 import Team from './pages/Team';
 import Agenda from './pages/Agenda';
+import CRM from './pages/CRM';
+import Inventory from './pages/Inventory';
+import PWAInstructions from './pages/PWAInstructions';
 import Login from './pages/Login';
 import { Status, UserPermissions } from './types';
 
@@ -130,6 +133,20 @@ const App: React.FC = () => {
                   <Agenda />
                 </RequirePermission>
               } />
+
+              <Route path="crm" element={
+                <RequirePermission permission="viewProposals">
+                  <CRM />
+                </RequirePermission>
+              } />
+
+              <Route path="estoque" element={
+                <RequirePermission permission="viewProjects">
+                  <Inventory />
+                </RequirePermission>
+              } />
+
+              <Route path="instalar" element={<PWAInstructions />} />
 
               {/* Configurações restrito apenas para quem tem permissão */}
               <Route path="configuracoes" element={

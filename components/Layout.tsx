@@ -25,7 +25,8 @@ import {
   Banknote,
   PieChart,
   LogOut,
-  Bell
+  Bell,
+  Smartphone
 } from 'lucide-react';
 import { useData } from '../context/DataContext';
 import { useAuth } from '../context/AuthContext';
@@ -171,6 +172,11 @@ const Layout: React.FC = () => {
         <SidebarItem to="/obras" icon={HardHat} label="Obras" onClick={mobile ? toggleMenu : undefined} />
       )}
 
+      {/* CRM */}
+      {canViewProposals && (
+        <SidebarItem to="/crm" icon={Users} label="CRM & Leads" onClick={mobile ? toggleMenu : undefined} />
+      )}
+
       {/* Propostas */}
       {canViewProposals && (
         <div className="space-y-1">
@@ -240,6 +246,7 @@ const Layout: React.FC = () => {
               <SidebarItem to="/clientes" icon={Users} label="Clientes" isSubItem onClick={mobile ? toggleMenu : undefined} />
               <SidebarItem to="/fornecedores" icon={Truck} label="Fornecedores" isSubItem onClick={mobile ? toggleMenu : undefined} />
               <SidebarItem to="/servicos" icon={Package} label="Serviços" isSubItem onClick={mobile ? toggleMenu : undefined} />
+              <SidebarItem to="/estoque" icon={Package} label="Almoxarifado" isSubItem onClick={mobile ? toggleMenu : undefined} />
             </div>
           )}
         </div>
@@ -249,6 +256,9 @@ const Layout: React.FC = () => {
       {(canViewFinancial || canViewProjects) && (
         <SidebarItem to="/agenda" icon={Calendar} label="Agenda Gerencial" onClick={mobile ? toggleMenu : undefined} />
       )}
+
+      {/* PWA Instaill */}
+      <SidebarItem to="/instalar" icon={Smartphone} label="App no Celular" onClick={mobile ? toggleMenu : undefined} />
 
       {/* Configurações apenas para quem tem permissão */}
       {canManageSettings && (

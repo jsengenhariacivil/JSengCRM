@@ -30,6 +30,7 @@ export interface Project {
   endDate: string;
   budget: number;
   progress: number; // 0-100
+  photos?: string[]; // URLs of photos uploaded to storage
   proposalId?: string; // Link to the original proposal if automated
 }
 
@@ -117,6 +118,31 @@ export interface ProposalHistory {
   created_at: string;
 }
 
+// --- CRM / LEADS ---
+export interface Lead {
+  id: string;
+  name: string;
+  company?: string;
+  email: string;
+  phone: string;
+  status: 'Novo' | 'Contato Feito' | 'Proposta Enviada' | 'Negociação' | 'Perdido' | 'Convertido';
+  source: string;
+  notes: string;
+  value?: number;
+  assignedTo?: string;
+  createdAt: string;
+  lastContact?: string;
+}
+
+export interface LeadInteraction {
+  id: string;
+  leadId: string;
+  type: 'Email' | 'Telefone' | 'WhatsApp' | 'Reunião' | 'Nota';
+  content: string;
+  userName: string;
+  createdAt: string;
+}
+
 export interface Supplier {
   id: string;
   name: string;
@@ -143,6 +169,32 @@ export interface PaymentRecord {
   date: string;
   value: number;
   status: string;
+}
+
+// --- INVENTÁRIO ---
+export interface InventoryItem {
+  id: string;
+  name: string;
+  category: string;
+  unit: string;
+  quantity: number;
+  minQuantity: number;
+  location?: string;
+  unitPrice: number;
+  lastRestocked?: string;
+  supplierId?: string;
+  status: 'Em Estoque' | 'Baixo Estoque' | 'Indisponível';
+}
+
+export interface InventoryMovement {
+  id: string;
+  itemId: string;
+  type: 'Entrada' | 'Saída' | 'Ajuste';
+  quantity: number;
+  date: string;
+  reason: string;
+  userName: string;
+  projectId?: string;
 }
 
 // --- NOVAS INTERFACES DE USUÁRIO E PERMISSÕES ---
@@ -239,4 +291,15 @@ export interface AgendaEvento {
   criadoAutomatico: boolean;
   eventoCritico: boolean;
   createdAt?: string;
+}
+
+// --- METAS ---
+export interface Goal {
+  id: string;
+  title: string;
+  target: number;
+  current: number;
+  type: 'Faturamento' | 'Novos Clientes' | 'Obras Concluídas' | 'Propostas Fechadas' | 'financial';
+  deadline: string;
+  status: 'Ativa' | 'Concluída' | 'Expirada' | 'active';
 }

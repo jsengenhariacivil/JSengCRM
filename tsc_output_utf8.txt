@@ -1,0 +1,33 @@
+components/Layout.tsx(260,41): error TS2304: Cannot find name 'Smartphone'.
+context/DataContext.tsx(460,20): error TS2345: Argument of type '{ id: any; name: any; email: any; role: any; permissions: { viewFinancial: any; editFinancial: any; viewProjects: any; editProjects: any; manageSettings: any; }; }[]' is not assignable to parameter of type 'SetStateAction<UserData[]>'.
+  Type '{ id: any; name: any; email: any; role: any; permissions: { viewFinancial: any; editFinancial: any; viewProjects: any; editProjects: any; manageSettings: any; }; }[]' is not assignable to type 'UserData[]'.
+    Type '{ id: any; name: any; email: any; role: any; permissions: { viewFinancial: any; editFinancial: any; viewProjects: any; editProjects: any; manageSettings: any; }; }' is not assignable to type 'UserData'.
+      Types of property 'permissions' are incompatible.
+        Type '{ viewFinancial: any; editFinancial: any; viewProjects: any; editProjects: any; manageSettings: any; }' is missing the following properties from type 'UserPermissions': viewProposals, editProposals, viewTeam
+mockData.ts(31,3): error TS2741: Property 'etapas' is missing in type '{ id: string; clientId: string; clientName: string; date: string; status: Status.APPROVED; total: number; items: undefined[]; }' but required in type 'Proposal'.
+mockData.ts(32,3): error TS2741: Property 'etapas' is missing in type '{ id: string; clientId: string; clientName: string; date: string; status: Status.PENDING; total: number; items: undefined[]; }' but required in type 'Proposal'.
+pages/Inventory.tsx(16,5): error TS2305: Module '"lucide-react"' has no exported member 'Tool'.
+pages/Projects.tsx(970,72): error TS2339: Property 'photos' does not exist on type 'Project'.
+pages/Projects.tsx(971,71): error TS2353: Object literal may only specify known properties, and 'photos' does not exist in type 'Project'.
+pages/Projects.tsx(972,70): error TS2353: Object literal may only specify known properties, and 'photos' does not exist in type 'SetStateAction<Project>'.
+pages/Projects.tsx(982,38): error TS2339: Property 'photos' does not exist on type 'Project'.
+pages/Projects.tsx(989,71): error TS2339: Property 'photos' does not exist on type 'Project'.
+pages/Projects.tsx(990,75): error TS2353: Object literal may only specify known properties, and 'photos' does not exist in type 'Project'.
+pages/Projects.tsx(991,74): error TS2353: Object literal may only specify known properties, and 'photos' does not exist in type 'SetStateAction<Project>'.
+pages/Projects.tsx(1001,40): error TS2339: Property 'photos' does not exist on type 'Project'.
+pages/Projects.tsx(1001,66): error TS2339: Property 'photos' does not exist on type 'Project'.
+pages/Settings.tsx(636,25): error TS2322: Type '"financial"' is not assignable to type '"Faturamento" | "Novos Clientes" | "Obras Concluídas" | "Propostas Fechadas"'.
+pages/Settings.tsx(637,25): error TS2322: Type '"active"' is not assignable to type '"Ativa" | "Concluída" | "Expirada"'.
+pages/Settings.tsx(653,85): error TS2339: Property 'deadline' does not exist on type 'Goal'.
+pages/Settings.tsx(659,99): error TS2339: Property 'current' does not exist on type 'Goal'.
+pages/Settings.tsx(660,51): error TS2353: Object literal may only specify known properties, and 'current' does not exist in type 'Goal'.
+pages/Settings.tsx(682,35): error TS2339: Property 'current' does not exist on type 'Goal'.
+pages/Settings.tsx(682,50): error TS2339: Property 'target' does not exist on type 'Goal'.
+pages/Settings.tsx(688,61): error TS2339: Property 'current' does not exist on type 'Goal'.
+pages/Settings.tsx(688,76): error TS2339: Property 'target' does not exist on type 'Goal'.
+pages/Settings.tsx(692,39): error TS2367: This comparison appears to be unintentional because the types '"Faturamento" | "Novos Clientes" | "Obras Concluídas" | "Propostas Fechadas"' and '"financial"' have no overlap.
+pages/Settings.tsx(692,78): error TS2339: Property 'current' does not exist on type 'Goal'.
+pages/Settings.tsx(692,112): error TS2339: Property 'current' does not exist on type 'Goal'.
+pages/Settings.tsx(693,38): error TS2367: This comparison appears to be unintentional because the types '"Faturamento" | "Novos Clientes" | "Obras Concluídas" | "Propostas Fechadas"' and '"financial"' have no overlap.
+pages/Settings.tsx(693,77): error TS2339: Property 'target' does not exist on type 'Goal'.
+pages/Settings.tsx(693,110): error TS2339: Property 'target' does not exist on type 'Goal'.

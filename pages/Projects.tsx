@@ -4,6 +4,7 @@ import { useData } from '../context/DataContext';
 import { useAuth } from '../context/AuthContext';
 import { Status, Project } from '../types';
 import { ResponsiveContainer, ComposedChart, Line, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend } from 'recharts';
+import { supabase } from '../supabaseClient';
 
 interface ProjectCardProps {
   project: Project;
@@ -93,7 +94,7 @@ const Projects: React.FC = () => {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
-  const [activeTab, setActiveTab] = useState<'info' | 'measurements' | 'rdo' | 'cronograma' | 'curva_s'>('info');
+  const [activeTab, setActiveTab] = useState<'info' | 'measurements' | 'rdo' | 'cronograma' | 'curva_s' | 'photos'>('info');
   const { measurements, addMeasurement, dailyReports, addDailyReport, projectTasks, addProjectTask, deleteProjectTask, projectMilestones, addProjectMilestone, deleteProjectMilestone, updateProjectMilestone } = useData();
 
   // State para novas medições
@@ -517,6 +518,12 @@ const Projects: React.FC = () => {
               >
                 Cronograma
               </button>
+              <button
+                onClick={() => setActiveTab('photos')}
+                className={`py-4 px-6 text-sm font-bold border-b-2 transition-colors whitespace-nowrap ${activeTab === 'photos' ? 'border-[#c79229] text-[#c79229]' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
+              >
+                Fotos
+              </button>
             </div>
 
             <div className="flex-1 overflow-y-auto p-6">
@@ -927,6 +934,77 @@ const Projects: React.FC = () => {
                       )}
                     </div>
                   </section>
+                </div>
+              )}
+
+              {activeTab === 'photos' && (
+                <div className="space-y-6">
+                  <div className="flex justify-between items-center">
+                    <h4 className="text-lg font-bold text-[#181418]">Galeria da Obra</h4>
+                    <label className="flex items-center gap-2 bg-[#c79229] text-[#181418] px-4 py-2 rounded-lg font-bold cursor-pointer hover:bg-[#a67922] transition-colors shadow-sm">
+                      <Plus size={18} />
+                      <span>Upload de Foto</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0];
+                          if (!file || !selectedProject) return;
+
+                          try {
+                            const fileExt = file.name.split('.').pop();
+                            const fileName = `project_${selectedProject.id}_${Date.now()}.${fileExt}`;
+                            const filePath = `${selectedProject.id}/${fileName}`;
+
+                            const { error: uploadError } = await supabase.storage
+                              .from('project-photos')
+                              .upload(filePath, file);
+
+                            if (uploadError) throw uploadError;
+
+                            const { data: { publicUrl } } = supabase.storage
+                              .from('project-photos')
+                              .getPublicUrl(filePath);
+
+                            const updatedPhotos = [...(selectedProject.photos || []), publicUrl];
+                            await updateProject({ ...selectedProject, photos: updatedPhotos });
+                            setSelectedProject({ ...selectedProject, photos: updatedPhotos });
+                          } catch (err: any) {
+                            alert('Erro no upload: ' + err.message);
+                          }
+                        }}
+                      />
+                    </label>
+                  </div>
+
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                    {selectedProject.photos?.map((photo, idx) => (
+                      <div key={idx} className="relative group aspect-square rounded-xl overflow-hidden border border-slate-200">
+                        <img src={photo} alt="Obra" className="w-full h-full object-cover" />
+                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                          <button
+                            onClick={async () => {
+                              if (window.confirm('Excluir esta foto?')) {
+                                const updatedPhotos = selectedProject.photos?.filter((_, i) => i !== idx);
+                                await updateProject({ ...selectedProject, photos: updatedPhotos });
+                                setSelectedProject({ ...selectedProject, photos: updatedPhotos });
+                              }
+                            }}
+                            className="bg-red-500 text-white p-2 rounded-full hover:bg-red-600 transition-colors"
+                          >
+                            <Trash2 size={20} />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                    {(!selectedProject.photos || selectedProject.photos.length === 0) && (
+                      <div className="col-span-full py-12 text-center border-2 border-dashed border-slate-200 rounded-xl">
+                        <ImageIcon size={48} className="text-slate-200 mx-auto mb-3" />
+                        <p className="text-slate-500">Nenhuma foto enviada ainda.</p>
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
             </div>
