@@ -991,43 +991,51 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     // Integração Automática com Obras
     if (status === Status.APPROVED) {
-      const proposal = proposals.find(p => p.id === id);
-      if (proposal) {
-        const safeTotal = proposal.total || 0;
-        try {
-          const jaExisteObra = projects.find(p => p.proposalId === id);
+      try {
+        // Buscar dados atualizados da proposta diretamente do Supabase para evitar problemas de estado assíncrono
+        const { data: proposal, error: fetchError } = await supabase
+          .from('proposals')
+          .select('*, clients(name)')
+          .eq('id', id)
+          .single();
 
-          if (!jaExisteObra) {
-            await addProject({
-              id: '',
-              title: `Obra: ${proposal.clientName} - #${proposal.id.substring(0, 8)}`,
-              clientId: proposal.clientId,
-              clientName: proposal.clientName,
-              address: '', // Placeholder
-              status: Status.PENDING,
-              startDate: proposal.date || new Date().toISOString().split('T')[0],
-              endDate: '',
-              budget: safeTotal,
-              progress: 0,
-              proposalId: proposal.id
-            });
-          }
-        } catch (err) {
-          console.error('Erro na integração automática com obras:', err);
-          alert('O status foi atualizado, mas houve um erro ao criar a obra. Verifique se a coluna "proposal_id" existe na tabela "projects" no seu Supabase.');
+        if (fetchError || !proposal) {
+          throw new Error('Não foi possível encontrar os dados da proposta aprovada.');
+        }
+
+        const clientName = proposal.clients?.name || 'Cliente';
+        const safeTotal = proposal.total || 0;
+
+        // Verificar se já existe obra para esta proposta
+        const jaExisteObra = projects.find(p => p.proposalId === id);
+
+        if (!jaExisteObra) {
+          await addProject({
+            id: '',
+            title: `Obra: ${clientName} - #${id.substring(0, 8)}`,
+            clientId: proposal.client_id,
+            clientName: clientName,
+            address: '', // Placeholder
+            status: Status.PENDING,
+            startDate: proposal.date || new Date().toISOString().split('T')[0],
+            endDate: '',
+            budget: safeTotal,
+            progress: 0,
+            proposalId: id
+          });
         }
 
         // Dispara Notificação
-        try {
-          await addNotification({
-            title: 'Proposta Aprovada! 🎉',
-            message: `Proposta #${proposal.id.substring(0, 8)} do cliente ${proposal.clientName} aprovada. Valor: R$ ${safeTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}.`,
-            type: 'success',
-            is_read: false
-          });
-        } catch (e) {
-          console.error('Erro ao criar notificação:', e);
-        }
+        await addNotification({
+          title: 'Proposta Aprovada! 🎉',
+          message: `Proposta #${id.substring(0, 8)} do cliente ${clientName} aprovada. Valor: R$ ${safeTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}.`,
+          type: 'success',
+          is_read: false
+        }).catch(e => console.error('Erro ao criar notificação:', e));
+
+      } catch (err: any) {
+        console.error('Erro na integração automática com obras:', err);
+        alert(`O status foi atualizado, mas houve um erro ao criar a obra: ${err.message}`);
       }
     }
   };
