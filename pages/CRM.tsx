@@ -164,12 +164,13 @@ const CRM: React.FC = () => {
                     </button>
                 </div>
 
+                {/* Kanban Board */}
                 {viewMode === 'kanban' ? (
-                    <div className="flex gap-4 overflow-x-auto pb-4 min-h-[600px]">
+                    <div className="flex gap-4 overflow-x-auto pb-4 custom-scrollbar min-h-[600px] items-start">
                         {stages.map(stage => (
                             <div
                                 key={stage}
-                                className="flex-shrink-0 w-80 bg-slate-50 rounded-xl p-3 flex flex-col"
+                                className="flex-shrink-0 w-64 bg-slate-50/80 rounded-xl p-2.5 flex flex-col border border-slate-200/60"
                                 onDragOver={handleDragOver}
                                 onDrop={(e) => handleDrop(e, stage)}
                             >

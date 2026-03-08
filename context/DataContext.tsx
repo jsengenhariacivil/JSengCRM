@@ -928,6 +928,23 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
       setProposals(prev => [{ ...proposal, id: proposalData.id }, ...prev]);
 
+      // Sincronizar com a Agenda
+      if (proposal.date) {
+        const dataVencimento = new Date(proposal.date.length === 10 ? `${proposal.date}T09:00:00` : proposal.date);
+        dataVencimento.setDate(dataVencimento.getDate() + 15); // Validade padrão de 15 dias
+        const vencimentoStr = dataVencimento.toISOString();
+
+        syncAgendaEvent('ORCAMENTO', proposalData.id, {
+          tipoEvento: 'VENCIMENTO DE PROPOSTA',
+          titulo: `Vencimento Proposta - ${proposal.clientName}`,
+          descricao: `Aviso automático de vencimento da proposta (validade padrão de 15 dias a partir da criação).`,
+          dataInicio: vencimentoStr,
+          dataFim: vencimentoStr,
+          prioridade: 'ALTA',
+          eventoCritico: true
+        }).catch(console.error);
+      }
+
       // Integração Automática com Obras
       if (proposal.status === Status.APPROVED) {
         try {
@@ -949,25 +966,36 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           }
         } catch (err) {
           console.error('Erro na integração automática com obras:', err);
-          alert('A proposta foi salva, mas houve um erro ao criar a obra. Verifique se a coluna "proposal_id" existe na tabela "projects" do Supabase.');
         }
       }
 
-      // Sincronizar com a Agenda
-      if (proposal.date) {
-        const dataVencimento = new Date(proposal.date.length === 10 ? `${proposal.date}T09:00:00` : proposal.date);
-        dataVencimento.setDate(dataVencimento.getDate() + 15); // Validade padrão de 15 dias
-        const vencimentoStr = dataVencimento.toISOString();
+      // --- AUTOMATION: Lead Creation/Update ---
+      try {
+        const client = clients.find(c => c.id === proposal.clientId);
+        const existingLead = leads.find(l => l.name.toLowerCase() === proposal.clientName.toLowerCase());
 
-        syncAgendaEvent('ORCAMENTO', proposalData.id, {
-          tipoEvento: 'VENCIMENTO DE PROPOSTA',
-          titulo: `Vencimento Proposta - ${proposal.clientName}`,
-          descricao: `Aviso automático de vencimento da proposta (validade padrão de 15 dias a partir da criação).`,
-          dataInicio: vencimentoStr,
-          dataFim: vencimentoStr,
-          prioridade: 'ALTA',
-          eventoCritico: true
-        }).catch(console.error);
+        if (existingLead) {
+          await updateLead({
+            ...existingLead,
+            status: 'Proposta Enviada',
+            value: proposal.total,
+            lastContact: new Date().toISOString()
+          });
+        } else {
+          await addLead({
+            id: '',
+            name: proposal.clientName,
+            email: client?.email || '',
+            phone: client?.phone || '',
+            status: 'Proposta Enviada',
+            source: 'Sistema (Proposta)',
+            notes: `Gerado automaticamente a partir da Proposta #${proposalData.id.substring(0, 8)}`,
+            value: proposal.total,
+            createdAt: new Date().toISOString()
+          });
+        }
+      } catch (leadErr) {
+        console.error('Erro na automação de lead ao salvar proposta:', leadErr);
       }
     }
   };
@@ -1023,6 +1051,15 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           is_read: false
         }).catch(console.error);
 
+        // --- AUTOMATION: Lead Conversion ---
+        const existingLead = leads.find(l => l.name.toLowerCase() === clientName.toLowerCase());
+        if (existingLead && existingLead.status !== 'Convertido') {
+          await updateLead({
+            ...existingLead,
+            status: 'Convertido',
+            lastContact: new Date().toISOString()
+          });
+        }
       } else if (status === Status.REJECTED || status === Status.PENDING) {
         // Se voltar para pendente ou cancelado, ajustar obra e financeiro
         if (jaExisteObra) {
@@ -1107,6 +1144,44 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
 
     setProposals(prev => prev.map(p => p.id === proposal.id ? proposal : p));
+
+    // --- AUTOMATION: Lead Creation/Update ---
+    try {
+      const client = clients.find(c => c.id === proposal.clientId);
+      const existingLead = leads.find(l => l.name.toLowerCase() === proposal.clientName.toLowerCase());
+
+      if (existingLead) {
+        // Se a proposta foi aprovada agora, o status do lead deve ser 'Convertido'
+        // Caso contrário, 'Proposta Enviada' (se já não estiver num status posterior)
+        let newLeadStatus = existingLead.status;
+        if (proposal.status === Status.APPROVED) {
+          newLeadStatus = 'Convertido';
+        } else if (['Novo', 'Contato Feito'].includes(existingLead.status)) {
+          newLeadStatus = 'Proposta Enviada';
+        }
+
+        await updateLead({
+          ...existingLead,
+          status: newLeadStatus as any,
+          value: proposal.total,
+          lastContact: new Date().toISOString()
+        });
+      } else {
+        await addLead({
+          id: '',
+          name: proposal.clientName,
+          email: client?.email || '',
+          phone: client?.phone || '',
+          status: proposal.status === Status.APPROVED ? 'Convertido' : 'Proposta Enviada',
+          source: 'Sistema (Proposta)',
+          notes: `Gerado automaticamente a partir da edição da Proposta #${proposal.id?.substring(0, 8)}`,
+          value: proposal.total,
+          createdAt: new Date().toISOString()
+        });
+      }
+    } catch (leadErr) {
+      console.error('Erro na automação de lead ao atualizar proposta:', leadErr);
+    }
 
     // Integração Financeira, Obras e Central de Notificações
     if (proposal.status === Status.APPROVED) {
