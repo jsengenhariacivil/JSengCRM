@@ -710,20 +710,6 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         const newProject = { ...project, id: data.id };
         setProjects(prev => [...prev, newProject]);
 
-        // Registro Financeiro Automático (Receita Pendente)
-        if (newProject.budget > 0) {
-          await addFinancialRecord({
-            id: '', // será gerado pelo backend mas precisa tipagem local inicial
-            type: 'Receita',
-            description: `Recebimento Obra: ${newProject.title}`,
-            amount: newProject.budget,
-            date: newProject.startDate,
-            status: Status.PENDING,
-            category: 'Serviços',
-            projectId: newProject.id
-          });
-        }
-
         // Sincronizar com Agenda
         if (newProject.endDate) {
           const safeDateStr = newProject.endDate.length === 10 ? `${newProject.endDate}T09:00:00` : newProject.endDate;
@@ -758,15 +744,6 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     setProjects(prev => prev.map(p => p.id === project.id ? project : p));
 
-    // Sincronizar com Financeiro
-    const financialVinculado = financials.find(f => f.projectId === project.id && f.type === 'Receita');
-    if (financialVinculado) {
-      await updateFinancialRecord({
-        ...financialVinculado,
-        amount: project.budget,
-        description: `Recebimento Obra: ${project.title}`
-      });
-    }
 
     // Sincronizar com Agenda
     if (project.endDate) {
@@ -1054,16 +1031,6 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             budget: 0,
             status: status === Status.REJECTED ? Status.REJECTED : Status.PENDING
           });
-
-          // Buscar e atualizar registros financeiros vinculados à obra
-          const relatedFinancials = financials.filter(f => f.projectId === jaExisteObra.id);
-          for (const fin of relatedFinancials) {
-            await updateFinancialRecord({
-              ...fin,
-              amount: 0,
-              status: status === Status.REJECTED ? Status.REJECTED : Status.PENDING
-            });
-          }
         }
       }
     } catch (err) {
@@ -1162,17 +1129,6 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           budget: safeTotal,
           title: `Obra: ${clientName} - #${proposal.id.substring(0, 8)}`
         });
-
-        // O updateProject já deve cuidar de atualizar o financeiro vinculado à obra (vamos garantir isso no updateProject)
-      } else {
-        // Fallback: Se não tem obra, tenta sincronizar pelo link direto de descrição (legado/segurança)
-        const financialVinculado = financials.find(f => f.description === `Receita Ref. Proposta #${proposal.id}`);
-        if (financialVinculado) {
-          await updateFinancialRecord({
-            ...financialVinculado,
-            amount: safeTotal
-          });
-        }
       }
     }
   };

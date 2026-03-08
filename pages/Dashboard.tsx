@@ -175,8 +175,12 @@ const Dashboard: React.FC = () => {
 
   // Totais Gerais (Visão de Competência)
   const totalRevenue = useMemo(() => financials
-    .filter(f => f.type === 'Receita') // Removido filtro de Status.PAID
+    .filter(f => f.type === 'Receita')
     .reduce((acc, curr) => acc + curr.amount, 0), [financials]);
+
+  const totalContractedVolume = useMemo(() => projects
+    .filter(p => p.status !== Status.REJECTED)
+    .reduce((acc, curr) => acc + (curr.budget || 0), 0), [projects]);
 
   const totalPretensao = useMemo(() => proposals
     .filter(p => p.status === Status.PENDING)
@@ -260,18 +264,18 @@ const Dashboard: React.FC = () => {
       {/* LINHA 1: KPIs Principais */}
       <div className="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-3 2xl:grid-cols-6 gap-6">
         <StatCard
-          title="Faturamento (Lançado)"
+          title="Faturamento Realizado"
           value={`R$ ${(totalRevenue || 0).toLocaleString()}`}
-          subtext="Receita total (Previsto + Realizado)"
+          subtext="Total medido nas obras"
           icon={TrendingUp}
-          trend="brand"
+          trend="up"
         />
         <StatCard
-          title="Pretensão Comercial"
-          value={`R$ ${totalPretensao.toLocaleString()}`}
-          subtext={`${pendingProposalsCount} propostas pendentes`}
-          icon={Target}
-          trend="neutral"
+          title="Volume Contratado"
+          value={`R$ ${totalContractedVolume.toLocaleString()}`}
+          subtext="Total em contratos assinados"
+          icon={Briefcase}
+          trend="brand"
         />
         <StatCard
           title="Taxa de Conversão"
@@ -288,10 +292,10 @@ const Dashboard: React.FC = () => {
           trend="neutral"
         />
         <StatCard
-          title="Obras em Execução"
-          value={activeProjects.toString()}
-          subtext="Projetos ativos"
-          icon={Briefcase}
+          title="Pretensão Comercial"
+          value={`R$ ${totalPretensao.toLocaleString()}`}
+          subtext={`${pendingProposalsCount} propostas pendentes`}
+          icon={Target}
           trend="neutral"
         />
         <StatCard
