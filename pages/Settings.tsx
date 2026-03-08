@@ -1,9 +1,9 @@
-
+```typescript
 import React, { useState, useEffect, useRef } from 'react';
 import { Save, User, Building, Bell, Plus, Trash2, Shield, Mail, X, CheckSquare, Square, Key, Upload, Image as ImageIcon, Briefcase, Edit, Loader2, Database, Download, TrendingUp } from 'lucide-react';
 import { useData, ROLE_DEFINITIONS } from '../context/DataContext';
 import { supabase } from '../supabaseClient';
-import { UserData, UserPermissions } from '../types';
+import { UserData, UserPermissions, Goal } from '../types';
 import { processSinapiZip, SinapiProcessStatus } from '../utils/sinapiParser';
 
 const Settings: React.FC = () => {
@@ -68,6 +68,18 @@ const Settings: React.FC = () => {
   // Estado para edição de permissões (Granular)
   const [editingPermissionsUser, setEditingPermissionsUser] = useState<UserData | null>(null);
 
+  // --- GOAL STATES ---
+  const [isGoalModalOpen, setIsGoalModalOpen] = useState(false);
+  const [editingGoal, setEditingGoal] = useState<Goal | null>(null);
+  const [goalForm, setGoalForm] = useState<Partial<Goal>>({
+    title: '',
+    target: 0,
+    current: 0,
+    type: 'Financeiro',
+    deadline: new Date(new Date().setMonth(new Date().getMonth() + 1)).toISOString().split('T')[0],
+    status: 'Ativa'
+  });
+
   const handleSaveCompany = (e: React.FormEvent) => {
     e.preventDefault();
     setCompanyName(localData.name);
@@ -85,8 +97,8 @@ const Settings: React.FC = () => {
     try {
       setIsUploadingLogo(true);
       const fileExt = file.name.split('.').pop();
-      const fileName = `company_logo_${Date.now()}.${fileExt}`;
-      const filePath = `${fileName}`;
+      const fileName = `company_logo_${ Date.now() }.${ fileExt } `;
+      const filePath = `${ fileName } `;
 
       const { error: uploadError } = await supabase.storage
         .from('logos')
@@ -124,58 +136,26 @@ const Settings: React.FC = () => {
     }
   };
 
-  const handleSave = (e: React.FormEvent) => {
-    e.preventDefault();
-    alert('Alterações salvas com sucesso!');
-  };
-
-  // --- USER MANAGEMENT HANDLERS ---
-
-  const openAddUserModal = () => {
-    setEditingUserId(null);
-    setUserForm({ name: '', email: '', role: 'Engenharia', password: '' });
-    setIsUserModalOpen(true);
-  };
-
-  const openEditUserModal = (user: UserData) => {
-    setEditingUserId(user.id);
-    setUserForm({
-      name: user.name,
-      email: user.email,
-      role: user.role,
-      password: '' // Senha começa vazia na edição (só preenche se quiser mudar)
-    });
-    setIsUserModalOpen(true);
-  };
-
   const handleSaveUser = (e: React.FormEvent) => {
     e.preventDefault();
     if (!userForm.name || !userForm.email) return;
 
-    // Busca permissões pré-definidas com base no cargo selecionado
     const rolePermissions = ROLE_DEFINITIONS[userForm.role] || ROLE_DEFINITIONS['Visitante'];
 
     if (editingUserId) {
-      // --- MODO EDIÇÃO ---
       const originalUser = users.find(u => u.id === editingUserId);
       if (!originalUser) return;
-
-      // Se a senha estiver vazia no form, mantém a antiga. Se tiver algo, atualiza.
       const passwordToSave = userForm.password ? userForm.password : originalUser.password;
-
       const updatedUser: UserData = {
         ...originalUser,
         name: userForm.name,
         email: userForm.email,
         role: userForm.role,
         password: passwordToSave,
-        // Ao mudar o perfil/role no modal de edição básica, resetamos as permissões para o padrão daquele perfil
         permissions: rolePermissions
       };
-
       updateUser(updatedUser);
     } else {
-      // --- MODO CRIAÇÃO ---
       const newUser: UserData = {
         id: (users.length + 1 + Math.random()).toString(),
         name: userForm.name,
@@ -186,9 +166,19 @@ const Settings: React.FC = () => {
       };
       addUser(newUser);
     }
-
     setIsUserModalOpen(false);
+  };
+
+  const openAddUserModal = () => {
+    setEditingUserId(null);
     setUserForm({ name: '', email: '', role: 'Engenharia', password: '' });
+    setIsUserModalOpen(true);
+  };
+
+  const openEditUserModal = (user: UserData) => {
+    setEditingUserId(user.id);
+    setUserForm({ name: user.name, email: user.email, role: user.role, password: '' });
+    setIsUserModalOpen(true);
   };
 
   const handleDeleteUser = (id: string) => {
@@ -197,7 +187,51 @@ const Settings: React.FC = () => {
     }
   };
 
-  // --- PERMISSIONS MANAGEMENT HANDLERS ---
+  // --- GOAL HANDLERS ---
+  const openAddGoalModal = () => {
+    setEditingGoal(null);
+    setGoalForm({
+      title: '',
+      target: 0,
+      current: 0,
+      type: 'Financeiro',
+      deadline: new Date(new Date().setMonth(new Date().getMonth() + 1)).toISOString().split('T')[0],
+      status: 'Ativa'
+    });
+    setIsGoalModalOpen(true);
+  };
+
+  const openEditGoalModal = (goal: Goal) => {
+    setEditingGoal(goal);
+    setGoalForm({
+      title: goal.title,
+      target: goal.target,
+      current: goal.current,
+      type: goal.type as any,
+      deadline: goal.deadline.split('T')[0],
+      status: goal.status as any
+    });
+    setIsGoalModalOpen(true);
+  };
+
+  const handleSaveGoal = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      if (editingGoal) {
+        await updateGoal({ ...editingGoal, ...goalForm } as Goal);
+      } else {
+        await addGoal({
+          ...goalForm,
+          id: Date.now().toString(),
+          current: goalForm.current || 0,
+          status: 'Ativa'
+        } as Goal);
+      }
+      setIsGoalModalOpen(false);
+    } catch (error) {
+      console.error('Erro ao salvar meta:', error);
+    }
+  };
 
   const handleOpenPermissions = (user: UserData) => {
     // Clona o objeto para evitar referência direta durante a edição
@@ -256,53 +290,58 @@ const Settings: React.FC = () => {
         <div className="flex border-b border-slate-100 overflow-x-auto">
           <button
             onClick={() => setActiveTab('company')}
-            className={`px-6 py-4 font-medium text-sm flex items-center gap-2 transition-colors whitespace-nowrap ${activeTab === 'company'
-              ? 'text-[#c79229] border-b-2 border-[#c79229] font-bold'
-              : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'
-              }`}
+            className={`px - 6 py - 4 font - medium text - sm flex items - center gap - 2 transition - colors whitespace - nowrap ${
+  activeTab === 'company'
+    ? 'text-[#c79229] border-b-2 border-[#c79229] font-bold'
+    : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'
+} `}
           >
             <Building size={18} />
             Dados da Empresa
           </button>
           <button
             onClick={() => setActiveTab('users')}
-            className={`px-6 py-4 font-medium text-sm flex items-center gap-2 transition-colors whitespace-nowrap ${activeTab === 'users'
-              ? 'text-[#c79229] border-b-2 border-[#c79229] font-bold'
-              : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'
-              }`}
+            className={`px - 6 py - 4 font - medium text - sm flex items - center gap - 2 transition - colors whitespace - nowrap ${
+  activeTab === 'users'
+    ? 'text-[#c79229] border-b-2 border-[#c79229] font-bold'
+    : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'
+} `}
           >
             <User size={18} />
-            Usuários e Permissões
+            Usuários
           </button>
           <button
             onClick={() => setActiveTab('notifications')}
-            className={`px-6 py-4 font-medium text-sm flex items-center gap-2 transition-colors whitespace-nowrap ${activeTab === 'notifications'
-              ? 'text-[#c79229] border-b-2 border-[#c79229] font-bold'
-              : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'
-              }`}
+            className={`px - 6 py - 4 font - medium text - sm flex items - center gap - 2 transition - colors whitespace - nowrap ${
+  activeTab === 'notifications'
+    ? 'text-[#c79229] border-b-2 border-[#c79229] font-bold'
+    : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'
+} `}
           >
             <Bell size={18} />
             Notificações
           </button>
           <button
             onClick={() => setActiveTab('sinapi')}
-            className={`px-6 py-4 font-medium text-sm flex items-center gap-2 transition-colors whitespace-nowrap ${activeTab === 'sinapi'
-              ? 'text-[#c79229] border-b-2 border-[#c79229] font-bold'
-              : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'
-              }`}
+            className={`px - 6 py - 4 font - medium text - sm flex items - center gap - 2 transition - colors whitespace - nowrap ${
+  activeTab === 'sinapi'
+    ? 'text-[#c79229] border-b-2 border-[#c79229] font-bold'
+    : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'
+} `}
           >
             <Database size={18} />
-            Base SINAPI Oficial
+            SINAPI
           </button>
           <button
             onClick={() => setActiveTab('goals')}
-            className={`px-6 py-4 font-medium text-sm flex items-center gap-2 transition-colors whitespace-nowrap ${activeTab === 'goals'
-              ? 'text-[#c79229] border-b-2 border-[#c79229] font-bold'
-              : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'
-              }`}
+            className={`px - 6 py - 4 font - medium text - sm flex items - center gap - 2 transition - colors whitespace - nowrap ${
+  activeTab === 'goals'
+    ? 'text-[#c79229] border-b-2 border-[#c79229] font-bold'
+    : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'
+} `}
           >
             <TrendingUp size={18} />
-            Metas do Sistema
+            Metas
           </button>
         </div>
 
@@ -439,18 +478,20 @@ const Settings: React.FC = () => {
                     {users.map(user => (
                       <tr key={user.id} className="hover:bg-slate-50">
                         <td className="px-6 py-4 font-medium text-[#181418] flex items-center gap-3">
-                          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${user.role === 'Visitante' ? 'bg-slate-200 text-slate-500' : 'bg-[#181418] text-[#c79229]'
-                            }`}>
+                          <div className={`w - 8 h - 8 rounded - full flex items - center justify - center text - xs font - bold ${
+  user.role === 'Visitante' ? 'bg-slate-200 text-slate-500' : 'bg-[#181418] text-[#c79229]'
+} `}>
                             {user.name.charAt(0)}
                           </div>
                           {user.name}
                         </td>
                         <td className="px-6 py-4 text-slate-600">{user.email}</td>
                         <td className="px-6 py-4">
-                          <span className={`px-2 py-1 rounded-full text-xs font-bold ${user.role === 'Administrador' ? 'bg-[#c79229]/20 text-[#c79229]' :
-                            user.role === 'Visitante' ? 'bg-slate-200 text-slate-500' :
-                              'bg-blue-50 text-blue-600'
-                            }`}>
+                          <span className={`px - 2 py - 1 rounded - full text - xs font - bold ${
+  user.role === 'Administrador' ? 'bg-[#c79229]/20 text-[#c79229]' :
+    user.role === 'Visitante' ? 'bg-slate-200 text-slate-500' :
+      'bg-blue-50 text-blue-600'
+} `}>
                             {user.role}
                           </span>
                         </td>
@@ -602,9 +643,14 @@ const Settings: React.FC = () => {
                       <span className="text-xs font-medium text-[#c79229]">{sinapiStatus.progress}%</span>
                     </div>
                     <div className="w-full bg-slate-100 rounded-full h-2.5">
-                      <div className={`h-2.5 rounded-full transition-all duration-300 ${sinapiStatus.status === 'error' ? 'bg-red-500' : sinapiStatus.status === 'done' ? 'bg-green-500' : 'bg-[#c79229]'}`} style={{ width: `${sinapiStatus.progress}%` }}></div>
+                      <div 
+                        className={`h - 2.5 rounded - full transition - all duration - 300 ${
+  sinapiStatus.status === 'error' ? 'bg-red-500' : sinapiStatus.status === 'done' ? 'bg-green-500' : 'bg-[#c79229]'
+} `} 
+                        style={{ width: `${ sinapiStatus.progress }% ` }}
+                      ></div>
                     </div>
-                    <p className={`mt-2 text-sm ${sinapiStatus.status === 'error' ? 'text-red-600' : 'text-slate-600'}`}>
+                    <p className={`mt - 2 text - sm ${ sinapiStatus.status === 'error' ? 'text-red-600' : 'text-slate-600' } `}>
                       {sinapiStatus.message}
                     </p>
                   </div>
@@ -623,21 +669,7 @@ const Settings: React.FC = () => {
                 </div>
                 <button
                   type="button"
-                  onClick={() => {
-                    const title = window.prompt('Título da Meta:');
-                    const target = parseFloat(window.prompt('Valor Alvo (R$ ou Qtd):') || '0');
-                    if (title && target > 0) {
-                      addGoal({
-                        id: Date.now().toString(),
-                        title,
-                        target,
-                        current: 0,
-                        deadline: new Date(new Date().setMonth(new Date().getMonth() + 1)).toISOString(),
-                        type: 'financial',
-                        status: 'active'
-                      });
-                    }
-                  }}
+                  onClick={openAddGoalModal}
                   className="flex items-center gap-2 px-4 py-2 bg-[#c79229] text-[#181418] rounded-lg font-bold shadow-sm hover:bg-[#a67922] transition-colors"
                 >
                   <Plus size={18} /> Criar Meta
@@ -646,20 +678,34 @@ const Settings: React.FC = () => {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {goals.map(goal => (
-                  <div key={goal.id} className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                  <div key={goal.id} className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm relative group overflow-hidden">
+                    <div className="absolute top-0 left-0 w-1 h-full bg-[#c79229] opacity-0 group-hover:opacity-100 transition-opacity"></div>
                     <div className="flex justify-between items-start mb-4">
                       <div>
-                        <h4 className="font-bold text-slate-800">{goal.title}</h4>
-                        <p className="text-xs text-slate-400">Prazo: {new Date(goal.deadline).toLocaleDateString('pt-BR')}</p>
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className={`px - 2 py - 0.5 rounded text - [10px] font - bold uppercase ${
+  goal.type === 'Financeiro' ? 'bg-green-100 text-green-700' :
+    goal.type === 'Comercial' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'
+} `}>
+                            {goal.type}
+                          </span>
+                          <span className={`px - 2 py - 0.5 rounded text - [10px] font - bold uppercase ${
+  goal.status === 'Ativa' ? 'bg-amber-100 text-amber-700' :
+    goal.status === 'Concluída' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'
+} `}>
+                            {goal.status}
+                          </span>
+                        </div>
+                        <h4 className="font-bold text-slate-800 text-lg leading-tight">{goal.title}</h4>
+                        <p className="text-xs text-slate-400 mt-1 flex items-center gap-1">
+                          <TrendingUp size={12} /> Prazo: {new Date(goal.deadline).toLocaleDateString('pt-BR')}
+                        </p>
                       </div>
-                      <div className="flex gap-2">
+                      <div className="flex gap-1">
                         <button
                           type="button"
-                          onClick={() => {
-                            const newCurrent = parseFloat(window.prompt('Novo valor atual:', goal.current.toString()) || '0');
-                            updateGoal({ ...goal, current: newCurrent });
-                          }}
-                          className="p-1.5 text-slate-400 hover:text-[#c79229] transition-colors"
+                          onClick={() => openEditGoalModal(goal)}
+                          className="p-2 text-slate-400 hover:text-[#c79229] hover:bg-slate-50 rounded-lg transition-all"
                         >
                           <Edit size={16} />
                         </button>
@@ -668,37 +714,46 @@ const Settings: React.FC = () => {
                           onClick={() => {
                             if (window.confirm('Excluir esta meta?')) deleteGoal(goal.id);
                           }}
-                          className="p-1.5 text-slate-400 hover:text-red-500 transition-colors"
+                          className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
                         >
                           <Trash2 size={16} />
                         </button>
                       </div>
                     </div>
 
-                    <div className="space-y-2">
+                    <div className="space-y-3">
                       <div className="flex justify-between text-sm">
-                        <span className="text-slate-500">Progresso</span>
-                        <span className="font-bold text-slate-700">
+                        <span className="text-slate-500 font-medium">Progresso</span>
+                        <span className="font-bold text-[#c79229]">
                           {((goal.current / goal.target) * 100).toFixed(1)}%
                         </span>
                       </div>
-                      <div className="w-full bg-slate-100 rounded-full h-2">
+                      <div className="w-full bg-slate-100 rounded-full h-3">
                         <div
-                          className="bg-[#c79229] h-2 rounded-full transition-all duration-500"
-                          style={{ width: `${Math.min((goal.current / goal.target) * 100, 100)}%` }}
+                          className="bg-gradient-to-r from-[#c79229] to-[#e0a838] h-3 rounded-full transition-all duration-1000 shadow-inner"
+                          style={{ width: `${ Math.min((goal.current / goal.target) * 100, 100) }% ` }}
                         ></div>
                       </div>
-                      <div className="flex justify-between text-xs text-slate-400">
-                        <span>Atual: {goal.type === 'financial' ? `R$ ${goal.current.toLocaleString()}` : goal.current}</span>
-                        <span>Alvo: {goal.type === 'financial' ? `R$ ${goal.target.toLocaleString()}` : goal.target}</span>
+                      <div className="flex justify-between text-xs p-2 bg-slate-50 rounded-lg">
+                        <div className="text-center">
+                          <p className="text-slate-400 uppercase text-[9px] font-bold">Atual</p>
+                          <p className="font-bold text-slate-700">{goal.type === 'Financeiro' ? `R$ ${ goal.current.toLocaleString() } ` : goal.current}</p>
+                        </div>
+                        <div className="text-center border-l border-slate-200 pl-4">
+                          <p className="text-slate-400 uppercase text-[9px] font-bold">Alvo</p>
+                          <p className="font-bold text-slate-700">{goal.type === 'Financeiro' ? `R$ ${ goal.target.toLocaleString() } ` : goal.target}</p>
+                        </div>
                       </div>
                     </div>
                   </div>
                 ))}
                 {goals.length === 0 && (
-                  <div className="col-span-2 py-12 text-center border-2 border-dashed border-slate-200 rounded-xl">
-                    <TrendingUp size={48} className="text-slate-200 mx-auto mb-3" />
-                    <p className="text-slate-500">Nenhuma meta definida. Comece criando uma agora!</p>
+                  <div className="col-span-2 py-16 text-center border-2 border-dashed border-slate-200 rounded-2xl bg-slate-50/50">
+                    <TrendingUp size={48} className="text-slate-200 mx-auto mb-4" />
+                    <p className="text-slate-500 font-medium">Nenhuma meta estratégica definida.</p>
+                    <button onClick={openAddGoalModal} className="mt-4 text-[#c79229] font-bold hover:underline">
+                      Comece criando sua primeira meta agora
+                    </button>
                   </div>
                 )}
               </div>
@@ -866,7 +921,7 @@ const Settings: React.FC = () => {
                     <span className="font-medium text-slate-800">Visualizar Financeiro</span>
                     <span className="text-xs text-slate-500">Acesso a receitas, despesas e dashboards financeiros.</span>
                   </div>
-                  <div className={`text-[#c79229]`}>
+                  <div className="text-[#c79229]">
                     {editingPermissionsUser.permissions.viewFinancial ? <CheckSquare size={24} /> : <Square size={24} className="text-slate-300" />}
                   </div>
                 </div>
@@ -879,7 +934,7 @@ const Settings: React.FC = () => {
                     <span className="font-medium text-slate-800">Editar Financeiro</span>
                     <span className="text-xs text-slate-500">Adicionar e editar transações e pagamentos.</span>
                   </div>
-                  <div className={`text-[#c79229]`}>
+                  <div className="text-[#c79229]">
                     {editingPermissionsUser.permissions.editFinancial ? <CheckSquare size={24} /> : <Square size={24} className="text-slate-300" />}
                   </div>
                 </div>
@@ -892,7 +947,7 @@ const Settings: React.FC = () => {
                     <span className="font-medium text-slate-800">Visualizar Obras</span>
                     <span className="text-xs text-slate-500">Ver lista de projetos e status.</span>
                   </div>
-                  <div className={`text-[#c79229]`}>
+                  <div className="text-[#c79229]">
                     {editingPermissionsUser.permissions.viewProjects ? <CheckSquare size={24} /> : <Square size={24} className="text-slate-300" />}
                   </div>
                 </div>
@@ -905,7 +960,7 @@ const Settings: React.FC = () => {
                     <span className="font-medium text-slate-800">Gerenciar Obras</span>
                     <span className="text-xs text-slate-500">Criar obras, editar cronogramas e orçamentos.</span>
                   </div>
-                  <div className={`text-[#c79229]`}>
+                  <div className="text-[#c79229]">
                     {editingPermissionsUser.permissions.editProjects ? <CheckSquare size={24} /> : <Square size={24} className="text-slate-300" />}
                   </div>
                 </div>
@@ -918,7 +973,7 @@ const Settings: React.FC = () => {
                     <span className="font-medium text-slate-800">Visualizar Propostas</span>
                     <span className="text-xs text-slate-500">Ver orçamentos, etapas e kanban.</span>
                   </div>
-                  <div className={`text-[#c79229]`}>
+                  <div className="text-[#c79229]">
                     {editingPermissionsUser.permissions.viewProposals ? <CheckSquare size={24} /> : <Square size={24} className="text-slate-300" />}
                   </div>
                 </div>
@@ -931,7 +986,7 @@ const Settings: React.FC = () => {
                     <span className="font-medium text-slate-800">Gerenciar Propostas</span>
                     <span className="text-xs text-slate-500">Criar novos orçamentos, importar planilhas e editar.</span>
                   </div>
-                  <div className={`text-[#c79229]`}>
+                  <div className="text-[#c79229]">
                     {editingPermissionsUser.permissions.editProposals ? <CheckSquare size={24} /> : <Square size={24} className="text-slate-300" />}
                   </div>
                 </div>
@@ -944,7 +999,7 @@ const Settings: React.FC = () => {
                     <span className="font-medium text-slate-800">Visualizar Equipe</span>
                     <span className="text-xs text-slate-500">Acesso a aba equipe, RH e funcionários.</span>
                   </div>
-                  <div className={`text-[#c79229]`}>
+                  <div className="text-[#c79229]">
                     {editingPermissionsUser.permissions.viewTeam ? <CheckSquare size={24} /> : <Square size={24} className="text-slate-300" />}
                   </div>
                 </div>
@@ -957,7 +1012,7 @@ const Settings: React.FC = () => {
                     <span className="font-medium text-slate-800">Configurações do Sistema</span>
                     <span className="text-xs text-slate-500">Acesso a usuários, dados da empresa e permissões.</span>
                   </div>
-                  <div className={`text-[#c79229]`}>
+                  <div className="text-[#c79229]">
                     {editingPermissionsUser.permissions.manageSettings ? <CheckSquare size={24} /> : <Square size={24} className="text-slate-300" />}
                   </div>
                 </div>
@@ -978,6 +1033,117 @@ const Settings: React.FC = () => {
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* GOAL MODAL */}
+      {isGoalModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4" onClick={() => setIsGoalModalOpen(false)}>
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden" onClick={e => e.stopPropagation()}>
+            <div className="flex justify-between items-center p-6 border-b border-slate-100 bg-slate-50">
+              <h3 className="text-lg font-bold text-[#181418]">
+                {editingGoal ? 'Editar Meta' : 'Criar Nova Meta'}
+              </h3>
+              <button
+                onClick={() => setIsGoalModalOpen(false)}
+                className="text-slate-400 hover:text-slate-600 transition-colors"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveGoal} className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Título da Meta</label>
+                <input
+                  type="text"
+                  required
+                  value={goalForm.title}
+                  onChange={(e) => setGoalForm({ ...goalForm, title: e.target.value })}
+                  className="w-full border border-slate-300 rounded-lg p-2.5 bg-white focus:ring-2 focus:ring-[#c79229] outline-none text-slate-900"
+                  placeholder="Ex: Faturamento Mensal"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Tipo</label>
+                  <select
+                    value={goalForm.type}
+                    onChange={(e) => setGoalForm({ ...goalForm, type: e.target.value as any })}
+                    className="w-full border border-slate-300 rounded-lg p-2.5 bg-white focus:ring-2 focus:ring-[#c79229] outline-none text-slate-900"
+                  >
+                    <option value="Financeiro">Financeiro</option>
+                    <option value="Comercial">Comercial</option>
+                    <option value="Operacional">Operacional</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Status</label>
+                  <select
+                    value={goalForm.status}
+                    onChange={(e) => setGoalForm({ ...goalForm, status: e.target.value as any })}
+                    className="w-full border border-slate-300 rounded-lg p-2.5 bg-white focus:ring-2 focus:ring-[#c79229] outline-none text-slate-900"
+                  >
+                    <option value="Ativa">Ativa</option>
+                    <option value="Concluída">Concluída</option>
+                    <option value="Expirada">Expirada</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Valor Alvo</label>
+                  <input
+                    type="number"
+                    required
+                    value={goalForm.target}
+                    onChange={(e) => setGoalForm({ ...goalForm, target: parseFloat(e.target.value) })}
+                    className="w-full border border-slate-300 rounded-lg p-2.5 bg-white focus:ring-2 focus:ring-[#c79229] outline-none text-slate-900"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Valor Atual</label>
+                  <input
+                    type="number"
+                    required
+                    value={goalForm.current}
+                    onChange={(e) => setGoalForm({ ...goalForm, current: parseFloat(e.target.value) })}
+                    className="w-full border border-slate-300 rounded-lg p-2.5 bg-white focus:ring-2 focus:ring-[#c79229] outline-none text-slate-900"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Data Prazo</label>
+                <input
+                  type="date"
+                  required
+                  value={goalForm.deadline}
+                  onChange={(e) => setGoalForm({ ...goalForm, deadline: e.target.value })}
+                  className="w-full border border-slate-300 rounded-lg p-2.5 bg-white focus:ring-2 focus:ring-[#c79229] outline-none text-slate-900"
+                />
+              </div>
+
+              <div className="pt-4 flex justify-end gap-3 mt-4">
+                <button
+                  type="button"
+                  onClick={() => setIsGoalModalOpen(false)}
+                  className="px-4 py-2 text-slate-700 hover:bg-slate-100 rounded-lg font-medium"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="px-6 py-2 bg-[#c79229] text-[#181418] hover:bg-[#a67922] rounded-lg font-bold shadow-sm flex items-center gap-2"
+                >
+                  <Save size={18} />
+                  <span>{editingGoal ? 'Salvar Alterações' : 'Criar Meta'}</span>
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

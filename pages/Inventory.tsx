@@ -15,15 +15,49 @@ import {
     History,
     Briefcase,
     HardHat,
-    Truck
+    Truck,
+    X,
+    Save
 } from 'lucide-react';
 
 const Inventory: React.FC = () => {
     const { inventoryItems, addInventoryItem, updateInventoryItem, deleteInventoryItem } = useData();
     const [searchTerm, setSearchTerm] = useState('');
     const [categoryFilter, setCategoryFilter] = useState('Todas');
+    const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+    const [newItem, setNewItem] = useState<Partial<InventoryItem>>({
+        name: '',
+        category: 'Materiais',
+        unit: 'UN',
+        quantity: 0,
+        minQuantity: 0,
+        unitPrice: 0,
+        status: 'Em Estoque',
+        location: ''
+    });
 
     const categories = ['Todas', 'Materiais', 'Ferramentas', 'Equipamentos', 'EPIs', 'Consumíveis'];
+
+    const handleAddItem = async (e: React.FormEvent) => {
+        e.preventDefault();
+        try {
+            await addInventoryItem(newItem as InventoryItem);
+            setIsAddModalOpen(false);
+            setNewItem({
+                name: '',
+                category: 'Materiais',
+                unit: 'UN',
+                quantity: 0,
+                minQuantity: 0,
+                unitPrice: 0,
+                status: 'Em Estoque',
+                location: ''
+            });
+        } catch (error) {
+            console.error('Erro ao adicionar item:', error);
+            alert('Erro ao cadastrar item. Tente novamente.');
+        }
+    };
 
     const filteredItems = inventoryItems.filter(item => {
         const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase());
@@ -49,7 +83,10 @@ const Inventory: React.FC = () => {
                         <History size={20} />
                         Histórico
                     </button>
-                    <button className="flex items-center gap-2 bg-[#c79229] hover:bg-[#b08124] text-white px-4 py-2 rounded-lg transition-colors shadow-sm">
+                    <button
+                        onClick={() => setIsAddModalOpen(true)}
+                        className="flex items-center gap-2 bg-[#c79229] hover:bg-[#b08124] text-white px-4 py-2 rounded-lg transition-colors shadow-sm"
+                    >
                         <Plus size={20} />
                         Novo Item
                     </button>
@@ -211,6 +248,139 @@ const Inventory: React.FC = () => {
                     </tbody>
                 </table>
             </div>
+
+            {/* ADD ITEM MODAL */}
+            {isAddModalOpen && (
+                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
+                        <div className="bg-[#181418] p-6 text-white flex justify-between items-center">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2 bg-[#c79229] rounded-lg text-[#181418]">
+                                    <Package size={20} />
+                                </div>
+                                <div>
+                                    <h2 className="text-xl font-bold">Cadastrar Novo Item</h2>
+                                    <p className="text-white/60 text-xs">Adicione materiais ou ferramentas ao estoque</p>
+                                </div>
+                            </div>
+                            <button onClick={() => setIsAddModalOpen(false)} className="p-2 hover:bg-white/10 rounded-full transition-colors">
+                                <X size={20} />
+                            </button>
+                        </div>
+
+                        <form onSubmit={handleAddItem} className="p-6 space-y-6">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="col-span-2">
+                                    <label className="block text-sm font-medium text-slate-700 mb-1">Nome do Item</label>
+                                    <input
+                                        type="text"
+                                        required
+                                        className="w-full border border-slate-200 rounded-lg p-2.5 focus:ring-2 focus:ring-[#c79229]/20 outline-none"
+                                        value={newItem.name}
+                                        onChange={(e) => setNewItem({ ...newItem, name: e.target.value })}
+                                        placeholder="Ex: Cimento CP-II 50kg"
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 mb-1">Categoria</label>
+                                    <select
+                                        className="w-full border border-slate-200 rounded-lg p-2.5 focus:ring-2 focus:ring-[#c79229]/20 outline-none"
+                                        value={newItem.category}
+                                        onChange={(e) => setNewItem({ ...newItem, category: e.target.value })}
+                                    >
+                                        {categories.filter(c => c !== 'Todas').map(cat => (
+                                            <option key={cat} value={cat}>{cat}</option>
+                                        ))}
+                                    </select>
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 mb-1">Unidade</label>
+                                    <select
+                                        className="w-full border border-slate-200 rounded-lg p-2.5 focus:ring-2 focus:ring-[#c79229]/20 outline-none"
+                                        value={newItem.unit}
+                                        onChange={(e) => setNewItem({ ...newItem, unit: e.target.value })}
+                                    >
+                                        <option value="UN">Unidade (UN)</option>
+                                        <option value="KG">Quilo (KG)</option>
+                                        <option value="M">Metro (M)</option>
+                                        <option value="M2">Metro Quadrado (M²)</option>
+                                        <option value="M3">Metro Cúbico (M³)</option>
+                                        <option value="L">Litro (L)</option>
+                                        <option value="PCT">Pacote (PCT)</option>
+                                    </select>
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 mb-1">Quantidade Inicial</label>
+                                    <input
+                                        type="number"
+                                        required
+                                        min="0"
+                                        className="w-full border border-slate-200 rounded-lg p-2.5 focus:ring-2 focus:ring-[#c79229]/20 outline-none"
+                                        value={newItem.quantity}
+                                        onChange={(e) => setNewItem({ ...newItem, quantity: parseFloat(e.target.value) })}
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 mb-1">Qtd. Mínima (Alerta)</label>
+                                    <input
+                                        type="number"
+                                        required
+                                        min="0"
+                                        className="w-full border border-slate-200 rounded-lg p-2.5 focus:ring-2 focus:ring-[#c79229]/20 outline-none"
+                                        value={newItem.minQuantity}
+                                        onChange={(e) => setNewItem({ ...newItem, minQuantity: parseFloat(e.target.value) })}
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 mb-1">Preço Unitário (R$)</label>
+                                    <input
+                                        type="number"
+                                        required
+                                        step="0.01"
+                                        min="0"
+                                        className="w-full border border-slate-200 rounded-lg p-2.5 focus:ring-2 focus:ring-[#c79229]/20 outline-none"
+                                        value={newItem.unitPrice}
+                                        onChange={(e) => setNewItem({ ...newItem, unitPrice: parseFloat(e.target.value) })}
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 mb-1">Localização</label>
+                                    <input
+                                        type="text"
+                                        className="w-full border border-slate-200 rounded-lg p-2.5 focus:ring-2 focus:ring-[#c79229]/20 outline-none"
+                                        value={newItem.location}
+                                        onChange={(e) => setNewItem({ ...newItem, location: e.target.value })}
+                                        placeholder="Ex: Almoxarifado Central - Prateleira A"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
+                                <button
+                                    type="button"
+                                    onClick={() => setIsAddModalOpen(false)}
+                                    className="px-6 py-2.5 text-slate-600 font-medium hover:bg-slate-50 rounded-lg transition-colors"
+                                >
+                                    Cancelar
+                                </button>
+                                <button
+                                    type="submit"
+                                    className="flex items-center gap-2 bg-[#c79229] text-[#181418] font-bold px-8 py-2.5 rounded-lg hover:bg-[#b08124] transition-colors shadow-lg shadow-[#c79229]/20"
+                                >
+                                    <Save size={20} />
+                                    Salvar Item
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

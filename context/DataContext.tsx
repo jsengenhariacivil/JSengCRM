@@ -529,7 +529,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             status: l.status,
             source: l.source,
             notes: l.notes,
-            value: parseFloat(l.value) || 0,
+            value: parseFloat(l.valor) || 0,
             assignedTo: l.assigned_to,
             createdAt: l.created_at,
             lastContact: l.last_contact
@@ -1618,7 +1618,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       status: lead.status,
       source: lead.source,
       notes: lead.notes,
-      value: isNaN(lead.value as number) ? 0 : lead.value,
+      valor: isNaN(lead.value as number) ? 0 : lead.value,
       ...(lead.assignedTo ? { assigned_to: lead.assignedTo } : {})
     };
 
@@ -1639,7 +1639,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         status: data.status,
         source: data.source,
         notes: data.notes,
-        value: parseFloat(data.value) || 0,
+        value: parseFloat(data.valor) || 0,
         assignedTo: data.assigned_to,
         createdAt: data.created_at,
         lastContact: data.last_contact
@@ -1657,11 +1657,12 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       status: lead.status,
       source: lead.source,
       notes: lead.notes,
-      value: isNaN(lead.value as number) ? 0 : lead.value,
+      valor: isNaN(lead.value as number) ? 0 : lead.value,
       ...(lead.assignedTo ? { assigned_to: lead.assignedTo } : {}),
       last_contact: new Date().toISOString()
     };
 
+    const oldStatus = leads.find(l => l.id === lead.id)?.status;
     const { error } = await supabase.from('leads').update(updateData).eq('id', lead.id);
 
     if (error) {
@@ -1670,6 +1671,30 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
 
     setLeads(prev => prev.map(l => l.id === lead.id ? { ...lead, lastContact: new Date().toISOString() } : l));
+
+    // --- AUTOMATION: Lead to Project ---
+    if (lead.status === 'Convertido' && oldStatus !== 'Convertido') {
+      // Check if project already exists for this lead (by name or linked previously)
+      const alreadyHasProject = projects.some(p => p.clientName.toLowerCase() === lead.name.toLowerCase());
+      if (!alreadyHasProject) {
+        try {
+          await addProject({
+            id: '',
+            title: `Obra: ${lead.name}${lead.company ? ` (${lead.company})` : ''}`,
+            clientId: '',
+            clientName: lead.name,
+            address: '',
+            status: Status.PENDING,
+            startDate: new Date().toISOString().split('T')[0],
+            endDate: new Date().toISOString().split('T')[0],
+            budget: lead.value || 0,
+            progress: 0
+          });
+        } catch (projErr) {
+          console.error('Erro ao criar obra automática a partir de lead:', projErr);
+        }
+      }
+    }
   };
 
   const deleteLead = async (id: string) => {
@@ -1694,12 +1719,33 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       unit: item.unit,
       quantity: item.quantity,
       min_quantity: item.minQuantity,
-      location: item.location,
+      location: item.location || '',
       unit_price: item.unitPrice,
-      supplier_id: item.supplierId,
+      supplier_id: item.supplierId || null,
       status: item.status
     }]).select().single();
-    if (!error && data) setInventoryItems(prev => [...prev, data]);
+
+    if (error) {
+      console.error('Erro ao cadastrar no almoxarifado:', error);
+      throw error;
+    }
+
+    if (data) {
+      const mapped: InventoryItem = {
+        id: data.id,
+        name: data.name,
+        category: data.category,
+        unit: data.unit,
+        quantity: data.quantity,
+        minQuantity: data.min_quantity,
+        location: data.location,
+        unitPrice: data.unit_price,
+        supplierId: data.supplier_id,
+        status: data.status,
+        lastRestocked: data.last_restocked
+      };
+      setInventoryItems(prev => [...prev, mapped]);
+    }
   };
 
   const updateInventoryItem = async (item: InventoryItem) => {
@@ -1747,7 +1793,6 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   // --- GOALS ---
   const addGoal = async (goal: Goal) => {
     const { data, error } = await supabase.from('goals').insert([{
-      id: goal.id,
       title: goal.title,
       target: goal.target,
       current: goal.current,
@@ -1755,11 +1800,28 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       deadline: goal.deadline,
       status: goal.status
     }]).select().single();
-    if (!error && data) setGoals(prev => [...prev, goal]);
+
+    if (error) {
+      console.error('Erro ao baixar meta:', error);
+      return;
+    }
+
+    if (data) {
+      const mapped: Goal = {
+        id: data.id,
+        title: data.title,
+        target: data.target,
+        current: data.current,
+        type: data.type,
+        deadline: data.deadline,
+        status: data.status
+      };
+      setGoals(prev => [...prev, mapped]);
+    }
   };
 
   const updateGoal = async (goal: Goal) => {
-    await supabase.from('goals').update({
+    const { error } = await supabase.from('goals').update({
       title: goal.title,
       target: goal.target,
       current: goal.current,
@@ -1767,6 +1829,12 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       deadline: goal.deadline,
       status: goal.status
     }).eq('id', goal.id);
+
+    if (error) {
+      console.error('Erro ao atualizar meta:', error);
+      return;
+    }
+
     setGoals(prev => prev.map(g => g.id === goal.id ? goal : g));
   };
 

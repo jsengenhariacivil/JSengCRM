@@ -299,7 +299,7 @@ export interface Goal {
   title: string;
   target: number;
   current: number;
-  type: 'Faturamento' | 'Novos Clientes' | 'Obras Concluídas' | 'Propostas Fechadas' | 'financial';
+  type: 'Financeiro' | 'Comercial' | 'Operacional';
   deadline: string;
-  status: 'Ativa' | 'Concluída' | 'Expirada' | 'active';
+  status: 'Ativa' | 'Concluída' | 'Expirada';
 }
