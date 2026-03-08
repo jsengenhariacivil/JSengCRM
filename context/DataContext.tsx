@@ -1535,7 +1535,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   // --- CRM / LEADS ---
   const addLead = async (lead: Lead) => {
-    const { data, error } = await supabase.from('leads').insert([{
+    const leadToInsert = {
       name: lead.name,
       company: lead.company,
       email: lead.email,
@@ -1543,10 +1543,11 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       status: lead.status,
       source: lead.source,
       notes: lead.notes,
-      value: lead.value,
-      assigned_to: lead.assignedTo,
-      created_at: new Date().toISOString()
-    }]).select().single();
+      value: isNaN(lead.value as number) ? 0 : lead.value,
+      ...(lead.assignedTo ? { assigned_to: lead.assignedTo } : {})
+    };
+
+    const { data, error } = await supabase.from('leads').insert([leadToInsert]).select().single();
 
     if (error) {
       console.error('Erro ao adicionar lead:', error);
@@ -1573,7 +1574,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   const updateLead = async (lead: Lead) => {
-    const { error } = await supabase.from('leads').update({
+    const updateData = {
       name: lead.name,
       company: lead.company,
       email: lead.email,
@@ -1581,10 +1582,12 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       status: lead.status,
       source: lead.source,
       notes: lead.notes,
-      value: lead.value,
-      assigned_to: lead.assignedTo,
+      value: isNaN(lead.value as number) ? 0 : lead.value,
+      ...(lead.assignedTo ? { assigned_to: lead.assignedTo } : {}),
       last_contact: new Date().toISOString()
-    }).eq('id', lead.id);
+    };
+
+    const { error } = await supabase.from('leads').update(updateData).eq('id', lead.id);
 
     if (error) {
       console.error('Erro ao atualizar lead:', error);
