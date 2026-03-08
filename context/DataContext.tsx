@@ -694,8 +694,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         client_id: project.clientId,
         address: project.address,
         status: project.status,
-        start_date: project.startDate,
-        end_date: project.endDate,
+        start_date: project.startDate || null,
+        end_date: project.endDate || null,
         budget: project.budget,
         progress: project.progress,
         proposal_id: project.proposalId
@@ -750,8 +750,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       client_id: project.clientId,
       address: project.address,
       status: project.status,
-      start_date: project.startDate,
-      end_date: project.endDate,
+      start_date: project.startDate || null,
+      end_date: project.endDate || null,
       budget: project.budget,
       progress: project.progress
     }).eq('id', project.id);
