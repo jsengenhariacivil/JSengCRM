@@ -1544,13 +1544,36 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       source: lead.source,
       notes: lead.notes,
       value: lead.value,
-      assigned_to: lead.assignedTo
+      assigned_to: lead.assignedTo,
+      created_at: new Date().toISOString()
     }]).select().single();
-    if (!error && data) setLeads(prev => [data, ...prev]);
+
+    if (error) {
+      console.error('Erro ao adicionar lead:', error);
+      throw new Error(error.message);
+    }
+
+    if (data) {
+      const mappedLead: Lead = {
+        id: data.id,
+        name: data.name,
+        company: data.company,
+        email: data.email,
+        phone: data.phone,
+        status: data.status,
+        source: data.source,
+        notes: data.notes,
+        value: parseFloat(data.value) || 0,
+        assignedTo: data.assigned_to,
+        createdAt: data.created_at,
+        lastContact: data.last_contact
+      };
+      setLeads(prev => [mappedLead, ...prev]);
+    }
   };
 
   const updateLead = async (lead: Lead) => {
-    await supabase.from('leads').update({
+    const { error } = await supabase.from('leads').update({
       name: lead.name,
       company: lead.company,
       email: lead.email,
@@ -1560,9 +1583,15 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       notes: lead.notes,
       value: lead.value,
       assigned_to: lead.assignedTo,
-      last_contact: lead.lastContact
+      last_contact: new Date().toISOString()
     }).eq('id', lead.id);
-    setLeads(prev => prev.map(l => l.id === lead.id ? lead : l));
+
+    if (error) {
+      console.error('Erro ao atualizar lead:', error);
+      throw new Error(error.message);
+    }
+
+    setLeads(prev => prev.map(l => l.id === lead.id ? { ...lead, lastContact: new Date().toISOString() } : l));
   };
 
   const deleteLead = async (id: string) => {

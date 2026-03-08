@@ -24,6 +24,10 @@ const CRM: React.FC = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
+    const [formSource, setFormSource] = useState('');
+    const [formStatus, setFormStatus] = useState('Novo');
+
+    const sources = ['Instagram', 'WhatsApp', 'Indicação', 'Site', 'Facebook', 'Evento'];
 
     const stages = [
         'Novo',
@@ -90,6 +94,8 @@ const CRM: React.FC = () => {
                         <button
                             onClick={() => {
                                 setSelectedLead(null);
+                                setFormSource('');
+                                setFormStatus('Novo');
                                 setIsModalOpen(true);
                             }}
                             className="flex items-center gap-2 bg-[#c79229] hover:bg-[#b08124] text-white px-4 py-2 rounded-lg transition-colors shadow-sm"
@@ -249,6 +255,8 @@ const CRM: React.FC = () => {
                                         className="hover:bg-slate-50 transition-colors group cursor-pointer"
                                         onClick={() => {
                                             setSelectedLead(lead);
+                                            setFormSource(lead.source || '');
+                                            setFormStatus(lead.status);
                                             setIsModalOpen(true);
                                         }}
                                     >
@@ -315,8 +323,8 @@ const CRM: React.FC = () => {
                                 company: formData.get('company') as string,
                                 email: formData.get('email') as string,
                                 phone: formData.get('phone') as string,
-                                status: formData.get('status') as string,
-                                source: formData.get('source') as string,
+                                status: formStatus,
+                                source: formSource,
                                 value: Number(formData.get('value')),
                                 notes: formData.get('notes') as string,
                                 createdAt: selectedLead?.createdAt || new Date().toISOString(),
@@ -355,7 +363,24 @@ const CRM: React.FC = () => {
                                 </div>
                                 <div className="space-y-2">
                                     <label className="text-sm font-medium text-slate-700">Estágio do Funil</label>
-                                    <select name="status" defaultValue={selectedLead?.status || 'Novo'} className="w-full px-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#c79229]/20 outline-none">
+                                    <div className="flex flex-wrap gap-2 mb-2">
+                                        {stages.map(s => (
+                                            <button
+                                                key={s}
+                                                type="button"
+                                                onClick={() => setFormStatus(s)}
+                                                className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${formStatus === s ? 'bg-[#c79229] text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                                            >
+                                                {s}
+                                            </button>
+                                        ))}
+                                    </div>
+                                    <select
+                                        name="status"
+                                        value={formStatus}
+                                        onChange={(e) => setFormStatus(e.target.value)}
+                                        className="w-full px-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#c79229]/20 outline-none"
+                                    >
                                         {stages.map(s => <option key={s} value={s}>{s}</option>)}
                                     </select>
                                 </div>
@@ -365,7 +390,25 @@ const CRM: React.FC = () => {
                                 </div>
                                 <div className="space-y-2">
                                     <label className="text-sm font-medium text-slate-700">Origem</label>
-                                    <input name="source" defaultValue={selectedLead?.source} className="w-full px-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#c79229]/20 outline-none" placeholder="Ex: Instagram, Indicação..." />
+                                    <div className="flex flex-wrap gap-2 mb-2">
+                                        {sources.map(src => (
+                                            <button
+                                                key={src}
+                                                type="button"
+                                                onClick={() => setFormSource(src)}
+                                                className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${formSource === src ? 'bg-[#c79229] text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                                            >
+                                                {src}
+                                            </button>
+                                        ))}
+                                    </div>
+                                    <input
+                                        name="source"
+                                        value={formSource}
+                                        onChange={(e) => setFormSource(e.target.value)}
+                                        className="w-full px-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#c79229]/20 outline-none"
+                                        placeholder="Ex: Instagram, Indicação ou digite..."
+                                    />
                                 </div>
                             </div>
 
