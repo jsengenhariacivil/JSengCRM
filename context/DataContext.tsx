@@ -694,8 +694,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         client_id: project.clientId,
         address: project.address,
         status: project.status,
-        start_date: project.startDate || null,
-        end_date: project.endDate || null,
+        start_date: project.startDate || new Date().toISOString().split('T')[0],
+        end_date: project.endDate || project.startDate || new Date().toISOString().split('T')[0],
         budget: project.budget,
         progress: project.progress,
         proposal_id: project.proposalId
@@ -750,8 +750,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       client_id: project.clientId,
       address: project.address,
       status: project.status,
-      start_date: project.startDate || null,
-      end_date: project.endDate || null,
+      start_date: project.startDate || new Date().toISOString().split('T')[0],
+      end_date: project.endDate || project.startDate || new Date().toISOString().split('T')[0],
       budget: project.budget,
       progress: project.progress
     }).eq('id', project.id);
@@ -1010,6 +1010,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         const jaExisteObra = projects.find(p => p.proposalId === id);
 
         if (!jaExisteObra) {
+          const projectStartDate = proposal.date || new Date().toISOString().split('T')[0];
           await addProject({
             id: '',
             title: `Obra: ${clientName} - #${id.substring(0, 8)}`,
@@ -1017,8 +1018,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             clientName: clientName,
             address: '', // Placeholder
             status: Status.PENDING,
-            startDate: proposal.date || new Date().toISOString().split('T')[0],
-            endDate: '',
+            startDate: projectStartDate,
+            endDate: projectStartDate, // Ensure it's not empty/null
             budget: safeTotal,
             progress: 0,
             proposalId: id
