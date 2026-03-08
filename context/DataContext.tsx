@@ -529,7 +529,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             status: l.status,
             source: l.source,
             notes: l.notes,
-            value: parseFloat(l.value) || 0,
+            // value: parseFloat(l.value) || 0, // Column missing in DB
+            value: 0,
             assignedTo: l.assigned_to,
             createdAt: l.created_at,
             lastContact: l.last_contact
@@ -1543,7 +1544,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       status: lead.status,
       source: lead.source,
       notes: lead.notes,
-      value: isNaN(lead.value as number) ? 0 : lead.value,
+      // value: isNaN(lead.value as number) ? 0 : lead.value, // Column missing in DB
       ...(lead.assignedTo ? { assigned_to: lead.assignedTo } : {})
     };
 
@@ -1582,7 +1583,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       status: lead.status,
       source: lead.source,
       notes: lead.notes,
-      value: isNaN(lead.value as number) ? 0 : lead.value,
+      // value: isNaN(lead.value as number) ? 0 : lead.value, // Column missing in DB
       ...(lead.assignedTo ? { assigned_to: lead.assignedTo } : {}),
       last_contact: new Date().toISOString()
     };
