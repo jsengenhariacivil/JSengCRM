@@ -1726,8 +1726,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }]).select().single();
 
     if (error) {
-      console.error('Erro ao cadastrar no almoxarifado:', error);
-      throw error;
+      console.error('Erro detalhado ao cadastrar no almoxarifado:', error.message, error.details, error.hint);
+      throw new Error(error.message || 'Erro ao cadastrar item no almoxarifado.');
     }
 
     if (data) {
@@ -1802,8 +1802,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }]).select().single();
 
     if (error) {
-      console.error('Erro ao baixar meta:', error);
-      return;
+      console.error('Erro detalhado ao cadastrar meta:', error.message, error.details, error.hint);
+      throw new Error(error.message || 'Erro ao cadastrar meta no banco de dados.');
     }
 
     if (data) {
@@ -1831,8 +1831,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }).eq('id', goal.id);
 
     if (error) {
-      console.error('Erro ao atualizar meta:', error);
-      return;
+      console.error('Erro detalhado ao atualizar meta:', error.message, error.details, error.hint);
+      throw new Error(error.message || 'Erro ao atualizar meta no banco de dados.');
     }
 
     setGoals(prev => prev.map(g => g.id === goal.id ? goal : g));

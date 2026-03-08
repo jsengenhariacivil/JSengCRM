@@ -68,9 +68,9 @@ const Inventory: React.FC = () => {
                 status: 'Em Estoque',
                 location: ''
             });
-        } catch (error) {
+        } catch (error: any) {
             console.error('Erro ao adicionar item no frontend:', error);
-            alert('Erro ao cadastrar item. Por favor, verifique os dados e tente novamente.');
+            alert(`Erro ao cadastrar item: ${error.message || 'Verifique os dados e tente novamente.'}`);
         }
     };
 

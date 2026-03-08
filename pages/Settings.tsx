@@ -231,8 +231,9 @@ const Settings: React.FC = () => {
       await updateGoal(updatedGoal);
       setIsQuickProgressModalOpen(false);
       setQuickProgressValue(0);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Erro ao atualizar progresso:', error);
+      alert(`Erro ao atualizar progresso: ${error.message || 'Verifique os dados e tente novamente.'}`);
     }
   };
 
@@ -256,8 +257,9 @@ const Settings: React.FC = () => {
         } as Goal);
       }
       setIsGoalModalOpen(false);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Erro ao salvar meta:', error);
+      alert(`Erro ao salvar meta: ${error.message || 'Verifique os dados e tente novamente.'}`);
     }
   };
 
@@ -510,8 +512,8 @@ const Settings: React.FC = () => {
                         <td className="px-6 py-4 text-slate-600">{user.email}</td>
                         <td className="px-6 py-4">
                           <span className={`px-2 py-1 rounded-full text-xs font-bold ${user.role === 'Administrador' ? 'bg-[#c79229]/20 text-[#c79229]' :
-                              user.role === 'Visitante' ? 'bg-slate-200 text-slate-500' :
-                                'bg-blue-50 text-blue-600'
+                            user.role === 'Visitante' ? 'bg-slate-200 text-slate-500' :
+                              'bg-blue-50 text-blue-600'
                             }`}>
                             {user.role}
                           </span>
