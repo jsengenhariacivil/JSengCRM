@@ -49,6 +49,7 @@ const CRM: React.FC = () => {
 
     const handleDragStart = (e: React.DragEvent, leadId: string) => {
         e.dataTransfer.setData('leadId', leadId);
+        e.dataTransfer.effectAllowed = 'move';
     };
 
     const handleDrop = async (e: React.DragEvent, newStatus: any) => {
@@ -166,11 +167,11 @@ const CRM: React.FC = () => {
 
                 {/* Kanban Board */}
                 {viewMode === 'kanban' ? (
-                    <div className="flex gap-4 overflow-x-auto pb-4 custom-scrollbar min-h-[600px] items-start">
+                    <div className="flex gap-4 overflow-x-auto pb-4 custom-scrollbar min-h-[600px] items-stretch">
                         {stages.map(stage => (
                             <div
                                 key={stage}
-                                className="flex-shrink-0 w-64 bg-slate-50/80 rounded-xl p-2.5 flex flex-col border border-slate-200/60"
+                                className="flex-shrink-0 w-64 bg-slate-50/80 rounded-xl p-2.5 flex flex-col border border-slate-200/60 min-h-[500px]"
                                 onDragOver={handleDragOver}
                                 onDrop={(e) => handleDrop(e, stage)}
                             >
