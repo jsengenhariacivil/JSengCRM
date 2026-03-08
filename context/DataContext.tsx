@@ -758,6 +758,16 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     setProjects(prev => prev.map(p => p.id === project.id ? project : p));
 
+    // Sincronizar com Financeiro
+    const financialVinculado = financials.find(f => f.projectId === project.id && f.type === 'Receita');
+    if (financialVinculado) {
+      await updateFinancialRecord({
+        ...financialVinculado,
+        amount: project.budget,
+        description: `Recebimento Obra: ${project.title}`
+      });
+    }
+
     // Sincronizar com Agenda
     if (project.endDate) {
       const safeDateStr = project.endDate.length === 10 ? `${project.endDate}T09:00:00` : project.endDate;
@@ -989,26 +999,21 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     await supabase.from('proposals').update({ status }).eq('id', id);
     setProposals(prev => prev.map(p => p.id === id ? { ...p, status } : p));
 
-    // Integração Automática com Obras
-    if (status === Status.APPROVED) {
-      try {
-        // Buscar dados atualizados da proposta diretamente do Supabase para evitar problemas de estado assíncrono
-        const { data: proposal, error: fetchError } = await supabase
-          .from('proposals')
-          .select('*, clients(name)')
-          .eq('id', id)
-          .single();
+    try {
+      // Buscar dados da proposta e cliente
+      const { data: proposal, error: fetchError } = await supabase
+        .from('proposals')
+        .select('*, clients(name)')
+        .eq('id', id)
+        .single();
 
-        if (fetchError || !proposal) {
-          throw new Error('Não foi possível encontrar os dados da proposta aprovada.');
-        }
+      if (fetchError || !proposal) return;
 
-        const clientName = proposal.clients?.name || 'Cliente';
-        const safeTotal = proposal.total || 0;
+      const clientName = proposal.clients?.name || 'Cliente';
+      const safeTotal = proposal.total || 0;
+      const jaExisteObra = projects.find(p => p.proposalId === id);
 
-        // Verificar se já existe obra para esta proposta
-        const jaExisteObra = projects.find(p => p.proposalId === id);
-
+      if (status === Status.APPROVED) {
         if (!jaExisteObra) {
           const projectStartDate = proposal.date || new Date().toISOString().split('T')[0];
           await addProject({
@@ -1016,28 +1021,53 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             title: `Obra: ${clientName} - #${id.substring(0, 8)}`,
             clientId: proposal.client_id,
             clientName: clientName,
-            address: '', // Placeholder
+            address: '',
             status: Status.PENDING,
             startDate: projectStartDate,
-            endDate: projectStartDate, // Ensure it's not empty/null
+            endDate: projectStartDate,
             budget: safeTotal,
             progress: 0,
             proposalId: id
           });
+        } else {
+          // Atualizar obra existente se o valor ou status mudar
+          await updateProject({
+            ...jaExisteObra,
+            budget: safeTotal,
+            title: `Obra: ${clientName} - #${id.substring(0, 8)}`
+          });
         }
 
-        // Dispara Notificação
+        // Notificação
         await addNotification({
           title: 'Proposta Aprovada! 🎉',
-          message: `Proposta #${id.substring(0, 8)} do cliente ${clientName} aprovada. Valor: R$ ${safeTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}.`,
+          message: `Proposta #${id.substring(0, 8)} de ${clientName} aprovada. Valor: R$ ${safeTotal.toLocaleString('pt-BR')}`,
           type: 'success',
           is_read: false
-        }).catch(e => console.error('Erro ao criar notificação:', e));
+        }).catch(console.error);
 
-      } catch (err: any) {
-        console.error('Erro na integração automática com obras:', err);
-        alert(`O status foi atualizado, mas houve um erro ao criar a obra: ${err.message}`);
+      } else if (status === Status.REJECTED || status === Status.PENDING) {
+        // Se voltar para pendente ou cancelado, ajustar obra e financeiro
+        if (jaExisteObra) {
+          await updateProject({
+            ...jaExisteObra,
+            budget: 0,
+            status: status === Status.REJECTED ? Status.REJECTED : Status.PENDING
+          });
+
+          // Buscar e atualizar registros financeiros vinculados à obra
+          const relatedFinancials = financials.filter(f => f.projectId === jaExisteObra.id);
+          for (const fin of relatedFinancials) {
+            await updateFinancialRecord({
+              ...fin,
+              amount: 0,
+              status: status === Status.REJECTED ? Status.REJECTED : Status.PENDING
+            });
+          }
+        }
       }
+    } catch (err) {
+      console.error('Erro na sincronização de proposta:', err);
     }
   };
 
@@ -1111,33 +1141,38 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     setProposals(prev => prev.map(p => p.id === proposal.id ? proposal : p));
 
-    // Integração Financeira e Central de Notificações
+    // Integração Financeira, Obras e Central de Notificações
     if (proposal.status === Status.APPROVED) {
       const safeTotal = proposal.total || 0;
+      const clientName = proposal.clientName || 'Cliente';
 
-      // Dispara Notificação Global (Sininho)
-      try {
-        await addNotification({
-          title: 'Proposta Atualizada ✅',
-          message: `Proposta do cliente ${proposal.clientName} atualizada. Valor: R$ ${safeTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}.`,
-          type: 'info',
-          is_read: false
-        });
-      } catch (e) {
-        console.error('Erro ao criar notificação:', e);
-      }
+      // Dispara Notificação Global
+      await addNotification({
+        title: 'Proposta Atualizada ✅',
+        message: `Proposta de ${clientName} atualizada. Novo Valor: R$ ${safeTotal.toLocaleString('pt-BR')}`,
+        type: 'info',
+        is_read: false
+      }).catch(console.error);
 
-      const jaExiste = financials.find(f => f.description === `Receita Ref. Proposta #${proposal.id}`);
-      if (!jaExiste && safeTotal > 0) {
-        await addFinancialRecord({
-          id: '',
-          type: 'Receita',
-          description: `Receita Ref. Proposta #${proposal.id}`,
-          amount: safeTotal,
-          date: proposal.date ? new Date(proposal.date).toISOString() : new Date().toISOString(),
-          status: Status.PENDING,
-          category: 'Projeto',
+      // Sincronizar com Obra
+      const obraVinculada = projects.find(p => p.proposalId === proposal.id);
+      if (obraVinculada) {
+        await updateProject({
+          ...obraVinculada,
+          budget: safeTotal,
+          title: `Obra: ${clientName} - #${proposal.id.substring(0, 8)}`
         });
+
+        // O updateProject já deve cuidar de atualizar o financeiro vinculado à obra (vamos garantir isso no updateProject)
+      } else {
+        // Fallback: Se não tem obra, tenta sincronizar pelo link direto de descrição (legado/segurança)
+        const financialVinculado = financials.find(f => f.description === `Receita Ref. Proposta #${proposal.id}`);
+        if (financialVinculado) {
+          await updateFinancialRecord({
+            ...financialVinculado,
+            amount: safeTotal
+          });
+        }
       }
     }
   };
