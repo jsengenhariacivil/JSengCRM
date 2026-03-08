@@ -40,8 +40,23 @@ const Inventory: React.FC = () => {
 
     const handleAddItem = async (e: React.FormEvent) => {
         e.preventDefault();
+
+        // Sanitização e Validação básica
+        const sanitizedItem: InventoryItem = {
+            id: '', // Supabase gera
+            name: newItem.name || 'Item sem nome',
+            category: newItem.category || 'Materiais',
+            unit: newItem.unit || 'UN',
+            quantity: Number(newItem.quantity) || 0,
+            minQuantity: Number(newItem.minQuantity) || 0,
+            unitPrice: Number(newItem.unitPrice) || 0,
+            status: newItem.status || 'Em Estoque',
+            location: newItem.location || '',
+            supplierId: newItem.supplierId || undefined
+        };
+
         try {
-            await addInventoryItem(newItem as InventoryItem);
+            await addInventoryItem(sanitizedItem);
             setIsAddModalOpen(false);
             setNewItem({
                 name: '',
@@ -54,8 +69,8 @@ const Inventory: React.FC = () => {
                 location: ''
             });
         } catch (error) {
-            console.error('Erro ao adicionar item:', error);
-            alert('Erro ao cadastrar item. Tente novamente.');
+            console.error('Erro ao adicionar item no frontend:', error);
+            alert('Erro ao cadastrar item. Por favor, verifique os dados e tente novamente.');
         }
     };
 

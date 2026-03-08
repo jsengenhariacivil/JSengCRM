@@ -1,4 +1,3 @@
-```typescript
 import React, { useState, useEffect, useRef } from 'react';
 import { Save, User, Building, Bell, Plus, Trash2, Shield, Mail, X, CheckSquare, Square, Key, Upload, Image as ImageIcon, Briefcase, Edit, Loader2, Database, Download, TrendingUp } from 'lucide-react';
 import { useData, ROLE_DEFINITIONS } from '../context/DataContext';
@@ -80,6 +79,11 @@ const Settings: React.FC = () => {
     status: 'Ativa'
   });
 
+  // --- QUICK GOAL PROGRESS ---
+  const [isQuickProgressModalOpen, setIsQuickProgressModalOpen] = useState(false);
+  const [quickProgressGoal, setQuickProgressGoal] = useState<Goal | null>(null);
+  const [quickProgressValue, setQuickProgressValue] = useState<number>(0);
+
   const handleSaveCompany = (e: React.FormEvent) => {
     e.preventDefault();
     setCompanyName(localData.name);
@@ -97,8 +101,8 @@ const Settings: React.FC = () => {
     try {
       setIsUploadingLogo(true);
       const fileExt = file.name.split('.').pop();
-      const fileName = `company_logo_${ Date.now() }.${ fileExt } `;
-      const filePath = `${ fileName } `;
+      const fileName = `company_logo_${Date.now()}.${fileExt} `;
+      const filePath = `${fileName} `;
 
       const { error: uploadError } = await supabase.storage
         .from('logos')
@@ -214,6 +218,30 @@ const Settings: React.FC = () => {
     setIsGoalModalOpen(true);
   };
 
+  const handleQuickProgressSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!quickProgressGoal) return;
+
+    const updatedGoal: Goal = {
+      ...quickProgressGoal,
+      current: quickProgressGoal.current + Number(quickProgressValue)
+    };
+
+    try {
+      await updateGoal(updatedGoal);
+      setIsQuickProgressModalOpen(false);
+      setQuickProgressValue(0);
+    } catch (error) {
+      console.error('Erro ao atualizar progresso:', error);
+    }
+  };
+
+  const openQuickProgressModal = (goal: Goal) => {
+    setQuickProgressGoal(goal);
+    setQuickProgressValue(0);
+    setIsQuickProgressModalOpen(true);
+  };
+
   const handleSaveGoal = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
@@ -290,55 +318,50 @@ const Settings: React.FC = () => {
         <div className="flex border-b border-slate-100 overflow-x-auto">
           <button
             onClick={() => setActiveTab('company')}
-            className={`px - 6 py - 4 font - medium text - sm flex items - center gap - 2 transition - colors whitespace - nowrap ${
-  activeTab === 'company'
-    ? 'text-[#c79229] border-b-2 border-[#c79229] font-bold'
-    : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'
-} `}
+            className={`px-6 py-4 font-medium text-sm flex items-center gap-2 transition-colors whitespace-nowrap ${activeTab === 'company'
+              ? 'text-[#c79229] border-b-2 border-[#c79229] font-bold'
+              : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'
+              }`}
           >
             <Building size={18} />
             Dados da Empresa
           </button>
           <button
             onClick={() => setActiveTab('users')}
-            className={`px - 6 py - 4 font - medium text - sm flex items - center gap - 2 transition - colors whitespace - nowrap ${
-  activeTab === 'users'
-    ? 'text-[#c79229] border-b-2 border-[#c79229] font-bold'
-    : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'
-} `}
+            className={`px-6 py-4 font-medium text-sm flex items-center gap-2 transition-colors whitespace-nowrap ${activeTab === 'users'
+              ? 'text-[#c79229] border-b-2 border-[#c79229] font-bold'
+              : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'
+              }`}
           >
             <User size={18} />
             Usuários
           </button>
           <button
             onClick={() => setActiveTab('notifications')}
-            className={`px - 6 py - 4 font - medium text - sm flex items - center gap - 2 transition - colors whitespace - nowrap ${
-  activeTab === 'notifications'
-    ? 'text-[#c79229] border-b-2 border-[#c79229] font-bold'
-    : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'
-} `}
+            className={`px-6 py-4 font-medium text-sm flex items-center gap-2 transition-colors whitespace-nowrap ${activeTab === 'notifications'
+              ? 'text-[#c79229] border-b-2 border-[#c79229] font-bold'
+              : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'
+              }`}
           >
             <Bell size={18} />
             Notificações
           </button>
           <button
             onClick={() => setActiveTab('sinapi')}
-            className={`px - 6 py - 4 font - medium text - sm flex items - center gap - 2 transition - colors whitespace - nowrap ${
-  activeTab === 'sinapi'
-    ? 'text-[#c79229] border-b-2 border-[#c79229] font-bold'
-    : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'
-} `}
+            className={`px-6 py-4 font-medium text-sm flex items-center gap-2 transition-colors whitespace-nowrap ${activeTab === 'sinapi'
+              ? 'text-[#c79229] border-b-2 border-[#c79229] font-bold'
+              : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'
+              }`}
           >
             <Database size={18} />
             SINAPI
           </button>
           <button
             onClick={() => setActiveTab('goals')}
-            className={`px - 6 py - 4 font - medium text - sm flex items - center gap - 2 transition - colors whitespace - nowrap ${
-  activeTab === 'goals'
-    ? 'text-[#c79229] border-b-2 border-[#c79229] font-bold'
-    : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'
-} `}
+            className={`px-6 py-4 font-medium text-sm flex items-center gap-2 transition-colors whitespace-nowrap ${activeTab === 'goals'
+              ? 'text-[#c79229] border-b-2 border-[#c79229] font-bold'
+              : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'
+              }`}
           >
             <TrendingUp size={18} />
             Metas
@@ -478,20 +501,18 @@ const Settings: React.FC = () => {
                     {users.map(user => (
                       <tr key={user.id} className="hover:bg-slate-50">
                         <td className="px-6 py-4 font-medium text-[#181418] flex items-center gap-3">
-                          <div className={`w - 8 h - 8 rounded - full flex items - center justify - center text - xs font - bold ${
-  user.role === 'Visitante' ? 'bg-slate-200 text-slate-500' : 'bg-[#181418] text-[#c79229]'
-} `}>
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${user.role === 'Visitante' ? 'bg-slate-200 text-slate-500' : 'bg-[#181418] text-[#c79229]'
+                            }`}>
                             {user.name.charAt(0)}
                           </div>
                           {user.name}
                         </td>
                         <td className="px-6 py-4 text-slate-600">{user.email}</td>
                         <td className="px-6 py-4">
-                          <span className={`px - 2 py - 1 rounded - full text - xs font - bold ${
-  user.role === 'Administrador' ? 'bg-[#c79229]/20 text-[#c79229]' :
-    user.role === 'Visitante' ? 'bg-slate-200 text-slate-500' :
-      'bg-blue-50 text-blue-600'
-} `}>
+                          <span className={`px-2 py-1 rounded-full text-xs font-bold ${user.role === 'Administrador' ? 'bg-[#c79229]/20 text-[#c79229]' :
+                              user.role === 'Visitante' ? 'bg-slate-200 text-slate-500' :
+                                'bg-blue-50 text-blue-600'
+                            }`}>
                             {user.role}
                           </span>
                         </td>
@@ -540,7 +561,7 @@ const Settings: React.FC = () => {
 
           {/* TAB: NOTIFICATIONS */}
           {activeTab === 'notifications' && (
-            <form className="max-w-2xl space-y-8" onSubmit={handleSave}>
+            <form className="max-w-2xl space-y-8" onSubmit={(e) => e.preventDefault()}>
               {/* Same content as before */}
               <div>
                 <h3 className="text-lg font-bold text-[#181418] mb-4 flex items-center gap-2">
@@ -642,15 +663,14 @@ const Settings: React.FC = () => {
                       <span className="text-sm font-bold text-slate-800">Status do Processamento</span>
                       <span className="text-xs font-medium text-[#c79229]">{sinapiStatus.progress}%</span>
                     </div>
-                    <div className="w-full bg-slate-100 rounded-full h-2.5">
-                      <div 
-                        className={`h - 2.5 rounded - full transition - all duration - 300 ${
-  sinapiStatus.status === 'error' ? 'bg-red-500' : sinapiStatus.status === 'done' ? 'bg-green-500' : 'bg-[#c79229]'
-} `} 
-                        style={{ width: `${ sinapiStatus.progress }% ` }}
+                    <div className="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden">
+                      <div
+                        className={`h - 2.5 rounded - full transition - all duration - 300 ${sinapiStatus.status === 'error' ? 'bg-red-500' : sinapiStatus.status === 'done' ? 'bg-green-500' : 'bg-[#c79229]'
+                          } `}
+                        style={{ width: `${sinapiStatus.progress}% ` }}
                       ></div>
                     </div>
-                    <p className={`mt - 2 text - sm ${ sinapiStatus.status === 'error' ? 'text-red-600' : 'text-slate-600' } `}>
+                    <p className={`mt - 2 text - sm ${sinapiStatus.status === 'error' ? 'text-red-600' : 'text-slate-600'} `}>
                       {sinapiStatus.message}
                     </p>
                   </div>
@@ -678,70 +698,90 @@ const Settings: React.FC = () => {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {goals.map(goal => (
-                  <div key={goal.id} className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm relative group overflow-hidden">
-                    <div className="absolute top-0 left-0 w-1 h-full bg-[#c79229] opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                  <div key={goal.id} className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm relative group flex flex-col justify-between">
                     <div className="flex justify-between items-start mb-4">
-                      <div>
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className={`px - 2 py - 0.5 rounded text - [10px] font - bold uppercase ${
-  goal.type === 'Financeiro' ? 'bg-green-100 text-green-700' :
-    goal.type === 'Comercial' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'
-} `}>
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${goal.type === 'Financeiro' ? 'bg-emerald-100 text-emerald-700' :
+                            goal.type === 'Comercial' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'
+                            }`}>
                             {goal.type}
                           </span>
-                          <span className={`px - 2 py - 0.5 rounded text - [10px] font - bold uppercase ${
-  goal.status === 'Ativa' ? 'bg-amber-100 text-amber-700' :
-    goal.status === 'Concluída' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'
-} `}>
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${goal.status === 'Ativa' ? 'bg-amber-100 text-amber-700' :
+                            goal.status === 'Concluída' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'
+                            }`}>
                             {goal.status}
                           </span>
                         </div>
-                        <h4 className="font-bold text-slate-800 text-lg leading-tight">{goal.title}</h4>
-                        <p className="text-xs text-slate-400 mt-1 flex items-center gap-1">
-                          <TrendingUp size={12} /> Prazo: {new Date(goal.deadline).toLocaleDateString('pt-BR')}
-                        </p>
+                        <h4 className="font-bold text-slate-800 text-lg leading-tight group-hover:text-[#c79229] transition-colors">{goal.title}</h4>
+                        <div className="flex items-center gap-1.5 text-slate-400 mt-1.5">
+                          <Bell size={12} />
+                          <span className="text-[11px] font-medium">Até {new Date(goal.deadline).toLocaleDateString('pt-BR')}</span>
+                        </div>
                       </div>
+
                       <div className="flex gap-1">
                         <button
                           type="button"
                           onClick={() => openEditGoalModal(goal)}
-                          className="p-2 text-slate-400 hover:text-[#c79229] hover:bg-slate-50 rounded-lg transition-all"
+                          className="p-1.5 text-slate-400 hover:text-[#c79229] hover:bg-amber-50 rounded-lg transition-all"
+                          title="Editar Meta"
                         >
                           <Edit size={16} />
                         </button>
                         <button
                           type="button"
                           onClick={() => {
-                            if (window.confirm('Excluir esta meta?')) deleteGoal(goal.id);
+                            if (window.confirm('Excluir esta meta estrategica?')) deleteGoal(goal.id);
                           }}
-                          className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
+                          className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
+                          title="Excluir"
                         >
                           <Trash2 size={16} />
                         </button>
                       </div>
                     </div>
 
-                    <div className="space-y-3">
-                      <div className="flex justify-between text-sm">
-                        <span className="text-slate-500 font-medium">Progresso</span>
-                        <span className="font-bold text-[#c79229]">
-                          {((goal.current / goal.target) * 100).toFixed(1)}%
-                        </span>
-                      </div>
-                      <div className="w-full bg-slate-100 rounded-full h-3">
-                        <div
-                          className="bg-gradient-to-r from-[#c79229] to-[#e0a838] h-3 rounded-full transition-all duration-1000 shadow-inner"
-                          style={{ width: `${ Math.min((goal.current / goal.target) * 100, 100) }% ` }}
-                        ></div>
-                      </div>
-                      <div className="flex justify-between text-xs p-2 bg-slate-50 rounded-lg">
-                        <div className="text-center">
-                          <p className="text-slate-400 uppercase text-[9px] font-bold">Atual</p>
-                          <p className="font-bold text-slate-700">{goal.type === 'Financeiro' ? `R$ ${ goal.current.toLocaleString() } ` : goal.current}</p>
+                    <div className="space-y-4">
+                      {/* Bar and Stats */}
+                      <div className="space-y-2">
+                        <div className="flex justify-between items-end">
+                          <div className="flex flex-col">
+                            <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Progresso</span>
+                            <span className="text-xl font-black text-slate-800">
+                              {((goal.current / goal.target) * 100).toFixed(0)}%
+                            </span>
+                          </div>
+                          <button
+                            onClick={() => openQuickProgressModal(goal)}
+                            className="bg-slate-900 text-white text-[11px] font-bold px-3 py-1.5 rounded-lg hover:bg-[#c79229] transition-colors flex items-center gap-1.5 shadow-sm"
+                          >
+                            <TrendingUp size={14} />
+                            Lançar Progresso
+                          </button>
                         </div>
-                        <div className="text-center border-l border-slate-200 pl-4">
-                          <p className="text-slate-400 uppercase text-[9px] font-bold">Alvo</p>
-                          <p className="font-bold text-slate-700">{goal.type === 'Financeiro' ? `R$ ${ goal.target.toLocaleString() } ` : goal.target}</p>
+
+                        <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden shadow-inner">
+                          <div
+                            className={`h - full transition - all duration - 1000 ${(goal.current / goal.target) >= 1 ? 'bg-emerald-500' : 'bg-[#c79229]'
+                              } `}
+                            style={{ width: `${Math.min((goal.current / goal.target) * 100, 100)}% ` }}
+                          ></div>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2 bg-slate-50 p-3 rounded-xl border border-slate-100">
+                        <div>
+                          <p className="text-[9px] font-bold text-slate-400 uppercase mb-0.5">Atual</p>
+                          <p className="font-bold text-slate-700 text-sm">
+                            {goal.type === 'Financeiro' ? `R$ ${goal.current.toLocaleString('pt-BR')} ` : goal.current}
+                          </p>
+                        </div>
+                        <div className="pl-3 border-l border-slate-200">
+                          <p className="text-[9px] font-bold text-slate-400 uppercase mb-0.5">Alvo</p>
+                          <p className="font-bold text-slate-700 text-sm">
+                            {goal.type === 'Financeiro' ? `R$ ${goal.target.toLocaleString('pt-BR')} ` : goal.target}
+                          </p>
                         </div>
                       </div>
                     </div>
@@ -1141,6 +1181,63 @@ const Settings: React.FC = () => {
                 >
                   <Save size={18} />
                   <span>{editingGoal ? 'Salvar Alterações' : 'Criar Meta'}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* QUICK PROGRESS MODAL */}
+      {isQuickProgressModalOpen && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4" onClick={() => setIsQuickProgressModalOpen(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden" onClick={e => e.stopPropagation()}>
+            <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+              <div>
+                <h3 className="text-lg font-black text-slate-900">Lançar Progresso</h3>
+                <p className="text-xs text-slate-500 font-medium">{quickProgressGoal?.title}</p>
+              </div>
+              <button onClick={() => setIsQuickProgressModalOpen(false)} className="text-slate-400 hover:text-slate-600">
+                <X size={20} />
+              </button>
+            </div>
+
+            <form onSubmit={handleQuickProgressSave} className="p-6 space-y-5">
+              <div>
+                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Valor a Adicionar</label>
+                <div className="relative">
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold">
+                    {quickProgressGoal?.type === 'Financeiro' ? 'R$' : '+'}
+                  </span>
+                  <input
+                    type="number"
+                    required
+                    autoFocus
+                    value={quickProgressValue || ''}
+                    onChange={(e) => setQuickProgressValue(parseFloat(e.target.value))}
+                    className="w-full bg-slate-50 border-2 border-slate-100 rounded-xl py-4 pl-12 pr-4 text-2xl font-black text-slate-800 focus:border-[#c79229] focus:ring-0 outline-none transition-all"
+                    placeholder="0"
+                  />
+                </div>
+                <p className="text-[11px] text-slate-500 mt-2 italic px-1">
+                  O valor digitado será **somado** ao progresso atual: {quickProgressGoal?.type === 'Financeiro' ? `R$ ${quickProgressGoal.current.toLocaleString('pt-BR')} ` : quickProgressGoal?.current}.
+                </p>
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setIsQuickProgressModalOpen(false)}
+                  className="flex-1 py-3 text-slate-500 font-bold hover:bg-slate-50 rounded-xl transition-colors"
+                >
+                  Voltar
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 py-3 bg-[#c79229] text-[#181418] font-black rounded-xl hover:bg-[#a67922] transition-all shadow-lg shadow-[#c79229]/20 flex items-center justify-center gap-2"
+                >
+                  <Save size={18} />
+                  Confirmar
                 </button>
               </div>
             </form>
