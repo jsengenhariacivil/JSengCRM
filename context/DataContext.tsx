@@ -1999,28 +1999,41 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   // --- PURCHASE ORDERS ---
   const addPurchaseOrder = async (po: PurchaseOrder) => {
-    const { data, error } = await supabase.from('purchase_orders').insert([{
-      supplier_id: po.supplierId,
-      project_id: po.projectId,
-      description: po.description,
-      total_value: po.totalValue,
-      date: po.date,
-      status: po.status
-    }]).select().single();
+    try {
+      const { data, error } = await supabase.from('purchase_orders').insert([{
+        supplier_id: po.supplierId,
+        project_id: po.projectId,
+        description: po.description,
+        total_value: po.totalValue,
+        date: po.date,
+        status: po.status
+      }]).select().single();
 
-    if (!error && data) {
-      if (po.items && po.items.length > 0) {
-        const itemsToInsert = po.items.map(item => ({
-          purchase_order_id: data.id,
-          description: item.description,
-          quantity: item.quantity,
-          unit: item.unit,
-          unit_price: item.unitPrice,
-          total_price: item.totalPrice
-        }));
-        await supabase.from('purchase_order_items').insert(itemsToInsert);
+      if (error) {
+        console.error('Supabase error (purchase_orders):', error);
+        throw error;
       }
-      setPurchaseOrders(prev => [{ ...po, id: data.id, createdAt: data.created_at }, ...prev]);
+
+      if (data) {
+        if (po.items && po.items.length > 0) {
+          const itemsToInsert = po.items.map(item => ({
+            purchase_order_id: data.id,
+            description: item.description,
+            quantity: item.quantity,
+            unit: item.unit,
+            unit_price: item.unitPrice,
+            total_price: item.totalPrice
+          }));
+          const { error: itemsError } = await supabase.from('purchase_order_items').insert(itemsToInsert);
+          if (itemsError) {
+            console.error('Supabase error (purchase_order_items):', itemsError);
+          }
+        }
+        setPurchaseOrders(prev => [{ ...po, id: data.id, createdAt: data.created_at }, ...prev]);
+      }
+    } catch (err) {
+      console.error('Catch error in addPurchaseOrder:', err);
+      throw err;
     }
   };
 
@@ -2039,16 +2052,27 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   // --- SAFETY RECORDS ---
   const addSafetyRecord = async (record: SafetyRecord) => {
-    const { data, error } = await supabase.from('safety_records').insert([{
-      type: record.type,
-      title: record.title,
-      description: record.description,
-      date: record.date,
-      responsible: record.responsible,
-      status: record.status,
-      project_id: record.projectId
-    }]).select().single();
-    if (!error && data) setSafetyRecords(prev => [{ ...record, id: data.id, createdAt: data.created_at }, ...prev]);
+    try {
+      const { data, error } = await supabase.from('safety_records').insert([{
+        type: record.type,
+        title: record.title,
+        description: record.description,
+        date: record.date,
+        responsible: record.responsible,
+        status: record.status,
+        project_id: record.projectId
+      }]).select().single();
+
+      if (error) {
+        console.error('Supabase error (safety_records):', error);
+        throw error;
+      }
+
+      if (data) setSafetyRecords(prev => [{ ...record, id: data.id, createdAt: data.created_at }, ...prev]);
+    } catch (err) {
+      console.error('Catch error in addSafetyRecord:', err);
+      throw err;
+    }
   };
 
   const updateSafetyRecord = async (record: SafetyRecord) => {

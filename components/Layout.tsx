@@ -138,6 +138,10 @@ const Layout: React.FC = () => {
   const toggleRH = () => setIsRHOpen(!isRHOpen);
   const toggleCadastro = () => setIsCadastroOpen(!isCadastroOpen);
 
+  const isCRMActive = ['/crm', '/propostas', '/comercial'].some(p => location.pathname.startsWith(p));
+  const isCadastroActive = ['/clientes', '/fornecedores', '/servicos'].some(p => location.pathname.startsWith(p));
+  const isRHActive = ['/equipe'].some(p => location.pathname.startsWith(p));
+
   // Logout Handler
   const handleLogout = () => {
     logout();
@@ -177,7 +181,7 @@ const Layout: React.FC = () => {
         <div className="space-y-1">
           <button
             onClick={toggleCRM}
-            className={`w-full flex items-center justify-between px-4 py-3 rounded-lg transition-colors text-slate-400 hover:text-[#c79229] hover:bg-[#181418]/50`}
+            className={`w-full flex items-center justify-between px-4 py-3 rounded-lg transition-colors ${isCRMActive ? 'bg-[#c79229] text-[#181418] font-bold shadow-md' : 'text-slate-400 hover:text-[#c79229] hover:bg-[#181418]/50'}`}
           >
             <div className="flex items-center space-x-3">
               <Briefcase size={20} />
@@ -200,7 +204,7 @@ const Layout: React.FC = () => {
       <div className="space-y-1">
         <button
           onClick={toggleCadastro}
-          className={`w-full flex items-center justify-between px-4 py-3 rounded-lg transition-colors text-slate-400 hover:text-[#c79229] hover:bg-[#181418]/50`}
+          className={`w-full flex items-center justify-between px-4 py-3 rounded-lg transition-colors ${isCadastroActive ? 'bg-[#c79229] text-[#181418] font-bold shadow-md' : 'text-slate-400 hover:text-[#c79229] hover:bg-[#181418]/50'}`}
         >
           <div className="flex items-center space-x-3">
             <PlusCircle size={20} />
@@ -250,7 +254,7 @@ const Layout: React.FC = () => {
         <div className="space-y-1">
           <button
             onClick={toggleRH}
-            className={`w-full flex items-center justify-between px-4 py-3 rounded-lg transition-colors text-slate-400 hover:text-[#c79229] hover:bg-[#181418]/50`}
+            className={`w-full flex items-center justify-between px-4 py-3 rounded-lg transition-colors ${isRHActive ? 'bg-[#c79229] text-[#181418] font-bold shadow-md' : 'text-slate-400 hover:text-[#c79229] hover:bg-[#181418]/50'}`}
           >
             <div className="flex items-center space-x-3">
               <UserCog size={20} />

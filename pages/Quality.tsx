@@ -55,9 +55,9 @@ const Quality: React.FC = () => {
                 await addQualityInspection(formData as QualityInspection);
             }
             setIsModalOpen(false);
-        } catch (error) {
+        } catch (error: any) {
             console.error('Erro ao salvar inspeção:', error);
-            alert('Erro ao salvar inspeção de qualidade. Tente novamente.');
+            alert(`Erro ao salvar inspeção de qualidade: ${error.message || 'Erro desconhecido'}. Tente novamente.`);
         } finally {
             setIsSaving(false);
         }

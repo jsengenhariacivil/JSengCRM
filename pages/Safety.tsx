@@ -43,14 +43,24 @@ const Safety: React.FC = () => {
         setIsModalOpen(true);
     };
 
+    const [isSaving, setIsSaving] = useState(false);
+
     const handleSave = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (editingRecord) {
-            await updateSafetyRecord({ ...editingRecord, ...formData } as SafetyRecord);
-        } else {
-            await addSafetyRecord(formData as SafetyRecord);
+        setIsSaving(true);
+        try {
+            if (editingRecord) {
+                await updateSafetyRecord({ ...editingRecord, ...formData } as SafetyRecord);
+            } else {
+                await addSafetyRecord(formData as SafetyRecord);
+            }
+            setIsModalOpen(false);
+        } catch (error) {
+            console.error('Erro ao salvar registro de segurança:', error);
+            alert('Erro ao salvar registro de segurança. Verifique os dados e tente novamente.');
+        } finally {
+            setIsSaving(false);
         }
-        setIsModalOpen(false);
     };
 
     const getTypeIcon = (type: string) => {
@@ -268,10 +278,11 @@ const Safety: React.FC = () => {
                                 </button>
                                 <button
                                     type="submit"
-                                    className="px-8 py-2.5 bg-[#c79229] text-[#181418] rounded-xl font-black shadow-lg shadow-[#c79229]/40 hover:bg-[#a67922] transition-all transform active:scale-95 flex items-center gap-2"
+                                    disabled={isSaving}
+                                    className="px-8 py-2.5 bg-[#c79229] text-[#181418] rounded-xl font-black shadow-lg shadow-[#c79229]/40 hover:bg-[#a67922] transition-all transform active:scale-95 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
-                                    <Save size={18} />
-                                    {editingRecord ? 'Atualizar Registro' : 'Salvar Registro'}
+                                    {isSaving ? <Clock className="animate-spin" size={18} /> : <Save size={18} />}
+                                    {isSaving ? 'Salvando...' : (editingRecord ? 'Atualizar Registro' : 'Salvar Registro')}
                                 </button>
                             </div>
                         </form>

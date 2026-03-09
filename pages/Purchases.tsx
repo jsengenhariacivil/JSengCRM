@@ -74,14 +74,24 @@ const Purchases: React.FC = () => {
         setFormData({ ...formData, items: updatedItems, totalValue: total });
     };
 
+    const [isSaving, setIsSaving] = useState(false);
+
     const handleSave = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (editingPO) {
-            await updatePurchaseOrder({ ...editingPO, ...formData } as PurchaseOrder);
-        } else {
-            await addPurchaseOrder(formData as PurchaseOrder);
+        setIsSaving(true);
+        try {
+            if (editingPO) {
+                await updatePurchaseOrder({ ...editingPO, ...formData } as PurchaseOrder);
+            } else {
+                await addPurchaseOrder(formData as PurchaseOrder);
+            }
+            setIsModalOpen(false);
+        } catch (error) {
+            console.error('Erro ao salvar pedido de compra:', error);
+            alert('Erro ao salvar pedido de compra. Verifique os dados e tente novamente.');
+        } finally {
+            setIsSaving(false);
         }
-        setIsModalOpen(false);
     };
 
     const getStatusBadge = (status: string) => {
@@ -345,10 +355,11 @@ const Purchases: React.FC = () => {
                                 </button>
                                 <button
                                     type="submit"
-                                    className="px-8 py-2.5 bg-[#c79229] text-[#181418] rounded-xl font-black shadow-lg shadow-[#c79229]/20 hover:bg-[#a67922] transition-all transform active:scale-95 flex items-center gap-2"
+                                    disabled={isSaving}
+                                    className="px-8 py-2.5 bg-[#c79229] text-[#181418] rounded-xl font-black shadow-lg shadow-[#c79229]/20 hover:bg-[#a67922] transition-all transform active:scale-95 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
-                                    <Save size={18} />
-                                    {editingPO ? 'Atualizar Pedido' : 'Finalizar Pedido'}
+                                    {isSaving ? <Clock className="animate-spin" size={18} /> : <Save size={18} />}
+                                    {isSaving ? 'Salvando...' : (editingPO ? 'Atualizar Pedido' : 'Finalizar Pedido')}
                                 </button>
                             </div>
                         </form>
