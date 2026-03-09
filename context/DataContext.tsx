@@ -1,7 +1,7 @@
 
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
-import { Client, Project, FinancialRecord, Service, Proposal, ProposalItem, ProposalEtapa, SinapiService, Supplier, TeamMember, PaymentRecord, Status, UserData, UserPermissions, AgendaEvento, AppNotification, ProposalHistory, Measurement, DailyReport, ProjectTask, ProjectMilestone, Lead, LeadInteraction, InventoryItem, InventoryMovement, Goal } from '../types';
+import { Client, Project, FinancialRecord, Service, Proposal, ProposalItem, ProposalEtapa, SinapiService, Supplier, TeamMember, PaymentRecord, Status, UserData, UserPermissions, AgendaEvento, AppNotification, ProposalHistory, Measurement, DailyReport, ProjectTask, ProjectMilestone, Lead, LeadInteraction, InventoryItem, InventoryMovement, Goal, Contract, PurchaseOrder, SafetyRecord, EngineeringDocument, QualityInspection } from '../types';
 
 interface DataContextType {
   // Base SINAPI (Mock)
@@ -121,6 +121,31 @@ interface DataContextType {
   addGoal: (goal: Goal) => Promise<void>;
   updateGoal: (goal: Goal) => Promise<void>;
   deleteGoal: (id: string) => Promise<void>;
+
+  // --- NEW MODULES ---
+  contracts: Contract[];
+  addContract: (contract: Contract) => Promise<void>;
+  updateContract: (contract: Contract) => Promise<void>;
+  deleteContract: (id: string) => Promise<void>;
+
+  purchaseOrders: PurchaseOrder[];
+  addPurchaseOrder: (po: PurchaseOrder) => Promise<void>;
+  updatePurchaseOrder: (po: PurchaseOrder) => Promise<void>;
+  deletePurchaseOrder: (id: string) => Promise<void>;
+
+  safetyRecords: SafetyRecord[];
+  addSafetyRecord: (record: SafetyRecord) => Promise<void>;
+  updateSafetyRecord: (record: SafetyRecord) => Promise<void>;
+  deleteSafetyRecord: (id: string) => Promise<void>;
+
+  engineeringDocuments: EngineeringDocument[];
+  addEngineeringDocument: (doc: EngineeringDocument) => Promise<void>;
+  deleteEngineeringDocument: (id: string) => Promise<void>;
+
+  qualityInspections: QualityInspection[];
+  addQualityInspection: (inspection: QualityInspection) => Promise<void>;
+  updateQualityInspection: (inspection: QualityInspection) => Promise<void>;
+  deleteQualityInspection: (id: string) => Promise<void>;
 
   loading: boolean;
   refreshData: () => Promise<void>;
@@ -256,6 +281,11 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [leads, setLeads] = useState<Lead[]>([]);
   const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
   const [goals, setGoals] = useState<Goal[]>([]);
+  const [contracts, setContracts] = useState<Contract[]>([]);
+  const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>([]);
+  const [safetyRecords, setSafetyRecords] = useState<SafetyRecord[]>([]);
+  const [engineeringDocuments, setEngineeringDocuments] = useState<EngineeringDocument[]>([]);
+  const [qualityInspections, setQualityInspections] = useState<QualityInspection[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Função para carregar todos os dados
@@ -267,7 +297,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         const [
           clientsData, projectsData, financialsData, servicesData,
           proposalsData, suppliersData, teamData, paymentsData, usersData, agendaData,
-          notificationsData, proposalHistoryData, leadsData, inventoryData, goalsData
+          notificationsData, proposalHistoryData, leadsData, inventoryData, goalsData,
+          contractsData, poData, safetyData, engData, qualityData
         ] = await Promise.all([
           supabase.from('clients').select('*'),
           supabase.from('projects').select('*, clients(name)'),
@@ -283,7 +314,12 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           supabase.from('proposal_history').select('*').order('created_at', { ascending: false }),
           supabase.from('leads').select('*').order('created_at', { ascending: false }),
           supabase.from('inventory_items').select('*'),
-          supabase.from('goals').select('*')
+          supabase.from('goals').select('*'),
+          supabase.from('contracts').select('*'),
+          supabase.from('purchase_orders').select('*, purchase_order_items(*)'),
+          supabase.from('safety_records').select('*'),
+          supabase.from('engineering_documents').select('*'),
+          supabase.from('quality_inspections').select('*')
         ]);
 
         if (clientsData.data) {
@@ -338,16 +374,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         }
 
         if (proposalsData.data) {
-          // Note: Since Supabase might not return nested correctly if we don't query properly,
-          // we use the current returned items to reconstruct a flat list, but ideally we add proposal_etapas in the select.
-          // Wait, we need to fetch proposal_etapas! Since we didn't add it to the Promise.all select yet, let's just do a basic map but be ready to accept etapas.
-          // To fetch etapas, we need to update the query: select('*, clients(name), proposal_items(*), proposal_etapas(*)')
-          // For now, let's map what we have and assume we will fix the query next.
           setProposals(proposalsData.data.map(p => {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const allItems: any[] = p.proposal_items || [];
-
-            // Reconstruct the tree if they have parent_id
             const itemMap = new Map();
             const rootItems: any[] = [];
 
@@ -381,9 +409,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
               }
             });
 
-            // Group by Etapa
             const etapasMap = new Map();
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const pEtapas: any[] = p.proposal_etapas || [];
             pEtapas.forEach(et => {
               etapasMap.set(et.id, {
@@ -398,7 +424,6 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
               if (item.etapaId && etapasMap.has(item.etapaId)) {
                 etapasMap.get(item.etapaId).items.push(item);
               } else {
-                // Fallback if no etapa
                 if (!etapasMap.has('default')) {
                   etapasMap.set('default', { id: 'default', name: 'Serviços Gerais', order: 0, items: [] });
                 }
@@ -413,7 +438,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
               clientId: p.client_id,
               clientName: p.clients?.name || '',
               etapas: etapasArray,
-              items: rootItems, // Keep legacy reference
+              items: rootItems,
               total: parseFloat(p.total) || 0,
               bdi: parseFloat(p.bdi) || 0,
               status: p.status as Status,
@@ -561,6 +586,86 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             type: g.type,
             deadline: g.deadline,
             status: g.status
+          })));
+        }
+
+        if (contractsData.data) {
+          setContracts(contractsData.data.map(c => ({
+            id: c.id,
+            proposalId: c.proposal_id,
+            clientId: c.client_id,
+            clientName: '', // Will be matched later or fetched with join
+            title: c.title,
+            value: parseFloat(c.value) || 0,
+            startDate: c.start_date,
+            endDate: c.end_date,
+            status: c.status,
+            terms: c.terms,
+            createdAt: c.created_at
+          })));
+        }
+
+        if (poData.data) {
+          setPurchaseOrders(poData.data.map(po => ({
+            id: po.id,
+            supplierId: po.supplier_id,
+            supplierName: '', // Link later
+            projectId: po.project_id,
+            description: po.description,
+            totalValue: parseFloat(po.total_value) || 0,
+            date: po.date,
+            status: po.status,
+            createdAt: po.created_at,
+            items: po.purchase_order_items?.map((item: any) => ({
+              id: item.id,
+              purchaseOrderId: item.purchase_order_id,
+              description: item.description,
+              quantity: parseFloat(item.quantity) || 0,
+              unit: item.unit,
+              unitPrice: parseFloat(item.unit_price) || 0,
+              totalPrice: parseFloat(item.total_price) || 0
+            })) || []
+          })));
+        }
+
+        if (safetyData.data) {
+          setSafetyRecords(safetyData.data.map(s => ({
+            id: s.id,
+            type: s.type,
+            title: s.title,
+            description: s.description,
+            date: s.date,
+            responsible: s.responsible,
+            status: s.status,
+            projectId: s.project_id,
+            createdAt: s.created_at
+          })));
+        }
+
+        if (engData.data) {
+          setEngineeringDocuments(engData.data.map(e => ({
+            id: e.id,
+            projectId: e.project_id,
+            title: e.title,
+            category: e.category,
+            fileUrl: e.file_url,
+            version: e.version,
+            uploadedBy: e.uploaded_by,
+            createdAt: e.created_at
+          })));
+        }
+
+        if (qualityData.data) {
+          setQualityInspections(qualityData.data.map(q => ({
+            id: q.id,
+            projectId: q.project_id,
+            title: q.title,
+            description: q.description,
+            status: q.status,
+            inspector: q.inspector,
+            date: q.date,
+            notes: q.notes,
+            createdAt: q.created_at
           })));
         }
       };
@@ -1842,6 +1947,154 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     await supabase.from('goals').delete().eq('id', id);
     setGoals(prev => prev.filter(g => g.id !== id));
   };
+
+  // --- CONTRACTS ---
+  const addContract = async (contract: Contract) => {
+    const { data, error } = await supabase.from('contracts').insert([{
+      proposal_id: contract.proposalId,
+      client_id: contract.clientId,
+      title: contract.title,
+      value: contract.value,
+      start_date: contract.startDate,
+      end_date: contract.endDate,
+      status: contract.status,
+      terms: contract.terms
+    }]).select().single();
+    if (!error && data) setContracts(prev => [{ ...contract, id: data.id, createdAt: data.created_at }, ...prev]);
+  };
+
+  const updateContract = async (contract: Contract) => {
+    await supabase.from('contracts').update({
+      title: contract.title,
+      value: contract.value,
+      start_date: contract.startDate,
+      end_date: contract.endDate,
+      status: contract.status,
+      terms: contract.terms
+    }).eq('id', contract.id);
+    setContracts(prev => prev.map(c => c.id === contract.id ? contract : c));
+  };
+
+  const deleteContract = async (id: string) => {
+    await supabase.from('contracts').delete().eq('id', id);
+    setContracts(prev => prev.filter(c => c.id !== id));
+  };
+
+  // --- PURCHASE ORDERS ---
+  const addPurchaseOrder = async (po: PurchaseOrder) => {
+    const { data, error } = await supabase.from('purchase_orders').insert([{
+      supplier_id: po.supplierId,
+      project_id: po.projectId,
+      description: po.description,
+      total_value: po.totalValue,
+      date: po.date,
+      status: po.status
+    }]).select().single();
+
+    if (!error && data) {
+      if (po.items && po.items.length > 0) {
+        const itemsToInsert = po.items.map(item => ({
+          purchase_order_id: data.id,
+          description: item.description,
+          quantity: item.quantity,
+          unit: item.unit,
+          unit_price: item.unitPrice,
+          total_price: item.totalPrice
+        }));
+        await supabase.from('purchase_order_items').insert(itemsToInsert);
+      }
+      setPurchaseOrders(prev => [{ ...po, id: data.id, createdAt: data.created_at }, ...prev]);
+    }
+  };
+
+  const updatePurchaseOrder = async (po: PurchaseOrder) => {
+    await supabase.from('purchase_orders').update({
+      status: po.status,
+      description: po.description
+    }).eq('id', po.id);
+    setPurchaseOrders(prev => prev.map(p => p.id === po.id ? po : p));
+  };
+
+  const deletePurchaseOrder = async (id: string) => {
+    await supabase.from('purchase_orders').delete().eq('id', id);
+    setPurchaseOrders(prev => prev.filter(p => p.id !== id));
+  };
+
+  // --- SAFETY RECORDS ---
+  const addSafetyRecord = async (record: SafetyRecord) => {
+    const { data, error } = await supabase.from('safety_records').insert([{
+      type: record.type,
+      title: record.title,
+      description: record.description,
+      date: record.date,
+      responsible: record.responsible,
+      status: record.status,
+      project_id: record.projectId
+    }]).select().single();
+    if (!error && data) setSafetyRecords(prev => [{ ...record, id: data.id, createdAt: data.created_at }, ...prev]);
+  };
+
+  const updateSafetyRecord = async (record: SafetyRecord) => {
+    await supabase.from('safety_records').update({
+      title: record.title,
+      description: record.description,
+      status: record.status,
+      responsible: record.responsible
+    }).eq('id', record.id);
+    setSafetyRecords(prev => prev.map(s => s.id === record.id ? record : s));
+  };
+
+  const deleteSafetyRecord = async (id: string) => {
+    await supabase.from('safety_records').delete().eq('id', id);
+    setSafetyRecords(prev => prev.filter(s => s.id !== id));
+  };
+
+  // --- ENGINEERING DOCUMENTS ---
+  const addEngineeringDocument = async (doc: EngineeringDocument) => {
+    const { data, error } = await supabase.from('engineering_documents').insert([{
+      project_id: doc.projectId,
+      title: doc.title,
+      category: doc.category,
+      file_url: doc.fileUrl,
+      version: doc.version,
+      uploaded_by: doc.uploadedBy
+    }]).select().single();
+    if (!error && data) setEngineeringDocuments(prev => [{ ...doc, id: data.id, createdAt: data.created_at }, ...prev]);
+  };
+
+  const deleteEngineeringDocument = async (id: string) => {
+    await supabase.from('engineering_documents').delete().eq('id', id);
+    setEngineeringDocuments(prev => prev.filter(d => d.id !== id));
+  };
+
+  // --- QUALITY INSPECTIONS ---
+  const addQualityInspection = async (inspection: QualityInspection) => {
+    const { data, error } = await supabase.from('quality_inspections').insert([{
+      project_id: inspection.projectId,
+      title: inspection.title,
+      description: inspection.description,
+      status: inspection.status,
+      inspector: inspection.inspector,
+      date: inspection.date,
+      notes: inspection.notes
+    }]).select().single();
+    if (!error && data) setQualityInspections(prev => [{ ...inspection, id: data.id, createdAt: data.created_at }, ...prev]);
+  };
+
+  const updateQualityInspection = async (inspection: QualityInspection) => {
+    await supabase.from('quality_inspections').update({
+      title: inspection.title,
+      description: inspection.description,
+      status: inspection.status,
+      notes: inspection.notes
+    }).eq('id', inspection.id);
+    setQualityInspections(prev => prev.map(q => q.id === inspection.id ? inspection : q));
+  };
+
+  const deleteQualityInspection = async (id: string) => {
+    await supabase.from('quality_inspections').delete().eq('id', id);
+    setQualityInspections(prev => prev.filter(q => q.id !== id));
+  };
   return (
     <DataContext.Provider value={{
       sinapiDatabase: MOCK_SINAPI_DB,
@@ -1874,6 +2127,11 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       leads, addLead, updateLead, deleteLead, addLeadInteraction,
       inventoryItems, addInventoryItem, updateInventoryItem, deleteInventoryItem, addInventoryMovement,
       goals, addGoal, updateGoal, deleteGoal,
+      contracts, addContract, updateContract, deleteContract,
+      purchaseOrders, addPurchaseOrder, updatePurchaseOrder, deletePurchaseOrder,
+      safetyRecords, addSafetyRecord, updateSafetyRecord, deleteSafetyRecord,
+      engineeringDocuments, addEngineeringDocument, deleteEngineeringDocument,
+      qualityInspections, addQualityInspection, updateQualityInspection, deleteQualityInspection,
       loading,
       refreshData
     }}>

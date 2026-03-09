@@ -17,6 +17,13 @@ import Team from './pages/Team';
 import Agenda from './pages/Agenda';
 import CRM from './pages/CRM';
 import Inventory from './pages/Inventory';
+import Contracts from './pages/Contracts';
+import Purchases from './pages/Purchases';
+import Safety from './pages/Safety';
+import Engineering from './pages/Engineering';
+import Quality from './pages/Quality';
+import Reports from './pages/Reports';
+import Administration from './pages/Administration';
 import PWAInstructions from './pages/PWAInstructions';
 import Login from './pages/Login';
 import UnderConstruction from './pages/UnderConstruction';
@@ -137,20 +144,20 @@ const App: React.FC = () => {
 
               {/* CRM / Comercial */}
               <Route path="crm" element={<RequirePermission permission="viewProposals"><CRM /></RequirePermission>} />
-              <Route path="comercial/contratos" element={<UnderConstruction title="Gestão de Contratos" />} />
+              <Route path="comercial/contratos" element={<Contracts />} />
 
               {/* Compras, Estoque e OP */}
-              <Route path="compras" element={<UnderConstruction title="Módulo de Compras" />} />
+              <Route path="compras" element={<Purchases />} />
               <Route path="estoque" element={<RequirePermission permission="viewProjects"><Inventory /></RequirePermission>} />
 
               {/* Segurança, Qualidade e Engenharia */}
-              <Route path="seguranca" element={<UnderConstruction title="Segurança do Trabalho" />} />
-              <Route path="engenharia" element={<UnderConstruction title="Documentos e Engenharia" />} />
-              <Route path="qualidade" element={<UnderConstruction title="Módulo de Qualidade" />} />
+              <Route path="seguranca" element={<Safety />} />
+              <Route path="engenharia" element={<Engineering />} />
+              <Route path="qualidade" element={<Quality />} />
 
               {/* Extras */}
-              <Route path="relatorios" element={<UnderConstruction title="Módulo de Relatórios" />} />
-              <Route path="administracao" element={<UnderConstruction title="Administração do Sistema" />} />
+              <Route path="relatorios" element={<Reports />} />
+              <Route path="administracao" element={<Administration />} />
 
               <Route path="instalar" element={<PWAInstructions />} />
 

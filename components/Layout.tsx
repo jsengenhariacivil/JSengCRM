@@ -129,12 +129,14 @@ const Layout: React.FC = () => {
   const [isCRMOpen, setIsCRMOpen] = useState(false);
   const [isObrasOpen, setIsObrasOpen] = useState(false);
   const [isRHOpen, setIsRHOpen] = useState(false);
+  const [isCadastroOpen, setIsCadastroOpen] = useState(false);
   const location = useLocation();
 
   const toggleMenu = () => setIsMobileMenuOpen(!isMobileMenuOpen);
   const toggleCRM = () => setIsCRMOpen(!isCRMOpen);
   const toggleObras = () => setIsObrasOpen(!isObrasOpen);
   const toggleRH = () => setIsRHOpen(!isRHOpen);
+  const toggleCadastro = () => setIsCadastroOpen(!isCadastroOpen);
 
   // Logout Handler
   const handleLogout = () => {
@@ -153,6 +155,9 @@ const Layout: React.FC = () => {
     }
     if (path.startsWith('/equipe')) {
       setIsRHOpen(true);
+    }
+    if (path.startsWith('/clientes') || path.startsWith('/fornecedores') || path.startsWith('/servicos')) {
+      setIsCadastroOpen(true);
     }
   }, [location.pathname]);
 
@@ -183,14 +188,35 @@ const Layout: React.FC = () => {
 
           {isCRMOpen && (
             <div className="space-y-1 animate-in slide-in-from-top-2 duration-200">
-              <SidebarItem to="/clientes" icon={User} label="Clientes" isSubItem onClick={mobile ? toggleMenu : undefined} />
-              <SidebarItem to="/crm" icon={Users} label="Leads" isSubItem onClick={mobile ? toggleMenu : undefined} />
+              <SidebarItem to="/crm" icon={Users} label="Funil de Leads" isSubItem onClick={mobile ? toggleMenu : undefined} />
               <SidebarItem to="/propostas" icon={FileText} label="Propostas" isSubItem onClick={mobile ? toggleMenu : undefined} />
               <SidebarItem to="/comercial/contratos" icon={ClipboardList} label="Contratos" isSubItem onClick={mobile ? toggleMenu : undefined} />
             </div>
           )}
         </div>
       )}
+
+      {/* Cadastro */}
+      <div className="space-y-1">
+        <button
+          onClick={toggleCadastro}
+          className={`w-full flex items-center justify-between px-4 py-3 rounded-lg transition-colors text-slate-400 hover:text-[#c79229] hover:bg-[#181418]/50`}
+        >
+          <div className="flex items-center space-x-3">
+            <PlusCircle size={20} />
+            <span className="font-medium">Cadastros</span>
+          </div>
+          {isCadastroOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+        </button>
+
+        {isCadastroOpen && (
+          <div className="space-y-1 animate-in slide-in-from-top-2 duration-200">
+            <SidebarItem to="/clientes" icon={User} label="Clientes" isSubItem onClick={mobile ? toggleMenu : undefined} />
+            <SidebarItem to="/fornecedores" icon={Truck} label="Fornecedores" isSubItem onClick={mobile ? toggleMenu : undefined} />
+            <SidebarItem to="/servicos" icon={Briefcase} label="Serviços" isSubItem onClick={mobile ? toggleMenu : undefined} />
+          </div>
+        )}
+      </div>
 
       {/* Orçamentos/Propostas */}
       {canViewProposals && (
@@ -237,7 +263,28 @@ const Layout: React.FC = () => {
 
       {/* RH */}
       {canViewTeam && (
-        <SidebarItem to="/equipe/funcionarios" icon={UserCog} label="RH" onClick={mobile ? toggleMenu : undefined} />
+        <div className="space-y-1">
+          <button
+            onClick={toggleRH}
+            className={`w-full flex items-center justify-between px-4 py-3 rounded-lg transition-colors text-slate-400 hover:text-[#c79229] hover:bg-[#181418]/50`}
+          >
+            <div className="flex items-center space-x-3">
+              <UserCog size={20} />
+              <span className="font-medium">RH</span>
+            </div>
+            {isRHOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+          </button>
+
+          {isRHOpen && (
+            <div className="space-y-1 animate-in slide-in-from-top-2 duration-200">
+              <SidebarItem to="/equipe/funcionarios" icon={User} label="Funcionários" isSubItem onClick={mobile ? toggleMenu : undefined} />
+              <SidebarItem to="/equipe/prestadores" icon={Briefcase} label="Prestadores" isSubItem onClick={mobile ? toggleMenu : undefined} />
+              {canViewFinancial && (
+                <SidebarItem to="/equipe/pagamentos" icon={Banknote} label="Pagamentos" isSubItem onClick={mobile ? toggleMenu : undefined} />
+              )}
+            </div>
+          )}
+        </div>
       )}
 
       {/* Segurança do Trabalho */}
@@ -260,14 +307,7 @@ const Layout: React.FC = () => {
       {/* Administração */}
       <SidebarItem to="/administracao" icon={Shield} label="Administração" onClick={mobile ? toggleMenu : undefined} />
 
-      {/* Configurações */}
-      {canManageSettings && (
-        <div className="pt-6 mt-6 border-t border-[#c79229]/20">
-          <SidebarItem to="/configuracoes" icon={Settings} label="Configuração" onClick={mobile ? toggleMenu : undefined} />
-        </div>
-      )}
-
-      {/* PWA Instaill */}
+      {/* PWA Install */}
       <SidebarItem to="/instalar" icon={Smartphone} label="App no Celular" onClick={mobile ? toggleMenu : undefined} />
 
       {/* Configurações apenas para quem tem permissão */}

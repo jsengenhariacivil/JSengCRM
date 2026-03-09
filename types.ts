@@ -303,3 +303,76 @@ export interface Goal {
   deadline: string;
   status: 'Ativa' | 'Concluída' | 'Expirada';
 }
+// --- NOVAS SEÇÕES (CONTRATOS, COMPRAS, SEGURANÇA, QUALIDADE) ---
+
+export interface Contract {
+  id: string;
+  proposalId?: string;
+  clientId: string;
+  clientName: string;
+  title: string;
+  value: number;
+  startDate: string;
+  endDate: string;
+  status: 'Rascunho' | 'Assinado' | 'Ativo' | 'Finalizado' | 'Cancelado';
+  terms?: string;
+  createdAt: string;
+}
+
+export interface PurchaseOrder {
+  id: string;
+  supplierId: string;
+  supplierName: string;
+  projectId?: string;
+  description: string;
+  totalValue: number;
+  date: string;
+  status: 'Pendente' | 'Aprovado' | 'Enviado' | 'Entregue' | 'Cancelado';
+  items: PurchaseOrderItem[];
+  createdAt: string;
+}
+
+export interface PurchaseOrderItem {
+  id: string;
+  purchaseOrderId: string;
+  description: string;
+  quantity: number;
+  unit: string;
+  unitPrice: number;
+  totalPrice: number;
+}
+
+export interface SafetyRecord {
+  id: string;
+  type: 'EPI' | 'Treinamento' | 'Inspeção' | 'Incidente';
+  title: string;
+  description: string;
+  date: string;
+  responsible: string;
+  status: 'Concluído' | 'Pendente' | 'Alerta';
+  projectId?: string;
+  createdAt: string;
+}
+
+export interface EngineeringDocument {
+  id: string;
+  projectId?: string;
+  title: string;
+  category: 'Planta' | 'Memorial' | 'Especificação' | 'Outros';
+  fileUrl: string;
+  version: string;
+  uploadedBy: string;
+  createdAt: string;
+}
+
+export interface QualityInspection {
+  id: string;
+  projectId: string;
+  title: string;
+  description: string;
+  status: 'Conforme' | 'Não Conforme' | 'Pendente';
+  inspector: string;
+  date: string;
+  notes?: string;
+  createdAt: string;
+}
