@@ -180,7 +180,7 @@ const Layout: React.FC = () => {
             className={`w-full flex items-center justify-between px-4 py-3 rounded-lg transition-colors text-slate-400 hover:text-[#c79229] hover:bg-[#181418]/50`}
           >
             <div className="flex items-center space-x-3">
-              <Users size={20} />
+              <Briefcase size={20} />
               <span className="font-medium">CRM e Comercial</span>
             </div>
             {isCRMOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
@@ -188,7 +188,7 @@ const Layout: React.FC = () => {
 
           {isCRMOpen && (
             <div className="space-y-1 animate-in slide-in-from-top-2 duration-200">
-              <SidebarItem to="/crm" icon={Users} label="Funil de Leads" isSubItem onClick={mobile ? toggleMenu : undefined} />
+              <SidebarItem to="/crm" icon={Users} label="Leads" isSubItem onClick={mobile ? toggleMenu : undefined} />
               <SidebarItem to="/propostas" icon={FileText} label="Propostas" isSubItem onClick={mobile ? toggleMenu : undefined} />
               <SidebarItem to="/comercial/contratos" icon={ClipboardList} label="Contratos" isSubItem onClick={mobile ? toggleMenu : undefined} />
             </div>
@@ -218,34 +218,18 @@ const Layout: React.FC = () => {
         )}
       </div>
 
-      {/* Orçamentos/Propostas */}
-      {canViewProposals && (
-        <SidebarItem to="/propostas" icon={FileText} label="Orçamentos/Propostas" onClick={mobile ? toggleMenu : undefined} />
-      )}
-
       {/* Obras */}
       {canViewProjects && (
-        <div className="space-y-1">
-          <button
-            onClick={toggleObras}
-            className={`w-full flex items-center justify-between px-4 py-3 rounded-lg transition-colors text-slate-400 hover:text-[#c79229] hover:bg-[#181418]/50`}
-          >
-            <div className="flex items-center space-x-3">
-              <HardHat size={20} />
-              <span className="font-medium">Obras</span>
-            </div>
-            {isObrasOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-          </button>
+        <SidebarItem to="/obras" icon={HardHat} label="Obras" onClick={mobile ? toggleMenu : undefined} />
+      )}
 
-          {isObrasOpen && (
-            <div className="space-y-1 animate-in slide-in-from-top-2 duration-200">
-              <SidebarItem to="/obras" icon={HardHat} label="Gestão de Obras" isSubItem onClick={mobile ? toggleMenu : undefined} />
-              <SidebarItem to="/engenharia" icon={Folder} label="Planejamento" isSubItem onClick={mobile ? toggleMenu : undefined} />
-              <SidebarItem to="/obras" icon={FileText} label="Diário de obra" isSubItem onClick={mobile ? toggleMenu : undefined} />
-              <SidebarItem to="/obras" icon={Briefcase} label="Medição" isSubItem onClick={mobile ? toggleMenu : undefined} />
-            </div>
-          )}
-        </div>
+      {/* Planejamento, Diário e Medição (Desmembrados) */}
+      {canViewProjects && (
+        <>
+          <SidebarItem to="/planejamento" icon={Calendar} label="Planejamento" onClick={mobile ? toggleMenu : undefined} />
+          <SidebarItem to="/diario" icon={FileText} label="Diário de Obra" onClick={mobile ? toggleMenu : undefined} />
+          <SidebarItem to="/medicao" icon={BarChart3} label="Medição" onClick={mobile ? toggleMenu : undefined} />
+        </>
       )}
 
       {/* Compras */}

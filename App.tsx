@@ -27,6 +27,9 @@ import Administration from './pages/Administration';
 import PWAInstructions from './pages/PWAInstructions';
 import Login from './pages/Login';
 import UnderConstruction from './pages/UnderConstruction';
+import PlanningPage from './pages/PlanningPage';
+import DailyReportsPage from './pages/DailyReportsPage';
+import MeasurementsPage from './pages/MeasurementsPage';
 import { Status, UserPermissions } from './types';
 
 // Componente para proteger rotas
@@ -149,6 +152,12 @@ const App: React.FC = () => {
               {/* Compras, Estoque e OP */}
               <Route path="compras" element={<Purchases />} />
               <Route path="estoque" element={<RequirePermission permission="viewProjects"><Inventory /></RequirePermission>} />
+
+              {/* Obras, Planejamento, Diário e Medição */}
+              <Route path="obras" element={<RequirePermission permission="viewProjects"><Projects /></RequirePermission>} />
+              <Route path="planejamento" element={<RequirePermission permission="viewProjects"><PlanningPage /></RequirePermission>} />
+              <Route path="diario" element={<RequirePermission permission="viewProjects"><DailyReportsPage /></RequirePermission>} />
+              <Route path="medicao" element={<RequirePermission permission="viewProjects"><MeasurementsPage /></RequirePermission>} />
 
               {/* Segurança, Qualidade e Engenharia */}
               <Route path="seguranca" element={<Safety />} />

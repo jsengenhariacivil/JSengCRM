@@ -1950,17 +1950,34 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   // --- CONTRACTS ---
   const addContract = async (contract: Contract) => {
-    const { data, error } = await supabase.from('contracts').insert([{
-      proposal_id: contract.proposalId,
-      client_id: contract.clientId,
-      title: contract.title,
-      value: contract.value,
-      start_date: contract.startDate,
-      end_date: contract.endDate,
-      status: contract.status,
-      terms: contract.terms
-    }]).select().single();
-    if (!error && data) setContracts(prev => [{ ...contract, id: data.id, createdAt: data.created_at }, ...prev]);
+    try {
+      const { data, error } = await supabase.from('contracts').insert([{
+        proposal_id: contract.proposalId,
+        client_id: contract.clientId,
+        title: contract.title,
+        value: contract.value,
+        start_date: contract.startDate,
+        end_date: contract.endDate,
+        status: contract.status,
+        terms: contract.terms
+      }]).select().single();
+
+      if (error) {
+        console.error('Erro ao salvar contrato no Supabase:', error);
+        throw new Error(`Erro ao salvar contrato: ${error.message}`);
+      }
+
+      if (data) {
+        setContracts(prev => [{
+          ...contract,
+          id: data.id,
+          createdAt: data.created_at
+        }, ...prev]);
+      }
+    } catch (err) {
+      console.error('Falha inesperada em addContract:', err);
+      throw err;
+    }
   };
 
   const updateContract = async (contract: Contract) => {
@@ -2069,16 +2086,33 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   // --- QUALITY INSPECTIONS ---
   const addQualityInspection = async (inspection: QualityInspection) => {
-    const { data, error } = await supabase.from('quality_inspections').insert([{
-      project_id: inspection.projectId,
-      title: inspection.title,
-      description: inspection.description,
-      status: inspection.status,
-      inspector: inspection.inspector,
-      date: inspection.date,
-      notes: inspection.notes
-    }]).select().single();
-    if (!error && data) setQualityInspections(prev => [{ ...inspection, id: data.id, createdAt: data.created_at }, ...prev]);
+    try {
+      const { data, error } = await supabase.from('quality_inspections').insert([{
+        project_id: inspection.projectId,
+        title: inspection.title,
+        description: inspection.description,
+        status: inspection.status,
+        inspector: inspection.inspector,
+        date: inspection.date,
+        notes: inspection.notes
+      }]).select().single();
+
+      if (error) {
+        console.error('Erro ao salvar inspeção no Supabase:', error);
+        throw new Error(`Erro ao salvar inspeção: ${error.message}`);
+      }
+
+      if (data) {
+        setQualityInspections(prev => [{
+          ...inspection,
+          id: data.id,
+          createdAt: data.created_at
+        }, ...prev]);
+      }
+    } catch (err) {
+      console.error('Falha inesperada em addQualityInspection:', err);
+      throw err;
+    }
   };
 
   const updateQualityInspection = async (inspection: QualityInspection) => {

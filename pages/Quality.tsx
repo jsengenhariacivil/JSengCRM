@@ -43,14 +43,24 @@ const Quality: React.FC = () => {
         setIsModalOpen(true);
     };
 
+    const [isSaving, setIsSaving] = useState(false);
+
     const handleSave = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (editingInspection) {
-            await updateQualityInspection({ ...editingInspection, ...formData } as QualityInspection);
-        } else {
-            await addQualityInspection(formData as QualityInspection);
+        setIsSaving(true);
+        try {
+            if (editingInspection) {
+                await updateQualityInspection({ ...editingInspection, ...formData } as QualityInspection);
+            } else {
+                await addQualityInspection(formData as QualityInspection);
+            }
+            setIsModalOpen(false);
+        } catch (error) {
+            console.error('Erro ao salvar inspeção:', error);
+            alert('Erro ao salvar inspeção de qualidade. Tente novamente.');
+        } finally {
+            setIsSaving(false);
         }
-        setIsModalOpen(false);
     };
 
     const getStatusBadge = (status: string) => {
@@ -251,10 +261,11 @@ const Quality: React.FC = () => {
                                 </button>
                                 <button
                                     type="submit"
-                                    className="px-8 py-2.5 bg-[#c79229] text-[#181418] rounded-xl font-black shadow-lg shadow-[#c79229]/40 hover:bg-[#a67922] transition-all transform active:scale-95 flex items-center gap-2"
+                                    disabled={isSaving}
+                                    className="px-8 py-2.5 bg-[#c79229] text-[#181418] rounded-xl font-black shadow-lg shadow-[#c79229]/40 hover:bg-[#a67922] transition-all transform active:scale-95 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
-                                    <Save size={18} />
-                                    Salvar Inspeção
+                                    {isSaving ? <Clock className="animate-spin" size={18} /> : <Save size={18} />}
+                                    {isSaving ? 'Salvando...' : 'Salvar Inspeção'}
                                 </button>
                             </div>
                         </form>

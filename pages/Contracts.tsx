@@ -46,17 +46,27 @@ const Contracts: React.FC = () => {
         setIsModalOpen(true);
     };
 
+    const [isSaving, setIsSaving] = useState(false);
+
     const handleSave = async (e: React.FormEvent) => {
         e.preventDefault();
-        const client = clients.find(c => c.id === formData.clientId);
-        const clientName = client?.name || '';
+        setIsSaving(true);
+        try {
+            const client = clients.find(c => c.id === formData.clientId);
+            const clientName = client?.name || '';
 
-        if (editingContract) {
-            await updateContract({ ...editingContract, ...formData, clientName } as Contract);
-        } else {
-            await addContract({ ...formData, clientName } as Contract);
+            if (editingContract) {
+                await updateContract({ ...editingContract, ...formData, clientName } as Contract);
+            } else {
+                await addContract({ ...formData, clientName } as Contract);
+            }
+            setIsModalOpen(false);
+        } catch (error) {
+            console.error('Erro ao salvar contrato:', error);
+            alert('Erro ao salvar contrato. Verifique os dados e tente novamente.');
+        } finally {
+            setIsSaving(false);
         }
-        setIsModalOpen(false);
     };
 
     const getStatusBadge = (status: string) => {
@@ -300,9 +310,10 @@ const Contracts: React.FC = () => {
                                 </button>
                                 <button
                                     type="submit"
-                                    className="px-8 py-2.5 bg-[#c79229] text-[#181418] rounded-xl font-black shadow-lg shadow-[#c79229]/20 hover:bg-[#a67922] transition-all transform active:scale-95"
+                                    disabled={isSaving}
+                                    className="px-8 py-2.5 bg-[#c79229] text-[#181418] rounded-xl font-black shadow-lg shadow-[#c79229]/20 hover:bg-[#a67922] transition-all transform active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
-                                    {editingContract ? 'Atualizar Contrato' : 'Criar Contrato'}
+                                    {isSaving ? 'Salvando...' : (editingContract ? 'Atualizar Contrato' : 'Criar Contrato')}
                                 </button>
                             </div>
                         </form>
