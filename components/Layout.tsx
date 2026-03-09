@@ -122,13 +122,13 @@ const Layout: React.FC = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isCadastrosOpen, setIsCadastrosOpen] = useState(false);
   const [isPropostasOpen, setIsPropostasOpen] = useState(false);
-  const [isEquipeOpen, setIsEquipeOpen] = useState(false);
+  const [isRHOpen, setIsRHOpen] = useState(false);
   const location = useLocation();
 
   const toggleMenu = () => setIsMobileMenuOpen(!isMobileMenuOpen);
   const toggleCadastros = () => setIsCadastrosOpen(!isCadastrosOpen);
   const togglePropostas = () => setIsPropostasOpen(!isPropostasOpen);
-  const toggleEquipe = () => setIsEquipeOpen(!isEquipeOpen);
+  const toggleRH = () => setIsRHOpen(!isRHOpen);
 
   // Logout Handler
   const handleLogout = () => {
@@ -146,7 +146,7 @@ const Layout: React.FC = () => {
       setIsPropostasOpen(true);
     }
     if (path.startsWith('/equipe')) {
-      setIsEquipeOpen(true);
+      setIsRHOpen(true);
     }
   }, [location.pathname]);
 
@@ -205,17 +205,17 @@ const Layout: React.FC = () => {
       {canViewTeam && (
         <div className="space-y-1">
           <button
-            onClick={toggleEquipe}
+            onClick={toggleRH}
             className={`w-full flex items-center justify-between px-4 py-3 rounded-lg transition-colors text-slate-400 hover:text-[#c79229] hover:bg-[#181418]/50`}
           >
             <div className="flex items-center space-x-3">
-              <Briefcase size={20} />
-              <span className="font-medium">Equipe</span>
+              <Users size={20} />
+              <span className="font-medium">RH</span>
             </div>
-            {isEquipeOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+            {isRHOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
           </button>
 
-          {isEquipeOpen && (
+          {isRHOpen && (
             <div className="space-y-1 animate-in slide-in-from-top-2 duration-200">
               <SidebarItem to="/equipe/funcionarios" icon={User} label="Funcionários" isSubItem onClick={mobile ? toggleMenu : undefined} />
               <SidebarItem to="/equipe/prestadores" icon={UserCog} label="Prestadores" isSubItem onClick={mobile ? toggleMenu : undefined} />
