@@ -26,14 +26,20 @@ import {
   PieChart,
   LogOut,
   Bell,
-  Smartphone
+  Smartphone,
+  ShoppingCart,
+  ShieldCheck,
+  CheckSquare,
+  BarChart3,
+  Shield,
+  ClipboardList
 } from 'lucide-react';
 import { useData } from '../context/DataContext';
 import { useAuth } from '../context/AuthContext';
 
 const SidebarItem = ({ to, icon: Icon, label, onClick, isSubItem = false }: { to: string, icon: any, label: string, onClick?: () => void, isSubItem?: boolean }) => {
   const location = useLocation();
-  const isActive = location.pathname === to || (to !== '/' && location.pathname.startsWith(to) && to !== '/propostas' && to !== '/equipe');
+  const isActive = location.pathname === to || (to !== '/' && location.pathname.startsWith(to) && to !== '/propostas' && to !== '/crm' && to !== '/obras');
 
   const activeStyle = isActive
     ? 'bg-[#c79229] text-[#181418] font-bold shadow-md'
@@ -120,14 +126,14 @@ const Layout: React.FC = () => {
   const navigate = useNavigate();
 
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [isCadastrosOpen, setIsCadastrosOpen] = useState(false);
-  const [isPropostasOpen, setIsPropostasOpen] = useState(false);
+  const [isCRMOpen, setIsCRMOpen] = useState(false);
+  const [isObrasOpen, setIsObrasOpen] = useState(false);
   const [isRHOpen, setIsRHOpen] = useState(false);
   const location = useLocation();
 
   const toggleMenu = () => setIsMobileMenuOpen(!isMobileMenuOpen);
-  const toggleCadastros = () => setIsCadastrosOpen(!isCadastrosOpen);
-  const togglePropostas = () => setIsPropostasOpen(!isPropostasOpen);
+  const toggleCRM = () => setIsCRMOpen(!isCRMOpen);
+  const toggleObras = () => setIsObrasOpen(!isObrasOpen);
   const toggleRH = () => setIsRHOpen(!isRHOpen);
 
   // Logout Handler
@@ -139,11 +145,11 @@ const Layout: React.FC = () => {
   // Auto-expand menus based on current route
   useEffect(() => {
     const path = location.pathname;
-    if (['/clientes', '/fornecedores', '/servicos'].some(p => path.startsWith(p))) {
-      setIsCadastrosOpen(true);
+    if (['/clientes', '/crm', '/propostas', '/comercial'].some(p => path.startsWith(p))) {
+      setIsCRMOpen(true);
     }
-    if (path.startsWith('/propostas')) {
-      setIsPropostasOpen(true);
+    if (path.startsWith('/obras')) {
+      setIsObrasOpen(true);
     }
     if (path.startsWith('/equipe')) {
       setIsRHOpen(true);
@@ -161,100 +167,104 @@ const Layout: React.FC = () => {
     <>
       <SidebarItem to="/" icon={LayoutDashboard} label="Dashboard" onClick={mobile ? toggleMenu : undefined} />
 
-      {canViewFinancial && (
-        <>
-          <SidebarItem to="/financeiro" icon={Wallet} label="Financeiro" onClick={mobile ? toggleMenu : undefined} />
-          <SidebarItem to="/analise" icon={PieChart} label="Análise Financeira" onClick={mobile ? toggleMenu : undefined} />
-        </>
-      )}
-
-      {canViewProjects && (
-        <SidebarItem to="/obras" icon={HardHat} label="Obras" onClick={mobile ? toggleMenu : undefined} />
-      )}
-
-      {/* CRM */}
-      {canViewProposals && (
-        <SidebarItem to="/crm" icon={Users} label="CRM & Leads" onClick={mobile ? toggleMenu : undefined} />
-      )}
-
-      {/* Propostas */}
+      {/* CRM e Comercial */}
       {canViewProposals && (
         <div className="space-y-1">
           <button
-            onClick={togglePropostas}
-            className={`w-full flex items-center justify-between px-4 py-3 rounded-lg transition-colors text-slate-400 hover:text-[#c79229] hover:bg-[#181418]/50`}
-          >
-            <div className="flex items-center space-x-3">
-              <FileText size={20} />
-              <span className="font-medium">Propostas</span>
-            </div>
-            {isPropostasOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-          </button>
-
-          {isPropostasOpen && (
-            <div className="space-y-1 animate-in slide-in-from-top-2 duration-200">
-              <SidebarItem to="/propostas/nova" icon={PlusCircle} label="Nova Proposta" isSubItem onClick={mobile ? toggleMenu : undefined} />
-              <SidebarItem to="/propostas" icon={Send} label="Propostas Enviadas" isSubItem onClick={mobile ? toggleMenu : undefined} />
-              <SidebarItem to="/propostas/aprovadas" icon={CheckCircle} label="Propostas Aprovadas" isSubItem onClick={mobile ? toggleMenu : undefined} />
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Equipe */}
-      {canViewTeam && (
-        <div className="space-y-1">
-          <button
-            onClick={toggleRH}
+            onClick={toggleCRM}
             className={`w-full flex items-center justify-between px-4 py-3 rounded-lg transition-colors text-slate-400 hover:text-[#c79229] hover:bg-[#181418]/50`}
           >
             <div className="flex items-center space-x-3">
               <Users size={20} />
-              <span className="font-medium">RH</span>
+              <span className="font-medium">CRM e Comercial</span>
             </div>
-            {isRHOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+            {isCRMOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
           </button>
 
-          {isRHOpen && (
+          {isCRMOpen && (
             <div className="space-y-1 animate-in slide-in-from-top-2 duration-200">
-              <SidebarItem to="/equipe/funcionarios" icon={User} label="Funcionários" isSubItem onClick={mobile ? toggleMenu : undefined} />
-              <SidebarItem to="/equipe/prestadores" icon={UserCog} label="Prestadores" isSubItem onClick={mobile ? toggleMenu : undefined} />
-              {canViewFinancial && (
-                <SidebarItem to="/equipe/pagamentos" icon={Banknote} label="Pagamentos" isSubItem onClick={mobile ? toggleMenu : undefined} />
-              )}
+              <SidebarItem to="/clientes" icon={User} label="Clientes" isSubItem onClick={mobile ? toggleMenu : undefined} />
+              <SidebarItem to="/crm" icon={Users} label="Leads" isSubItem onClick={mobile ? toggleMenu : undefined} />
+              <SidebarItem to="/propostas" icon={FileText} label="Propostas" isSubItem onClick={mobile ? toggleMenu : undefined} />
+              <SidebarItem to="/comercial/contratos" icon={ClipboardList} label="Contratos" isSubItem onClick={mobile ? toggleMenu : undefined} />
             </div>
           )}
         </div>
       )}
 
-      {/* Cadastros (Geralmente operacional/financeiro) */}
-      {(canViewFinancial || canViewProjects) && (
+      {/* Orçamentos/Propostas */}
+      {canViewProposals && (
+        <SidebarItem to="/propostas" icon={FileText} label="Orçamentos/Propostas" onClick={mobile ? toggleMenu : undefined} />
+      )}
+
+      {/* Obras */}
+      {canViewProjects && (
         <div className="space-y-1">
           <button
-            onClick={toggleCadastros}
+            onClick={toggleObras}
             className={`w-full flex items-center justify-between px-4 py-3 rounded-lg transition-colors text-slate-400 hover:text-[#c79229] hover:bg-[#181418]/50`}
           >
             <div className="flex items-center space-x-3">
-              <Folder size={20} />
-              <span className="font-medium">Cadastros</span>
+              <HardHat size={20} />
+              <span className="font-medium">Obras</span>
             </div>
-            {isCadastrosOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+            {isObrasOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
           </button>
 
-          {isCadastrosOpen && (
+          {isObrasOpen && (
             <div className="space-y-1 animate-in slide-in-from-top-2 duration-200">
-              <SidebarItem to="/clientes" icon={Users} label="Clientes" isSubItem onClick={mobile ? toggleMenu : undefined} />
-              <SidebarItem to="/fornecedores" icon={Truck} label="Fornecedores" isSubItem onClick={mobile ? toggleMenu : undefined} />
-              <SidebarItem to="/servicos" icon={Package} label="Serviços" isSubItem onClick={mobile ? toggleMenu : undefined} />
-              <SidebarItem to="/estoque" icon={Package} label="Almoxarifado" isSubItem onClick={mobile ? toggleMenu : undefined} />
+              <SidebarItem to="/obras" icon={HardHat} label="Gestão de Obras" isSubItem onClick={mobile ? toggleMenu : undefined} />
+              <SidebarItem to="/engenharia" icon={Folder} label="Planejamento" isSubItem onClick={mobile ? toggleMenu : undefined} />
+              <SidebarItem to="/obras" icon={FileText} label="Diário de obra" isSubItem onClick={mobile ? toggleMenu : undefined} />
+              <SidebarItem to="/obras" icon={Briefcase} label="Medição" isSubItem onClick={mobile ? toggleMenu : undefined} />
             </div>
           )}
         </div>
       )}
 
-      {/* Agenda (Todos podem ver ou apenas gerentes?) Vou assumir que quem ve financeiro ou obras pode ver */}
+      {/* Compras */}
+      <SidebarItem to="/compras" icon={ShoppingCart} label="Compras" onClick={mobile ? toggleMenu : undefined} />
+
+      {/* Estoque */}
+      {canViewProjects && (
+        <SidebarItem to="/estoque" icon={Package} label="Estoque" onClick={mobile ? toggleMenu : undefined} />
+      )}
+
+      {/* Financeiro */}
+      {canViewFinancial && (
+        <SidebarItem to="/financeiro" icon={Wallet} label="Financeiro" onClick={mobile ? toggleMenu : undefined} />
+      )}
+
+      {/* RH */}
+      {canViewTeam && (
+        <SidebarItem to="/equipe/funcionarios" icon={UserCog} label="RH" onClick={mobile ? toggleMenu : undefined} />
+      )}
+
+      {/* Segurança do Trabalho */}
+      <SidebarItem to="/seguranca" icon={ShieldCheck} label="Segurança do Trabalho" onClick={mobile ? toggleMenu : undefined} />
+
+      {/* Documentos e Engenharia */}
+      <SidebarItem to="/engenharia" icon={Folder} label="Documentos e Engenharia" onClick={mobile ? toggleMenu : undefined} />
+
+      {/* Qualidade */}
+      <SidebarItem to="/qualidade" icon={CheckSquare} label="Qualidade" onClick={mobile ? toggleMenu : undefined} />
+
+      {/* Agenda */}
       {(canViewFinancial || canViewProjects) && (
-        <SidebarItem to="/agenda" icon={Calendar} label="Agenda Gerencial" onClick={mobile ? toggleMenu : undefined} />
+        <SidebarItem to="/agenda" icon={Calendar} label="Agenda" onClick={mobile ? toggleMenu : undefined} />
+      )}
+
+      {/* Relatórios */}
+      <SidebarItem to="/relatorios" icon={BarChart3} label="Relatórios" onClick={mobile ? toggleMenu : undefined} />
+
+      {/* Administração */}
+      <SidebarItem to="/administracao" icon={Shield} label="Administração" onClick={mobile ? toggleMenu : undefined} />
+
+      {/* Configurações */}
+      {canManageSettings && (
+        <div className="pt-6 mt-6 border-t border-[#c79229]/20">
+          <SidebarItem to="/configuracoes" icon={Settings} label="Configuração" onClick={mobile ? toggleMenu : undefined} />
+        </div>
       )}
 
       {/* PWA Instaill */}

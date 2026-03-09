@@ -19,6 +19,7 @@ import CRM from './pages/CRM';
 import Inventory from './pages/Inventory';
 import PWAInstructions from './pages/PWAInstructions';
 import Login from './pages/Login';
+import UnderConstruction from './pages/UnderConstruction';
 import { Status, UserPermissions } from './types';
 
 // Componente para proteger rotas
@@ -134,17 +135,22 @@ const App: React.FC = () => {
                 </RequirePermission>
               } />
 
-              <Route path="crm" element={
-                <RequirePermission permission="viewProposals">
-                  <CRM />
-                </RequirePermission>
-              } />
+              {/* CRM / Comercial */}
+              <Route path="crm" element={<RequirePermission permission="viewProposals"><CRM /></RequirePermission>} />
+              <Route path="comercial/contratos" element={<UnderConstruction title="Gestão de Contratos" />} />
 
-              <Route path="estoque" element={
-                <RequirePermission permission="viewProjects">
-                  <Inventory />
-                </RequirePermission>
-              } />
+              {/* Compras, Estoque e OP */}
+              <Route path="compras" element={<UnderConstruction title="Módulo de Compras" />} />
+              <Route path="estoque" element={<RequirePermission permission="viewProjects"><Inventory /></RequirePermission>} />
+
+              {/* Segurança, Qualidade e Engenharia */}
+              <Route path="seguranca" element={<UnderConstruction title="Segurança do Trabalho" />} />
+              <Route path="engenharia" element={<UnderConstruction title="Documentos e Engenharia" />} />
+              <Route path="qualidade" element={<UnderConstruction title="Módulo de Qualidade" />} />
+
+              {/* Extras */}
+              <Route path="relatorios" element={<UnderConstruction title="Módulo de Relatórios" />} />
+              <Route path="administracao" element={<UnderConstruction title="Administração do Sistema" />} />
 
               <Route path="instalar" element={<PWAInstructions />} />
 
