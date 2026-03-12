@@ -10,6 +10,13 @@ const Finance: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
 
+  // New features state
+  const [paymentForm, setPaymentForm] = useState<'unique' | 'installment' | 'recurring'>('unique');
+  const [installmentCount, setInstallmentCount] = useState(1);
+  const [installmentEntryValue, setInstallmentEntryValue] = useState(0);
+  const [recurrenceCount, setRecurrenceCount] = useState(12);
+  const [isFixed, setIsFixed] = useState(false);
+
   // New transaction state
   const [newTransaction, setNewTransaction] = useState<Partial<FinancialRecord>>({
     type: 'Receita',
@@ -91,11 +98,14 @@ const Finance: React.FC = () => {
         date: newTransaction.date || new Date().toISOString(),
         category: newTransaction.category || 'Geral',
         status: newTransaction.status as Status,
-        projectId: newTransaction.projectId
+        projectId: newTransaction.projectId,
+        parentRecordId: newTransaction.parentRecordId,
+        installmentNumber: newTransaction.installmentNumber,
+        totalInstallments: newTransaction.totalInstallments,
+        isRecurring: newTransaction.isRecurring
       });
     } else {
-      const transaction: FinancialRecord = {
-        id: (Date.now()).toString(),
+      const baseRecord: Partial<FinancialRecord> = {
         type: newTransaction.type as 'Receita' | 'Despesa',
         description: newTransaction.description || '',
         amount: Number(newTransaction.amount),
@@ -104,11 +114,77 @@ const Finance: React.FC = () => {
         status: newTransaction.status as Status,
         projectId: newTransaction.projectId
       };
-      await addFinancialRecord(transaction);
+
+      if (paymentForm === 'unique') {
+        const transaction: FinancialRecord = {
+          id: (Date.now()).toString(),
+          ...baseRecord
+        } as FinancialRecord;
+        await addFinancialRecord(transaction);
+      } else if (paymentForm === 'installment') {
+        const records: FinancialRecord[] = [];
+        const parentId = `p-${Date.now()}`;
+        const count = installmentCount;
+        const entryValue = installmentEntryValue;
+        const remainingAmount = Number(newTransaction.amount) - entryValue;
+        const installmentValue = remainingAmount / count;
+        const startDate = new Date(newTransaction.date || new Date().toISOString());
+
+        if (entryValue > 0) {
+          records.push({
+            id: `entry-${Date.now()}`,
+            ...baseRecord,
+            description: `${baseRecord.description} (Entrada)`,
+            amount: entryValue,
+            parentRecordId: parentId,
+            installmentNumber: 1,
+            totalInstallments: count + 1
+          } as FinancialRecord);
+        }
+
+        for (let i = 1; i <= count; i++) {
+          const date = new Date(startDate);
+          date.setMonth(startDate.getMonth() + (entryValue > 0 ? i : i - 1));
+          records.push({
+            id: `inst-${Date.now()}-${i}`,
+            ...baseRecord,
+            description: `${baseRecord.description} (${i}/${count})`,
+            amount: installmentValue,
+            date: date.toISOString().split('T')[0],
+            parentRecordId: parentId,
+            installmentNumber: entryValue > 0 ? i + 1 : i,
+            totalInstallments: entryValue > 0 ? count + 1 : count
+          } as FinancialRecord);
+        }
+        await addFinancialRecord(records);
+      } else if (paymentForm === 'recurring') {
+        const records: FinancialRecord[] = [];
+        const parentId = `rec-${Date.now()}`;
+        const count = isFixed ? 24 : recurrenceCount; // If fixed, generate 24 months for now
+        const startDate = new Date(newTransaction.date || new Date().toISOString());
+
+        for (let i = 0; i < count; i++) {
+          const date = new Date(startDate);
+          date.setMonth(startDate.getMonth() + i);
+          records.push({
+            id: `rec-${Date.now()}-${i}`,
+            ...baseRecord,
+            date: date.toISOString().split('T')[0],
+            parentRecordId: parentId,
+            isRecurring: true
+          } as FinancialRecord);
+        }
+        await addFinancialRecord(records);
+      }
     }
 
     setIsModalOpen(false);
     setEditingId(null);
+    setPaymentForm('unique');
+    setInstallmentCount(1);
+    setInstallmentEntryValue(0);
+    setRecurrenceCount(12);
+    setIsFixed(false);
     setNewTransaction({
       type: 'Receita',
       description: '',
@@ -258,32 +334,63 @@ const Finance: React.FC = () => {
             </div>
 
             <form onSubmit={handleSaveTransaction} className="p-6 space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Tipo</label>
-                <div className="flex space-x-4">
-                  <label className={`flex items-center space-x-2 cursor-pointer ${filterType === 'Despesa' ? 'opacity-50 cursor-not-allowed' : ''}`}>
-                    <input
-                      type="radio"
-                      name="type"
-                      checked={newTransaction.type === 'Receita'}
-                      onChange={() => setNewTransaction({ ...newTransaction, type: 'Receita' })}
-                      disabled={filterType === 'Despesa'}
-                      className="text-[#c79229] focus:ring-[#c79229]"
-                    />
-                    <span className="text-slate-700">Receita</span>
-                  </label>
-                  <label className={`flex items-center space-x-2 cursor-pointer ${filterType === 'Receita' ? 'opacity-50 cursor-not-allowed' : ''}`}>
-                    <input
-                      type="radio"
-                      name="type"
-                      checked={newTransaction.type === 'Despesa'}
-                      onChange={() => setNewTransaction({ ...newTransaction, type: 'Despesa' })}
-                      disabled={filterType === 'Receita'}
-                      className="text-red-600 focus:ring-red-500"
-                    />
-                    <span className="text-slate-700">Despesa</span>
-                  </label>
+              <div className="flex flex-col gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Tipo</label>
+                  <div className="flex space-x-4">
+                    <label className={`flex items-center space-x-2 cursor-pointer ${filterType === 'Despesa' ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                      <input
+                        type="radio"
+                        name="type"
+                        checked={newTransaction.type === 'Receita'}
+                        onChange={() => setNewTransaction({ ...newTransaction, type: 'Receita' })}
+                        disabled={filterType === 'Despesa'}
+                        className="text-[#c79229] focus:ring-[#c79229]"
+                      />
+                      <span className="text-slate-700">Receita</span>
+                    </label>
+                    <label className={`flex items-center space-x-2 cursor-pointer ${filterType === 'Receita' ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                      <input
+                        type="radio"
+                        name="type"
+                        checked={newTransaction.type === 'Despesa'}
+                        onChange={() => setNewTransaction({ ...newTransaction, type: 'Despesa' })}
+                        disabled={filterType === 'Receita'}
+                        className="text-red-600 focus:ring-red-500"
+                      />
+                      <span className="text-slate-700">Despesa</span>
+                    </label>
+                  </div>
                 </div>
+
+                {!editingId && (
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Forma de Lançamento</label>
+                    <div className="grid grid-cols-3 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setPaymentForm('unique')}
+                        className={`px-3 py-2 text-xs font-medium rounded-lg border transition-all ${paymentForm === 'unique' ? 'bg-[#c79229] border-[#c79229] text-[#181418]' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'}`}
+                      >
+                        Único
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setPaymentForm('installment')}
+                        className={`px-3 py-2 text-xs font-medium rounded-lg border transition-all ${paymentForm === 'installment' ? 'bg-[#c79229] border-[#c79229] text-[#181418]' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'}`}
+                      >
+                        Parcelado
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setPaymentForm('recurring')}
+                        className={`px-3 py-2 text-xs font-medium rounded-lg border transition-all ${paymentForm === 'recurring' ? 'bg-[#c79229] border-[#c79229] text-[#181418]' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'}`}
+                      >
+                        Recorrente
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div>
@@ -300,7 +407,9 @@ const Finance: React.FC = () => {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Valor (R$)</label>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                    {paymentForm === 'unique' ? 'Valor (R$)' : 'Valor Total (R$)'}
+                  </label>
                   <input
                     type="number"
                     required
@@ -313,7 +422,7 @@ const Finance: React.FC = () => {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Data</label>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Data Inicial</label>
                   <input
                     type="date"
                     required
@@ -323,6 +432,74 @@ const Finance: React.FC = () => {
                   />
                 </div>
               </div>
+
+              {paymentForm === 'installment' && !editingId && (
+                <div className="p-4 bg-slate-50 rounded-lg space-y-3 border border-slate-200">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-500 uppercase mb-1">Entrada (R$)</label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={installmentEntryValue}
+                        onChange={(e) => setInstallmentEntryValue(parseFloat(e.target.value) || 0)}
+                        className="w-full border border-slate-300 rounded-lg p-2 text-sm bg-white focus:ring-2 focus:ring-[#c79229] outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-500 uppercase mb-1">Parcelas (Vezes)</label>
+                      <input
+                        type="number"
+                        min="1"
+                        max="60"
+                        value={installmentCount}
+                        onChange={(e) => setInstallmentCount(parseInt(e.target.value) || 1)}
+                        className="w-full border border-slate-300 rounded-lg p-2 text-sm bg-white focus:ring-2 focus:ring-[#c79229] outline-none"
+                      />
+                    </div>
+                  </div>
+                  <div className="text-xs text-slate-500 italic">
+                    {installmentEntryValue > 0 ? (
+                      <span>Resumo: Entrada de R$ {installmentEntryValue.toLocaleString()} + {installmentCount}x de R$ {((Number(newTransaction.amount) - installmentEntryValue) / installmentCount).toLocaleString()}</span>
+                    ) : (
+                      <span>Resumo: {installmentCount}x de R$ {(Number(newTransaction.amount) / installmentCount).toLocaleString()}</span>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {paymentForm === 'recurring' && !editingId && (
+                <div className="p-4 bg-slate-50 rounded-lg space-y-3 border border-slate-200">
+                  <div className="flex items-center justify-between">
+                    <label className="flex items-center space-x-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={isFixed}
+                        onChange={(e) => setIsFixed(e.target.checked)}
+                        className="rounded text-[#c79229] focus:ring-[#c79229]"
+                      />
+                      <span className="text-sm font-medium text-slate-700">Lançamento Fixo (Mensal)</span>
+                    </label>
+                  </div>
+                  {!isFixed && (
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-500 uppercase mb-1">Repetir por (Meses)</label>
+                      <input
+                        type="number"
+                        min="1"
+                        max="120"
+                        value={recurrenceCount}
+                        onChange={(e) => setRecurrenceCount(parseInt(e.target.value) || 1)}
+                        className="w-full border border-slate-300 rounded-lg p-2 text-sm bg-white focus:ring-2 focus:ring-[#c79229] outline-none"
+                      />
+                    </div>
+                  )}
+                  <p className="text-[10px] text-slate-400">
+                    O sistema gerará {isFixed ? 'registros para os próximos 24 meses' : `os próximos ${recurrenceCount} registros`}.
+                  </p>
+                </div>
+              )}
 
               <div className="grid grid-cols-2 gap-4">
                 <div>

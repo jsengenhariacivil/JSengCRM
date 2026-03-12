@@ -34,7 +34,7 @@ interface DataContextType {
   deleteProject: (id: string) => Promise<void>;
 
   financials: FinancialRecord[];
-  addFinancialRecord: (record: FinancialRecord) => Promise<void>;
+  addFinancialRecord: (record: FinancialRecord | FinancialRecord[]) => Promise<void>;
   updateFinancialRecord: (record: FinancialRecord) => Promise<void>;
   deleteFinancialRecord: (id: string) => Promise<void>;
 
@@ -359,7 +359,11 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             date: f.date,
             status: f.status as Status,
             category: f.category,
-            projectId: f.project_id
+            projectId: f.project_id,
+            parentRecordId: f.parent_record_id,
+            installmentNumber: f.installment_number,
+            totalInstallments: f.total_installments,
+            isRecurring: f.is_recurring
           })));
         }
 
@@ -877,19 +881,43 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   // --- FINANCIAL RECORDS ---
-  const addFinancialRecord = async (record: FinancialRecord) => {
-    const { data, error } = await supabase.from('financial_records').insert([{
-      type: record.type,
-      description: record.description,
-      amount: record.amount,
-      date: record.date,
-      status: record.status,
-      category: record.category,
-      project_id: record.projectId
-    }]).select().single();
+  const addFinancialRecord = async (record: FinancialRecord | FinancialRecord[]) => {
+    const records = Array.isArray(record) ? record : [record];
+    const toInsert = records.map(r => ({
+      type: r.type,
+      description: r.description,
+      amount: r.amount,
+      date: r.date,
+      status: r.status,
+      category: r.category,
+      project_id: r.projectId,
+      parent_record_id: r.parentRecordId,
+      installment_number: r.installmentNumber,
+      total_installments: r.totalInstallments,
+      is_recurring: r.isRecurring
+    }));
+
+    const { data, error } = await supabase.from('financial_records').insert(toInsert).select();
 
     if (!error && data) {
-      setFinancials(prev => [{ ...record, id: data.id }, ...prev]);
+      const insertedRecords: FinancialRecord[] = data.map(d => ({
+        id: d.id,
+        type: d.type as 'Receita' | 'Despesa',
+        description: d.description,
+        amount: parseFloat(d.amount),
+        date: d.date,
+        status: d.status as Status,
+        category: d.category,
+        projectId: d.project_id,
+        parentRecordId: d.parent_record_id,
+        installmentNumber: d.installment_number,
+        totalInstallments: d.total_installments,
+        isRecurring: d.is_recurring
+      }));
+      setFinancials(prev => [...insertedRecords, ...prev]);
+    } else if (error) {
+      console.error('Error adding financial record:', error);
+      throw error;
     }
   };
 
@@ -901,7 +929,11 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       date: record.date,
       status: record.status,
       category: record.category,
-      project_id: record.projectId
+      project_id: record.projectId,
+      parent_record_id: record.parentRecordId,
+      installment_number: record.installmentNumber,
+      total_installments: record.totalInstallments,
+      is_recurring: record.isRecurring
     }).eq('id', record.id);
 
     setFinancials(prev => prev.map(f => f.id === record.id ? record : f));

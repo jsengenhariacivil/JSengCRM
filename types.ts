@@ -43,6 +43,10 @@ export interface FinancialRecord {
   status: Status;
   category: string;
   projectId?: string; // Optional link to project
+  parentRecordId?: string; // For installments/recurrence
+  installmentNumber?: number;
+  totalInstallments?: number;
+  isRecurring?: boolean;
 }
 
 export interface Service {
