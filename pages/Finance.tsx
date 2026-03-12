@@ -129,47 +129,77 @@ const Finance: React.FC = () => {
         const remainingAmount = Number(newTransaction.amount) - entryValue;
         const installmentValue = remainingAmount / count;
         const startDate = new Date(newTransaction.date || new Date().toISOString());
+        const totalWithEntry = entryValue > 0 ? count + 1 : count;
+
+        const getStatusForDate = (dateStr: string) => {
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          const recordDate = new Date(dateStr);
+          if (recordDate > today && newTransaction.status === Status.LATE) {
+            return Status.PENDING;
+          }
+          return newTransaction.status as Status;
+        };
 
         if (entryValue > 0) {
+          const entryDate = newTransaction.date || new Date().toISOString();
           records.push({
             id: `entry-${Date.now()}`,
             ...baseRecord,
-            description: `${baseRecord.description} (Entrada)`,
+            description: `[1/${totalWithEntry}] ${baseRecord.description} (Entrada)`,
             amount: entryValue,
+            date: entryDate,
+            status: getStatusForDate(entryDate),
             parentRecordId: parentId,
             installmentNumber: 1,
-            totalInstallments: count + 1
+            totalInstallments: totalWithEntry
           } as FinancialRecord);
         }
 
         for (let i = 1; i <= count; i++) {
           const date = new Date(startDate);
           date.setMonth(startDate.getMonth() + (entryValue > 0 ? i : i - 1));
+          const dateStr = date.toISOString().split('T')[0];
+          const currentNum = entryValue > 0 ? i + 1 : i;
+
           records.push({
             id: `inst-${Date.now()}-${i}`,
             ...baseRecord,
-            description: `${baseRecord.description} (${i}/${count})`,
+            description: `[${currentNum}/${totalWithEntry}] ${baseRecord.description}`,
             amount: installmentValue,
-            date: date.toISOString().split('T')[0],
+            date: dateStr,
+            status: getStatusForDate(dateStr),
             parentRecordId: parentId,
-            installmentNumber: entryValue > 0 ? i + 1 : i,
-            totalInstallments: entryValue > 0 ? count + 1 : count
+            installmentNumber: currentNum,
+            totalInstallments: totalWithEntry
           } as FinancialRecord);
         }
         await addFinancialRecord(records);
       } else if (paymentForm === 'recurring') {
         const records: FinancialRecord[] = [];
         const parentId = `rec-${Date.now()}`;
-        const count = isFixed ? 24 : recurrenceCount; // If fixed, generate 24 months for now
+        const count = isFixed ? 24 : recurrenceCount;
         const startDate = new Date(newTransaction.date || new Date().toISOString());
+
+        const getStatusForDate = (dateStr: string) => {
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          const recordDate = new Date(dateStr);
+          if (recordDate > today && newTransaction.status === Status.LATE) {
+            return Status.PENDING;
+          }
+          return newTransaction.status as Status;
+        };
 
         for (let i = 0; i < count; i++) {
           const date = new Date(startDate);
           date.setMonth(startDate.getMonth() + i);
+          const dateStr = date.toISOString().split('T')[0];
           records.push({
             id: `rec-${Date.now()}-${i}`,
             ...baseRecord,
-            date: date.toISOString().split('T')[0],
+            date: dateStr,
+            status: getStatusForDate(dateStr),
             parentRecordId: parentId,
             isRecurring: true
           } as FinancialRecord);
