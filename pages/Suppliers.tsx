@@ -145,30 +145,21 @@ const Suppliers: React.FC = () => {
                     <span className="text-xs font-mono text-slate-400">CNPJ: {supplier.document}</span>
                   </td>
                   <td className="px-6 py-4 text-right">
-                    <div className="relative">
+                    <div className="flex justify-end gap-2">
                       <button
-                        onClick={(e) => toggleMenu(supplier.id, e)}
-                        className="text-slate-400 hover:text-slate-600 p-1 rounded-full hover:bg-slate-50"
+                        onClick={() => handleEdit(supplier)}
+                        className="p-2 text-slate-400 hover:text-[#c79229] hover:bg-[#c79229]/10 rounded-lg transition-colors"
+                        title="Editar"
                       >
-                        <MoreVertical size={18} />
+                        <Edit size={18} />
                       </button>
-
-                      {openMenuId === supplier.id && (
-                        <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-slate-100 z-10 py-1">
-                          <button
-                            onClick={() => handleEdit(supplier)}
-                            className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2"
-                          >
-                            <Edit size={16} /> Editar
-                          </button>
-                          <button
-                            onClick={() => handleDelete(supplier.id)}
-                            className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
-                          >
-                            <Trash2 size={16} /> Excluir
-                          </button>
-                        </div>
-                      )}
+                      <button
+                        onClick={() => handleDelete(supplier.id)}
+                        className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                        title="Excluir"
+                      >
+                        <Trash2 size={18} />
+                      </button>
                     </div>
                   </td>
                 </tr>
@@ -183,97 +174,106 @@ const Suppliers: React.FC = () => {
         )}
       </div>
 
-      {/* MODAL */}
+      {/* PAINEL LATERAL (RIGHT DRAWER) */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden">
-            <div className="flex justify-between items-center p-6 border-b border-slate-100 bg-slate-50">
-              <h3 className="text-lg font-bold text-[#181418]">
-                {editingId ? 'Editar Fornecedor' : 'Novo Fornecedor'}
-              </h3>
-              <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-600">
-                <X size={20} />
+        <div className="fixed inset-0 z-50 flex justify-end">
+          {/* Backdrop */}
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setIsModalOpen(false)} />
+
+          {/* Drawer Content */}
+          <div className="relative w-full max-w-md bg-white shadow-2xl h-screen flex flex-col transform transition-transform animate-in slide-in-from-right duration-300">
+            <div className="flex justify-between items-center p-6 border-b border-slate-100 bg-slate-50/50">
+              <div>
+                <h3 className="text-xl font-bold text-[#181418]">
+                  {editingId ? 'Editar' : 'Novo'} Fornecedor
+                </h3>
+                <p className="text-xs text-slate-500">Gerencie as informações do fornecedor</p>
+              </div>
+              <button
+                onClick={() => setIsModalOpen(false)}
+                className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-colors"
+              >
+                <X size={24} />
               </button>
             </div>
 
-            <form onSubmit={handleSave} className="p-6 space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Nome da Empresa</label>
-                <input
-                  type="text"
-                  required
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="w-full border border-slate-300 rounded-lg p-2.5 bg-white focus:ring-2 focus:ring-[#c79229] outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Categoria</label>
-                <select
-                  required
-                  value={formData.category}
-                  onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                  className="w-full border border-slate-300 rounded-lg p-2.5 bg-white focus:ring-2 focus:ring-[#c79229] outline-none"
-                >
-                  <option value="">Selecione...</option>
-                  <option value="Materiais Básicos">Materiais Básicos</option>
-                  <option value="Elétrica e Hidráulica">Elétrica e Hidráulica</option>
-                  <option value="Maquinário">Maquinário</option>
-                  <option value="Acabamentos">Acabamentos</option>
-                  <option value="Serviços">Serviços</option>
-                  <option value="Outros">Outros</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">CNPJ</label>
-                <input
-                  type="text"
-                  value={formData.document}
-                  onChange={(e) => setFormData({ ...formData, document: e.target.value })}
-                  className="w-full border border-slate-300 rounded-lg p-2.5 bg-white focus:ring-2 focus:ring-[#c79229] outline-none"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
+            <div className="flex-1 overflow-y-auto p-6">
+              <form onSubmit={handleSave} className="space-y-6">
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Email</label>
-                  <input
-                    type="email"
-                    value={formData.email}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    className="w-full border border-slate-300 rounded-lg p-2.5 bg-white focus:ring-2 focus:ring-[#c79229] outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Telefone</label>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Nome/Razão Social</label>
                   <input
                     type="text"
-                    value={formData.phone}
-                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                    className="w-full border border-slate-300 rounded-lg p-2.5 bg-white focus:ring-2 focus:ring-[#c79229] outline-none"
+                    required
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    className="w-full border border-slate-300 rounded-lg p-3 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-[#c79229] outline-none transition-all"
                   />
                 </div>
-              </div>
 
-              <div className="pt-4 flex justify-end gap-3 mt-4">
-                <button
-                  type="button"
-                  onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2 text-slate-700 hover:bg-slate-100 rounded-lg font-medium"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 bg-[#c79229] text-[#181418] hover:bg-[#a67922] rounded-lg font-bold shadow-sm flex items-center gap-2"
-                >
-                  <Save size={18} />
-                  <span>{editingId ? 'Salvar Alterações' : 'Salvar'}</span>
-                </button>
-              </div>
-            </form>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Categoria</label>
+                  <input
+                    type="text"
+                    required
+                    value={formData.category}
+                    onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                    className="w-full border border-slate-300 rounded-lg p-3 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-[#c79229] outline-none transition-all"
+                    placeholder="Ex: Materiais, Serviços, Equipamentos..."
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">E-mail</label>
+                  <input
+                    type="email"
+                    required
+                    value={formData.email}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    className="w-full border border-slate-300 rounded-lg p-3 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-[#c79229] outline-none transition-all"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Telefone/WhatsApp</label>
+                  <input
+                    type="text"
+                    required
+                    value={formData.phone}
+                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                    className="w-full border border-slate-300 rounded-lg p-3 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-[#c79229] outline-none transition-all"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">CNPJ/Documento</label>
+                  <input
+                    type="text"
+                    required
+                    value={formData.document}
+                    onChange={(e) => setFormData({ ...formData, document: e.target.value })}
+                    className="w-full border border-slate-300 rounded-lg p-3 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-[#c79229] outline-none transition-all"
+                  />
+                </div>
+              </form>
+            </div>
+
+            <div className="p-6 border-t border-slate-100 bg-slate-50 flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setIsModalOpen(false)}
+                className="flex-1 px-4 py-3 text-slate-600 hover:bg-slate-200 rounded-xl font-semibold transition-colors uppercase text-xs tracking-widest"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleSave}
+                type="button"
+                className="flex-[2] px-4 py-3 bg-[#c79229] text-[#181418] hover:bg-[#a67922] rounded-xl font-bold shadow-lg shadow-[#c79229]/20 flex items-center justify-center gap-2 transition-all active:scale-[0.98]"
+              >
+                <Save size={20} />
+                <span>SALVAR FORNECEDOR</span>
+              </button>
+            </div>
           </div>
         </div>
       )}
