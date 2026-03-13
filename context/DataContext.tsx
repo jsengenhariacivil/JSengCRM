@@ -1124,22 +1124,25 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       // --- AUTOMATION: Lead Creation/Update ---
       try {
         const client = clients.find(c => c.id === proposal.clientId);
-        const existingLead = leads.find(l => l.name.toLowerCase() === proposal.clientName.toLowerCase());
+        const searchName = proposal.clientName.trim().toLowerCase();
+        const existingLead = leads.find(l => l.name.trim().toLowerCase() === searchName);
 
         if (existingLead) {
-          await updateLead({
-            ...existingLead,
-            status: 'Proposta Enviada',
-            value: proposal.total,
-            lastContact: new Date().toISOString()
-          });
+          if (existingLead.status !== 'Convertido') {
+            await updateLead({
+              ...existingLead,
+              status: 'Negociação',
+              value: proposal.total,
+              lastContact: new Date().toISOString()
+            });
+          }
         } else {
           await addLead({
             id: '',
             name: proposal.clientName,
             email: client?.email || '',
             phone: client?.phone || '',
-            status: 'Proposta Enviada',
+            status: 'Negociação',
             source: 'Sistema (Proposta)',
             notes: `Gerado automaticamente a partir da Proposta #${proposalData.id.substring(0, 8)}`,
             value: proposal.total,
