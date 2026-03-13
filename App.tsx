@@ -92,6 +92,24 @@ const App: React.FC = () => {
                 </RequirePermission>
               } />
 
+              <Route path="financeiro/contas" element={
+                <RequirePermission permission="viewFinancial">
+                  <FinancialAnalysis initialTab="payables" />
+                </RequirePermission>
+              } />
+
+              <Route path="financeiro/fluxo" element={
+                <RequirePermission permission="viewFinancial">
+                  <FinancialAnalysis initialTab="cashflow" />
+                </RequirePermission>
+              } />
+
+              <Route path="financeiro/dre" element={
+                <RequirePermission permission="viewFinancial">
+                  <FinancialAnalysis initialTab="dre" />
+                </RequirePermission>
+              } />
+
               <Route path="analise" element={
                 <RequirePermission permission="viewFinancial">
                   <FinancialAnalysis />

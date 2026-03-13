@@ -1,11 +1,12 @@
 
 import React, { useState } from 'react';
-import { Plus, Filter, Download, ArrowUpCircle, ArrowDownCircle, X, Save, Pencil, Trash2 } from 'lucide-react';
+import { Plus, Filter, Download, ArrowUpCircle, ArrowDownCircle, X, Save, Pencil, Trash2, Calendar } from 'lucide-react';
 import { useData } from '../context/DataContext';
 import { Status, FinancialRecord } from '../types';
 
 const Finance: React.FC = () => {
   const { financials, addFinancialRecord, updateFinancialRecord, deleteFinancialRecord } = useData();
+  const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7)); // YYYY-MM
   const [filterType, setFilterType] = useState<'All' | 'Receita' | 'Despesa'>('All');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -27,9 +28,11 @@ const Finance: React.FC = () => {
     status: Status.PENDING
   });
 
-  const filteredData = financials.filter(item =>
-    filterType === 'All' ? true : item.type === filterType
-  );
+  const filteredData = financials.filter(item => {
+    const matchesType = filterType === 'All' ? true : item.type === filterType;
+    const matchesMonth = item.date.startsWith(selectedMonth);
+    return matchesType && matchesMonth;
+  });
 
   const handleExport = () => {
     const headers = ['ID', 'Tipo', 'Descrição', 'Categoria', 'Data', 'Valor', 'Status'];
@@ -237,19 +240,30 @@ const Finance: React.FC = () => {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-2xl font-bold text-[#181418]">Financeiro</h1>
-          <p className="text-slate-500">Gestão de contas a pagar e receber</p>
+          <p className="text-slate-500">Gestão de lançamentos mensais</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          {/* Mês Selector */}
+          <div className="flex items-center gap-2 bg-white px-3 py-2 rounded-lg border border-slate-300 shadow-sm focus-within:ring-2 focus-within:ring-[#c79229]/20 transition-all">
+            <Calendar size={18} className="text-[#c79229]" />
+            <input
+              type="month"
+              value={selectedMonth}
+              onChange={(e) => setSelectedMonth(e.target.value)}
+              className="outline-none text-sm font-bold text-slate-700 bg-transparent cursor-pointer"
+            />
+          </div>
+
           <button
             onClick={handleExport}
-            className="flex items-center space-x-2 px-4 py-2 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 text-slate-700"
+            className="flex items-center space-x-2 px-4 py-2 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 text-slate-700 h-[42px]"
           >
             <Download size={18} />
             <span>Exportar</span>
           </button>
           <button
             onClick={handleOpenNew}
-            className="flex items-center space-x-2 px-4 py-2 rounded-lg font-bold shadow-sm transition-colors bg-[#c79229] text-[#181418] hover:bg-[#a67922]"
+            className="flex items-center space-x-2 px-4 py-2 rounded-lg font-bold shadow-sm transition-colors bg-[#c79229] text-[#181418] hover:bg-[#a67922] h-[42px]"
           >
             <Plus size={18} />
             <span>Nova Transação</span>
@@ -257,20 +271,37 @@ const Finance: React.FC = () => {
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="flex space-x-1 bg-slate-200 p-1 rounded-lg w-fit">
-        {['All', 'Receita', 'Despesa'].map((type) => (
-          <button
-            key={type}
-            onClick={() => setFilterType(type as any)}
-            className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${filterType === type
-              ? 'bg-white text-[#c79229] shadow-sm font-bold'
-              : 'text-slate-600 hover:text-slate-900'
-              }`}
-          >
-            {type === 'All' ? 'Todas' : type === 'Receita' ? 'Receitas' : 'Despesas'}
-          </button>
-        ))}
+      {/* Tabs e Resumo Rápido */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div className="flex space-x-1 bg-slate-200 p-1 rounded-lg w-fit">
+          {['All', 'Receita', 'Despesa'].map((type) => (
+            <button
+              key={type}
+              onClick={() => setFilterType(type as any)}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${filterType === type
+                ? 'bg-white text-[#c79229] shadow-sm font-bold'
+                : 'text-slate-600 hover:text-slate-900'
+                }`}
+            >
+              {type === 'All' ? 'Todas' : type === 'Receita' ? 'Receitas' : 'Despesas'}
+            </button>
+          ))}
+        </div>
+
+        <div className="flex gap-4">
+          <div className="text-right">
+            <p className="text-[10px] text-slate-500 uppercase font-bold">Receitas no Mês</p>
+            <p className="text-sm font-bold text-green-600">
+              R$ {filteredData.filter(i => i.type === 'Receita').reduce((acc, curr) => acc + curr.amount, 0).toLocaleString()}
+            </p>
+          </div>
+          <div className="text-right border-l pl-4 border-slate-300">
+            <p className="text-[10px] text-slate-500 uppercase font-bold">Despesas no Mês</p>
+            <p className="text-sm font-bold text-red-600">
+              R$ {filteredData.filter(i => i.type === 'Despesa').reduce((acc, curr) => acc + curr.amount, 0).toLocaleString()}
+            </p>
+          </div>
+        </div>
       </div>
 
       {/* Content Table */}

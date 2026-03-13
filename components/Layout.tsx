@@ -29,7 +29,9 @@ import {
   CheckSquare,
   BarChart3,
   Shield,
-  ClipboardList
+  ClipboardList,
+  AlertCircle,
+  TrendingUp
 } from 'lucide-react';
 import { useData } from '../context/DataContext';
 import { useAuth } from '../context/AuthContext';
@@ -129,6 +131,7 @@ const NavContent = ({
   canManageSettings,
   isCRMOpen, toggleCRM, isCRMActive,
   isCadastroOpen, toggleCadastro, isCadastroActive,
+  isFinanceOpen, toggleFinance,
   isRHOpen, toggleRH, isRHActive,
   handleLogout
 }: any) => (
@@ -203,9 +206,29 @@ const NavContent = ({
       <SidebarItem to="/estoque" icon={Package} label="Estoque" onClick={mobile ? toggleMenu : undefined} />
     )}
 
-    {/* Financeiro */}
+    {/* Gestão Financeira */}
     {canViewFinancial && (
-      <SidebarItem to="/financeiro" icon={Wallet} label="Financeiro" onClick={mobile ? toggleMenu : undefined} />
+      <div className="space-y-1">
+        <button
+          onClick={toggleFinance}
+          className={`w-full flex items-center justify-between px-4 py-3 rounded-lg transition-colors ${location.pathname.startsWith('/financeiro') ? 'bg-[#c79229] text-[#181418] font-bold shadow-md' : 'text-slate-400 hover:text-[#c79229] hover:bg-[#181418]/50'}`}
+        >
+          <div className="flex items-center space-x-3">
+            <Wallet size={20} />
+            <span className="font-medium">Gestão Financeira</span>
+          </div>
+          {isFinanceOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+        </button>
+
+        {isFinanceOpen && (
+          <div className="space-y-1 animate-in slide-in-from-top-2 duration-200">
+            <SidebarItem to="/financeiro" icon={Wallet} label="Lançamentos" isSubItem onClick={mobile ? toggleMenu : undefined} />
+            <SidebarItem to="/financeiro/contas" icon={AlertCircle} label="Contas a Pagar/Rec" isSubItem onClick={mobile ? toggleMenu : undefined} />
+            <SidebarItem to="/financeiro/fluxo" icon={TrendingUp} label="Fluxo de Caixa" isSubItem onClick={mobile ? toggleMenu : undefined} />
+            <SidebarItem to="/financeiro/dre" icon={BarChart3} label="Análise DRE" isSubItem onClick={mobile ? toggleMenu : undefined} />
+          </div>
+        )}
+      </div>
     )}
 
     {/* RH */}
@@ -304,12 +327,14 @@ const Layout: React.FC = () => {
   const [isObrasOpen, setIsObrasOpen] = useState(false);
   const [isRHOpen, setIsRHOpen] = useState(false);
   const [isCadastroOpen, setIsCadastroOpen] = useState(false);
+  const [isFinanceOpen, setIsFinanceOpen] = useState(false);
 
   const toggleMenu = () => setIsMobileMenuOpen(!isMobileMenuOpen);
   const toggleCRM = () => setIsCRMOpen(!isCRMOpen);
   const toggleObras = () => setIsObrasOpen(!isObrasOpen);
   const toggleRH = () => setIsRHOpen(!isRHOpen);
   const toggleCadastro = () => setIsCadastroOpen(!isCadastroOpen);
+  const toggleFinance = () => setIsFinanceOpen(!isFinanceOpen);
 
   const isCRMActive = ['/crm', '/propostas', '/comercial'].some(p => location.pathname.startsWith(p));
   const isCadastroActive = ['/clientes', '/fornecedores', '/servicos'].some(p => location.pathname.startsWith(p));
@@ -328,6 +353,9 @@ const Layout: React.FC = () => {
     if (path.startsWith('/obras')) {
       setIsObrasOpen(true);
     }
+    if (path.startsWith('/financeiro')) {
+      setIsFinanceOpen(true);
+    }
     if (path.startsWith('/equipe')) {
       setIsRHOpen(true);
     }
@@ -345,6 +373,7 @@ const Layout: React.FC = () => {
     canManageSettings: currentUser?.permissions.manageSettings,
     isCRMOpen, toggleCRM, isCRMActive,
     isCadastroOpen, toggleCadastro, isCadastroActive,
+    isFinanceOpen, toggleFinance,
     isRHOpen, toggleRH, isRHActive,
     handleLogout
   };
