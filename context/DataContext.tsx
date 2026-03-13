@@ -31,7 +31,7 @@ interface DataContextType {
   projects: Project[];
   addProject: (project: Project) => Promise<void>;
   updateProject: (project: Project) => Promise<void>;
-  deleteProject: (id: string) => Promise<void>;
+  deleteProject: (id: string) => Promise<boolean>;
 
   financials: FinancialRecord[];
   addFinancialRecord: (record: FinancialRecord | FinancialRecord[]) => Promise<void>;
@@ -47,7 +47,7 @@ interface DataContextType {
   addProposal: (proposal: Proposal) => Promise<void>;
   updateProposal: (proposal: Proposal) => Promise<void>;
   updateProposalStatus: (id: string, status: Status) => Promise<void>;
-  deleteProposal: (id: string) => Promise<void>;
+  deleteProposal: (id: string) => Promise<boolean>;
 
   suppliers: Supplier[];
   addSupplier: (supplier: Supplier) => Promise<void>;
@@ -884,13 +884,44 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   const deleteProject = async (id: string) => {
-    await supabase.from('projects').delete().eq('id', id);
-    setProjects(prev => prev.filter(p => p.id !== id));
+    // REGRA DE SEGURANÇA: Bloquear se houver medições ou RDOs
+    const hasMeasurements = measurements.some(m => m.projectId === id);
+    const hasRdos = dailyReports.some(r => r.projectId === id);
 
-    // Remover eventos da agenda vinculados
-    const eventosVinculados = agendaEventos.filter(a => a.origemModulo === 'OBRA' && a.idReferencia === id);
-    for (const ev of eventosVinculados) {
-      await deleteAgendaEvent(ev.id).catch(console.error);
+    if (hasMeasurements || hasRdos) {
+      alert("Não é possível excluir esta obra pois ela já possui medições ou RDOs lançados. A obra está em execução.");
+      return false;
+    }
+
+    try {
+      // 1. Limpar registros financeiros vinculados
+      await supabase.from('financial_records').delete().eq('project_id', id);
+      setFinancials(prev => prev.filter(f => f.projectId !== id));
+
+      // 2. Limpar outras dependências
+      await supabase.from('project_tasks').delete().eq('project_id', id);
+      setProjectTasks(prev => prev.filter(t => t.projectId !== id));
+
+      await supabase.from('project_milestones').delete().eq('project_id', id);
+      setProjectMilestones(prev => prev.filter(m => m.projectId !== id));
+
+      // 3. Excluir o projeto
+      const { error } = await supabase.from('projects').delete().eq('id', id);
+      if (error) throw error;
+
+      setProjects(prev => prev.filter(p => p.id !== id));
+
+      // 4. Remover eventos da agenda vinculados
+      const eventosVinculados = agendaEventos.filter(a => a.origemModulo === 'OBRA' && a.idReferencia === id);
+      for (const ev of eventosVinculados) {
+        await deleteAgendaEvent(ev.id).catch(console.error);
+      }
+
+      return true;
+    } catch (err: any) {
+      console.error('Erro ao excluir projeto:', err);
+      alert('Erro ao excluir projeto: ' + err.message);
+      return false;
     }
   };
 
@@ -1381,8 +1412,17 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const deleteProposal = async (id: string) => {
     try {
-      // 1. Desvincular obras para evitar erro de Foreign Key
-      await supabase.from('projects').update({ proposalId: null }).eq('proposalId', id);
+      // 1. Localizar obra vinculada
+      const linkedProject = projects.find(p => p.proposalId === id);
+      
+      if (linkedProject) {
+        // Tentar excluir a obra primeiro (respeitando a regra de medição/RDO)
+        const success = await deleteProject(linkedProject.id);
+        if (!success) return false; 
+      } else {
+        // Se não houver projeto, apenas desvincular qualquer projeto que tenha esse proposalId (segurança adicional)
+        await supabase.from('projects').update({ proposal_id: null } as any).eq('proposal_id', id);
+      }
       
       // 2. Apagar a proposta
       const { error } = await supabase.from('proposals').delete().eq('id', id);
@@ -1391,12 +1431,14 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         setProposals(prev => prev.filter(p => p.id !== id));
         // Apagar da Agenda também, se existir
         supabase.from('agenda_eventos').delete().eq('id_referencia', id).then();
+        return true;
       } else {
         throw error;
       }
     } catch (error: any) {
       console.error('Erro ao excluir proposta:', error);
       alert('Erro ao excluir proposta: ' + (error.message || error));
+      return false;
     }
   };
 
