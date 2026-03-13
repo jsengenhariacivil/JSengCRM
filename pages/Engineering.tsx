@@ -32,7 +32,14 @@ const Engineering: React.FC = () => {
             let finalUrl = formData.fileUrl || '';
 
             if (formData.documentType !== 'Link' && selectedFile) {
-                const fileName = `${Date.now()}_${selectedFile.name}`;
+                // Sanitizar nome do arquivo (remover espaços e caracteres especiais)
+                const sanitizedFileName = selectedFile.name
+                    .replace(/\s+/g, '_')           // Troca espaços por underline
+                    .normalize('NFD')               // Normaliza para separar acentos
+                    .replace(/[\u0300-\u036f]/g, '') // Remove acentos
+                    .replace(/[^a-zA-Z0-9._-]/g, ''); // Remove qualquer coisa que não seja básico
+
+                const fileName = `${Date.now()}_${sanitizedFileName}`;
                 const path = formData.projectId
                     ? `projects/${formData.projectId}/${fileName}`
                     : `general/${fileName}`;
