@@ -34,7 +34,7 @@ interface DataContextType {
   deleteProject: (id: string) => Promise<boolean>;
 
   financials: FinancialRecord[];
-  addFinancialRecord: (record: FinancialRecord | FinancialRecord[]) => Promise<void>;
+  addFinancialRecord: (record: (Omit<FinancialRecord, 'id'> & { id?: string }) | (Omit<FinancialRecord, 'id'> & { id?: string })[]) => Promise<void>;
   updateFinancialRecord: (record: FinancialRecord) => Promise<void>;
   deleteFinancialRecord: (id: string) => Promise<void>;
 
@@ -926,10 +926,10 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   // --- FINANCIAL RECORDS ---
-  const addFinancialRecord = async (record: FinancialRecord | FinancialRecord[]) => {
+  const addFinancialRecord = async (record: (Omit<FinancialRecord, 'id'> & { id?: string }) | (Omit<FinancialRecord, 'id'> & { id?: string })[]) => {
     const records = Array.isArray(record) ? record : [record];
     const toInsert = records.map(r => ({
-      id: r.id, // Incluir ID se fornecido (importante para medições M-id)
+      id: r.id, // Incluir ID se fornecido
       type: r.type,
       description: r.description,
       amount: r.amount,
@@ -1728,12 +1728,11 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           await updateProject({ ...project, progress: totalProgress });
         }
 
-        // Adicionar registro financeiro (Receita)
+        // Adicionar registro financeiro (Receita) vinculada à medição via tag na descrição
         console.log(`Criando registro financeiro para medição ${data.id} no valor de R$ ${measurement.value}`);
         await addFinancialRecord({
-          id: `M-${data.id}`,
           type: 'Receita',
-          description: `Medição: ${measurement.description} - Obra: ${project?.title || measurement.projectId}`,
+          description: `Medição: ${measurement.description} - Obra: ${project?.title || measurement.projectId} [MID:${data.id}]`,
           amount: measurement.value,
           date: measurement.date,
           status: measurement.status,
@@ -1777,17 +1776,29 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         await updateProject({ ...project, progress: totalProgress });
       }
 
-      // Atualizar registro financeiro correspondente
-      await updateFinancialRecord({
-        id: `M-${measurement.id}`,
-        type: 'Receita',
-        description: `Medição: ${measurement.description} - Obra: ${projects.find(p => p.id === measurement.projectId)?.title || measurement.projectId}`,
-        amount: measurement.value,
-        date: measurement.date,
-        status: measurement.status,
-        category: 'Obra',
-        projectId: measurement.projectId
-      });
+      // Atualizar registro financeiro correspondente localizando pela tag [MID:id]
+      try {
+        const { data: finData } = await supabase
+          .from('financial_records')
+          .select('id')
+          .ilike('description', `%[MID:${measurement.id}]%`)
+          .maybeSingle();
+
+        if (finData) {
+          await updateFinancialRecord({
+            id: finData.id,
+            type: 'Receita',
+            description: `Medição: ${measurement.description} - Obra: ${projects.find(p => p.id === measurement.projectId)?.title || measurement.projectId} [MID:${measurement.id}]`,
+            amount: measurement.value,
+            date: measurement.date,
+            status: measurement.status,
+            category: 'Obra',
+            projectId: measurement.projectId
+          });
+        }
+      } catch (err) {
+        console.error('Erro ao sincronizar financeiro da medição:', err);
+      }
     }
   };
 
@@ -1810,8 +1821,9 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         await updateProject({ ...project, progress: totalProgress });
       }
 
-      // Remover registro financeiro correspondente (agora o ID M-id estará no banco)
-      await deleteFinancialRecord(`M-${id}`);
+      // Remover registro financeiro correspondente localizando pela tag [MID:id]
+      await supabase.from('financial_records').delete().ilike('description', `%[MID:${id}]%`);
+      setFinancials(prev => prev.filter(f => !f.description.includes(`[MID:${id}]`)));
     } else if (error) {
       console.error('Erro ao excluir medição:', error.message);
     }
