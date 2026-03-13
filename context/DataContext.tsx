@@ -86,11 +86,11 @@ interface DataContextType {
 
   // Engenharia (Fase 2)
   measurements: Measurement[];
-  addMeasurement: (measurement: Measurement) => Promise<void>;
+  addMeasurement: (measurement: Omit<Measurement, 'id'> & { id?: string }) => Promise<void>;
   deleteMeasurement: (id: string) => Promise<void>;
   updateMeasurement: (measurement: Measurement) => Promise<void>;
   dailyReports: DailyReport[];
-  addDailyReport: (report: DailyReport) => Promise<void>;
+  addDailyReport: (report: Omit<DailyReport, 'id'> & { id?: string }) => Promise<void>;
   updateDailyReport: (report: DailyReport) => Promise<void>;
   deleteDailyReport: (id: string) => Promise<void>;
 
@@ -1697,7 +1697,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   // --- MEASUREMENTS ---
-  const addMeasurement = async (measurement: Measurement) => {
+  const addMeasurement = async (measurement: Omit<Measurement, 'id'> & { id?: string }) => {
+    console.log('[DEBUG v2.1] addMeasurement iniciado');
     try {
       const { data, error } = await supabase.from('measurements').insert([{
         project_id: measurement.projectId,
@@ -1830,7 +1831,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   // --- DAILY REPORTS ---
-  const addDailyReport = async (report: DailyReport) => {
+  const addDailyReport = async (report: Omit<DailyReport, 'id'> & { id?: string }) => {
+    console.log('[DEBUG v2.1] addDailyReport iniciado');
     const { data, error } = await supabase.from('daily_reports').insert([{
       project_id: report.projectId,
       date: report.date,

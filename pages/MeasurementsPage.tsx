@@ -66,7 +66,6 @@ const MeasurementsPage: React.FC = () => {
             } else {
                 await addMeasurement({
                     ...newMeasure,
-                    id: Date.now().toString(),
                     projectId: selectedProjectId,
                     value: finalValue,
                     percentage: finalPercentage,

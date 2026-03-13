@@ -46,7 +46,6 @@ const DailyReportsPage: React.FC = () => {
         } else {
             await addDailyReport({
                 ...newRDO,
-                id: Date.now().toString(),
                 projectId: selectedProjectId,
                 createdAt: new Date().toISOString()
             });
