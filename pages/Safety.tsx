@@ -63,7 +63,7 @@ const Safety: React.FC = () => {
             setIsModalOpen(false);
         } catch (error) {
             console.error('Erro ao salvar registro de segurança:', error);
-            alert('Erro ao salvar registro de segurança. Verifique os dados e tente novamente.');
+            alert(`Erro ao salvar registro de segurança: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
         } finally {
             setIsSaving(false);
         }
@@ -205,6 +205,7 @@ const Safety: React.FC = () => {
                                     >
                                         <option value="Treinamento">📄 Treinamento (DDS)</option>
                                         <option value="Inspeção">🔍 Inspeção de Campo</option>
+                                        <option value="EPI">🦺 Entrega de EPI</option>
                                         <option value="Incidente">⚠️ Incidente</option>
                                         <option value="Acidente">🚨 Acidente</option>
                                         <option value="Outros">⚙️ Outros</option>

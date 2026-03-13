@@ -2112,6 +2112,9 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   // --- SAFETY RECORDS ---
   const addSafetyRecord = async (record: SafetyRecord) => {
     try {
+      // Garantir que projectId vazio seja enviado como NULL para o Postgres (UUID)
+      const projectId = record.projectId && record.projectId.trim() !== "" ? record.projectId : null;
+
       const { data, error } = await supabase.from('safety_records').insert([{
         type: record.type,
         title: record.title,
@@ -2119,7 +2122,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         date: record.date,
         responsible: record.responsible,
         status: record.status,
-        project_id: record.projectId
+        project_id: projectId
       }]).select().single();
 
       if (error) {
@@ -2127,7 +2130,9 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         throw error;
       }
 
-      if (data) setSafetyRecords(prev => [{ ...record, id: data.id, createdAt: data.created_at }, ...prev]);
+      if (data) {
+        setSafetyRecords(prev => [{ ...record, id: data.id, createdAt: data.created_at }, ...prev]);
+      }
     } catch (err) {
       console.error('Catch error in addSafetyRecord:', err);
       throw err;
@@ -2135,13 +2140,29 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   const updateSafetyRecord = async (record: SafetyRecord) => {
-    await supabase.from('safety_records').update({
-      title: record.title,
-      description: record.description,
-      status: record.status,
-      responsible: record.responsible
-    }).eq('id', record.id);
-    setSafetyRecords(prev => prev.map(s => s.id === record.id ? record : s));
+    try {
+      const projectId = record.projectId && record.projectId.trim() !== "" ? record.projectId : null;
+
+      const { error } = await supabase.from('safety_records').update({
+        type: record.type,
+        title: record.title,
+        description: record.description,
+        date: record.date,
+        status: record.status,
+        responsible: record.responsible,
+        project_id: projectId
+      }).eq('id', record.id);
+
+      if (error) {
+        console.error('Supabase error (update safety_records):', error);
+        throw error;
+      }
+
+      setSafetyRecords(prev => prev.map(s => s.id === record.id ? record : s));
+    } catch (err) {
+      console.error('Catch error in updateSafetyRecord:', err);
+      throw err;
+    }
   };
 
   const deleteSafetyRecord = async (id: string) => {

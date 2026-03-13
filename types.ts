@@ -358,7 +358,7 @@ export interface PurchaseOrderItem {
 
 export interface SafetyRecord {
   id: string;
-  type: 'EPI' | 'Treinamento' | 'Inspeção' | 'Incidente';
+  type: 'EPI' | 'Treinamento' | 'Inspeção' | 'Incidente' | 'Acidente' | 'Outros';
   title: string;
   description: string;
   date: string;
