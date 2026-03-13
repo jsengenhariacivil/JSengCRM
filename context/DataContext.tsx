@@ -2256,6 +2256,11 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       uploaded_by: doc.uploadedBy
     }]).select().single();
 
+    if (error) {
+      console.error("Erro ao inserir documento:", error);
+      throw error;
+    }
+
     if (!error && data) {
       setEngineeringDocuments(prev => [{
         ...doc,

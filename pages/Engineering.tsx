@@ -56,9 +56,10 @@ const Engineering: React.FC = () => {
                 uploadedBy: ''
             });
             setSelectedFile(null);
-        } catch (error) {
-            console.error("Erro no upload:", error);
-            alert("Erro ao salvar documento. Verifique o console.");
+        } catch (error: any) {
+            console.error("Erro ao salvar documento:", error);
+            const errorMessage = error.message || (typeof error === 'string' ? error : "Erro desconhecido");
+            alert(`Erro ao salvar documento: ${errorMessage}. Verifique se você executou o arquivo storage_setup.sql no console do Supabase.`);
         } finally {
             setIsUploading(false);
         }
