@@ -34,54 +34,61 @@ const MeasurementsPage: React.FC = () => {
     });
 
     const handleSave = async (e: React.FormEvent) => {
-        e.preventDefault();
-        const project = projects.find(p => p.id === selectedProjectId);
-        if (!project || !newMeasure.description) return;
+        try {
+            e.preventDefault();
+            const project = projects.find(p => p.id === selectedProjectId);
+            if (!project || !newMeasure.description) {
+                alert('Por favor, selecione uma obra e preencha a descrição.');
+                return;
+            }
 
-        let finalValue = 0;
-        let finalPercentage = 0;
+            let finalValue = 0;
+            let finalPercentage = 0;
 
-        if (measurementType === 'percent') {
-            finalPercentage = newMeasure.percentage;
-            finalValue = (project.budget * finalPercentage) / 100;
-        } else {
-            finalValue = newMeasure.unitPrice * newMeasure.quantity;
-            finalPercentage = project.budget > 0 ? (finalValue / project.budget) * 100 : 0;
-            // Arredondar para 2 casas decimais para evitar dízimas periódicas no progresso
-            finalPercentage = Math.round(finalPercentage * 100) / 100;
-        }
+            if (measurementType === 'percent') {
+                finalPercentage = newMeasure.percentage;
+                finalValue = (project.budget * finalPercentage) / 100;
+            } else {
+                finalValue = newMeasure.unitPrice * newMeasure.quantity;
+                finalPercentage = project.budget > 0 ? (finalValue / project.budget) * 100 : 0;
+                finalPercentage = Math.round(finalPercentage * 100) / 100;
+            }
 
-        if (editingMeasurement) {
-            await updateMeasurement({
-                ...editingMeasurement,
-                ...newMeasure,
-                projectId: selectedProjectId,
-                value: finalValue,
-                percentage: finalPercentage,
-                status: Status.PAID
+            if (editingMeasurement) {
+                await updateMeasurement({
+                    ...editingMeasurement,
+                    ...newMeasure,
+                    projectId: selectedProjectId,
+                    value: finalValue,
+                    percentage: finalPercentage,
+                    status: Status.PAID
+                });
+            } else {
+                await addMeasurement({
+                    ...newMeasure,
+                    id: Date.now().toString(),
+                    projectId: selectedProjectId,
+                    value: finalValue,
+                    percentage: finalPercentage,
+                    status: Status.PAID
+                });
+            }
+
+            setIsFormOpen(false);
+            setEditingMeasurement(null);
+            setNewMeasure({ 
+                description: '', 
+                percentage: 0, 
+                unit: 'un',
+                unitPrice: 0,
+                quantity: 0,
+                date: new Date().toISOString().split('T')[0],
+                photos: []
             });
-        } else {
-            await addMeasurement({
-                ...newMeasure,
-                id: Date.now().toString(),
-                projectId: selectedProjectId,
-                value: finalValue,
-                percentage: finalPercentage,
-                status: Status.PAID
-            });
+        } catch (err: any) {
+            console.error('Falha ao salvar medição:', err);
+            alert('Não foi possível salvar a medição. Verifique o financeiro ou tente novamente. Erro: ' + err.message);
         }
-
-        setIsFormOpen(false);
-        setEditingMeasurement(null);
-        setNewMeasure({ 
-            description: '', 
-            percentage: 0, 
-            unit: 'un',
-            unitPrice: 0,
-            quantity: 0,
-            date: new Date().toISOString().split('T')[0],
-            photos: []
-        });
     };
 
     const handleEdit = (m: Measurement) => {

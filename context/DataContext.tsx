@@ -1650,50 +1650,52 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   // --- MEASUREMENTS ---
   const addMeasurement = async (measurement: Measurement) => {
-    const { data, error } = await supabase.from('measurements').insert([{
-      project_id: measurement.projectId,
-      description: measurement.description,
-      date: measurement.date,
-      percentage: measurement.percentage,
-      value: measurement.value,
-      status: measurement.status,
-      photos: measurement.photos
-    }]).select().single();
+    try {
+      const { data, error } = await supabase.from('measurements').insert([{
+        project_id: measurement.projectId,
+        description: measurement.description,
+        date: measurement.date,
+        percentage: measurement.percentage,
+        value: measurement.value,
+        status: measurement.status,
+        photos: measurement.photos
+      }]).select().single();
 
-    if (error) {
-      console.error('Erro ao adicionar medição:', error.message);
-      return;
-    }
-
-    if (!error && data) {
-      setMeasurements(prev => [{ ...measurement, id: data.id }, ...prev]);
-
-      // Recalcular progresso da obra somando todas as medições
-      const projectMeasurements = measurements.filter(m => m.projectId === measurement.projectId);
-      // O measurements ainda não tem a nova medição no momento do filter se usarmos o estado diretamente, 
-      // mas adicionamos ela agora no estado localmente. 
-      // Melhor: usar uma constante com a lista atualizada.
-      const updatedMeasurements = [{ ...measurement, id: data.id }, ...measurements];
-      const totalProgress = Math.min(100, updatedMeasurements
-        .filter(m => m.projectId === measurement.projectId)
-        .reduce((sum, m) => sum + m.percentage, 0));
-
-      const project = projects.find(p => p.id === measurement.projectId);
-      if (project) {
-        await updateProject({ ...project, progress: totalProgress });
+      if (error) {
+        console.error('Erro ao adicionar medição (Supabase):', error.message);
+        throw new Error(`Erro no banco de dados: ${error.message}`);
       }
 
-      // Adicionar registro financeiro (Receita)
-      await addFinancialRecord({
-        id: `M-${data.id}`,
-        type: 'Receita',
-        description: `Medição: ${measurement.description} - Obra: ${project?.title || measurement.projectId}`,
-        amount: measurement.value,
-        date: measurement.date,
-        status: measurement.status,
-        category: 'Obra',
-        projectId: measurement.projectId
-      });
+      if (data) {
+        setMeasurements(prev => [{ ...measurement, id: data.id }, ...prev]);
+
+        // Recalcular progresso da obra somando todas as medições
+        const updatedMeasurements = [{ ...measurement, id: data.id }, ...measurements];
+        const totalProgress = Math.min(100, updatedMeasurements
+          .filter(m => m.projectId === measurement.projectId)
+          .reduce((sum, m) => sum + m.percentage, 0));
+
+        const project = projects.find(p => p.id === measurement.projectId);
+        if (project) {
+          await updateProject({ ...project, progress: totalProgress });
+        }
+
+        // Adicionar registro financeiro (Receita)
+        console.log(`Criando registro financeiro para medição ${data.id} no valor de R$ ${measurement.value}`);
+        await addFinancialRecord({
+          id: `M-${data.id}`,
+          type: 'Receita',
+          description: `Medição: ${measurement.description} - Obra: ${project?.title || measurement.projectId}`,
+          amount: measurement.value,
+          date: measurement.date,
+          status: measurement.status,
+          category: 'Obra',
+          projectId: measurement.projectId
+        });
+      }
+    } catch (err: any) {
+      console.error('Falha crítica em addMeasurement:', err);
+      throw err; // Repassa para o modal poder tratar
     }
   };
 
