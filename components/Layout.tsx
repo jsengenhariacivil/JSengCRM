@@ -272,8 +272,8 @@ const NavContent = ({
         <SidebarItem to="/agenda" icon={Calendar} label="Agenda" onClick={mobile ? toggleMenu : undefined} />
       )}
 
-      {/* Segurança do Trabalho */}
-      <SidebarItem to="/seguranca" icon={ShieldCheck} label="Segurança do Trabalho" onClick={mobile ? toggleMenu : undefined} />
+      {/* SST */}
+      <SidebarItem to="/seguranca" icon={ShieldCheck} label="SST" onClick={mobile ? toggleMenu : undefined} />
 
       {/* Qualidade */}
       <SidebarItem to="/qualidade" icon={CheckSquare} label="Qualidade" onClick={mobile ? toggleMenu : undefined} />

@@ -18,7 +18,7 @@ const CONSTRUCTION_ROLES = [
 const OFFICE_ROLES = [
   "Engenheiro Civil", "Arquiteto", "Estagiário de Engenharia",
   "Técnico em Edificações", "Administrativo", "Financeiro",
-  "Gerente de Projetos", "Comprador", "Orçamentista", "RH"
+  "Gerente de Projetos", "Comprador", "Orçamentista", "RH", "Engenheiro de Segurança", "Técnico de Segurança (TST)"
 ];
 
 // Referências de pagamento padrão

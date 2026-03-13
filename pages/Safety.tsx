@@ -4,7 +4,7 @@ import { useData } from '../context/DataContext';
 import { SafetyRecord, Status } from '../types';
 
 const Safety: React.FC = () => {
-    const { safetyRecords, addSafetyRecord, updateSafetyRecord, deleteSafetyRecord, projects } = useData();
+    const { safetyRecords, addSafetyRecord, updateSafetyRecord, deleteSafetyRecord, projects, teamMembers } = useData();
     const [searchTerm, setSearchTerm] = useState('');
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingRecord, setEditingRecord] = useState<SafetyRecord | null>(null);
@@ -29,13 +29,19 @@ const Safety: React.FC = () => {
             setEditingRecord(record);
             setFormData(record);
         } else {
+            // Tentar encontrar um responsável padrão (TST ou Engenheiro de Segurança)
+            const defaultResp = teamMembers.find(m =>
+                m.role.toLowerCase().includes('tst') ||
+                m.role.toLowerCase().includes('segurança')
+            )?.name || '';
+
             setEditingRecord(null);
             setFormData({
                 type: 'Treinamento',
                 title: '',
                 description: '',
                 date: new Date().toISOString().split('T')[0],
-                responsible: '',
+                responsible: defaultResp,
                 status: 'Pendente',
                 projectId: ''
             });
@@ -91,9 +97,9 @@ const Safety: React.FC = () => {
                 <div>
                     <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
                         <ShieldAlert className="text-[#c79229]" />
-                        Segurança do Trabalho
+                        SST
                     </h1>
-                    <p className="text-slate-500 text-sm">Gestão de SST, treinamentos e ocorrências</p>
+                    <p className="text-slate-500 text-sm">Saúde e Segurança do Trabalho</p>
                 </div>
                 <button
                     onClick={() => handleOpenModal()}
@@ -141,7 +147,7 @@ const Safety: React.FC = () => {
                                         </div>
                                     </td>
                                     <td className="px-6 py-4 font-bold text-slate-700">{record.title}</td>
-                                    <td className="px-6 py-4 text-slate-600">{projects.find(p => p.id === record.projectId)?.title || 'Geral'}</td>
+                                    <td className="px-6 py-4 text-slate-600">{projects.find(p => p.id === record.projectId)?.title || 'Geral/Empresa'}</td>
                                     <td className="px-6 py-4 text-slate-600 italic">{record.responsible}</td>
                                     <td className="px-6 py-4 text-slate-500 font-mono">{new Date(record.date).toLocaleDateString()}</td>
                                     <td className="px-6 py-4">{getStatusBadge(record.status)}</td>
@@ -230,14 +236,25 @@ const Safety: React.FC = () => {
 
                                 <div>
                                     <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Responsável / Emitente</label>
-                                    <input
-                                        type="text"
-                                        required
-                                        className="w-full border border-slate-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-[#c79229] outline-none"
-                                        value={formData.responsible}
-                                        placeholder="Ex: TST João Silva"
-                                        onChange={e => setFormData({ ...formData, responsible: e.target.value })}
-                                    />
+                                    <div className="relative">
+                                        <input
+                                            list="team-members-list"
+                                            type="text"
+                                            required
+                                            className="w-full border border-slate-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-[#c79229] outline-none"
+                                            value={formData.responsible}
+                                            placeholder="Selecione ou digite o nome"
+                                            onChange={e => setFormData({ ...formData, responsible: e.target.value })}
+                                        />
+                                        <datalist id="team-members-list">
+                                            {teamMembers.map(m => (
+                                                <option key={m.id} value={m.name}>
+                                                    {m.role}
+                                                </option>
+                                            ))}
+                                        </datalist>
+                                        <User className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-300 pointer-events-none" size={18} />
+                                    </div>
                                 </div>
 
                                 <div className="md:col-span-2">
