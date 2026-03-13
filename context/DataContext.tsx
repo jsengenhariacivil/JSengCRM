@@ -898,6 +898,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const addFinancialRecord = async (record: FinancialRecord | FinancialRecord[]) => {
     const records = Array.isArray(record) ? record : [record];
     const toInsert = records.map(r => ({
+      id: r.id, // Incluir ID se fornecido (importante para medições M-id)
       type: r.type,
       description: r.description,
       amount: r.amount,
@@ -1745,11 +1746,12 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const { error } = await supabase.from('measurements').delete().eq('id', id);
 
     if (!error && measurement) {
-      setMeasurements(prev => prev.filter(m => m.id !== id));
+      // Atualizar estado local IMEDIATAMENTE para os cálculos subsequentes
+      const newMeasurements = measurements.filter(m => m.id !== id);
+      setMeasurements(newMeasurements);
 
-      // Recalcular progresso da obra
-      const updatedMeasurements = measurements.filter(m => m.id !== id); // Filter out the deleted measurement
-      const totalProgress = Math.min(100, updatedMeasurements
+      // Recalcular progresso da obra com a lista já filtrada
+      const totalProgress = Math.min(100, newMeasurements
         .filter(m => m.projectId === measurement.projectId)
         .reduce((sum, m) => sum + m.percentage, 0));
 
@@ -1758,8 +1760,10 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         await updateProject({ ...project, progress: totalProgress });
       }
 
-      // Remover registro financeiro correspondente
+      // Remover registro financeiro correspondente (agora o ID M-id estará no banco)
       await deleteFinancialRecord(`M-${id}`);
+    } else if (error) {
+      console.error('Erro ao excluir medição:', error.message);
     }
   };
 
