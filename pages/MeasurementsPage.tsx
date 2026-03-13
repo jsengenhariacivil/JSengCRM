@@ -1,18 +1,23 @@
 
 import React, { useState } from 'react';
-import { Plus, BarChart3, TrendingUp, DollarSign, Calendar, Search, Building, CheckCircle2 } from 'lucide-react';
+import { Plus, BarChart3, TrendingUp, DollarSign, Calendar, Search, Building, CheckCircle2, Trash2, Edit, Scissors } from 'lucide-react';
 import { useData } from '../context/DataContext';
 import { Status, Measurement } from '../types';
 
 const MeasurementsPage: React.FC = () => {
-    const { projects, measurements, addMeasurement } = useData();
+    const { projects, measurements, addMeasurement, updateMeasurement, deleteMeasurement } = useData();
     const [selectedProjectId, setSelectedProjectId] = useState<string>('');
     const [isFormOpen, setIsFormOpen] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
+    const [editingMeasurement, setEditingMeasurement] = useState<Measurement | null>(null);
+    const [measurementType, setMeasurementType] = useState<'percent' | 'unit'>('percent');
 
     const [newMeasure, setNewMeasure] = useState({
         description: '',
         percentage: 0,
+        unit: 'un',
+        unitPrice: 0,
+        quantity: 0,
         date: new Date().toISOString().split('T')[0]
     });
 
@@ -27,20 +32,72 @@ const MeasurementsPage: React.FC = () => {
     const handleSave = async (e: React.FormEvent) => {
         e.preventDefault();
         const project = projects.find(p => p.id === selectedProjectId);
-        if (!project || !newMeasure.description || !newMeasure.percentage) return;
+        if (!project || !newMeasure.description) return;
 
-        const value = (project.budget * newMeasure.percentage) / 100;
+        let finalValue = 0;
+        let finalPercentage = 0;
 
-        await addMeasurement({
-            ...newMeasure,
-            id: Date.now().toString(),
-            projectId: selectedProjectId,
-            value,
-            status: Status.PAID
-        });
+        if (measurementType === 'percent') {
+            finalPercentage = newMeasure.percentage;
+            finalValue = (project.budget * finalPercentage) / 100;
+        } else {
+            finalValue = newMeasure.unitPrice * newMeasure.quantity;
+            finalPercentage = project.budget > 0 ? (finalValue / project.budget) * 100 : 0;
+            // Arredondar para 2 casas decimais para evitar dízimas periódicas no progresso
+            finalPercentage = Math.round(finalPercentage * 100) / 100;
+        }
+
+        if (editingMeasurement) {
+            await updateMeasurement({
+                ...editingMeasurement,
+                ...newMeasure,
+                projectId: selectedProjectId,
+                value: finalValue,
+                percentage: finalPercentage,
+                status: Status.PAID
+            });
+        } else {
+            await addMeasurement({
+                ...newMeasure,
+                id: Date.now().toString(),
+                projectId: selectedProjectId,
+                value: finalValue,
+                percentage: finalPercentage,
+                status: Status.PAID
+            });
+        }
 
         setIsFormOpen(false);
-        setNewMeasure({ description: '', percentage: 0, date: new Date().toISOString().split('T')[0] });
+        setEditingMeasurement(null);
+        setNewMeasure({ 
+            description: '', 
+            percentage: 0, 
+            unit: 'un',
+            unitPrice: 0,
+            quantity: 0,
+            date: new Date().toISOString().split('T')[0] 
+        });
+    };
+
+    const handleEdit = (m: Measurement) => {
+        setEditingMeasurement(m);
+        setSelectedProjectId(m.projectId);
+        setNewMeasure({
+            description: m.description,
+            percentage: m.percentage,
+            unit: 'un', // Placeholder, idealmente viria do objeto Measurement
+            unitPrice: 0,
+            quantity: 0,
+            date: m.date
+        });
+        setMeasurementType('percent');
+        setIsFormOpen(true);
+    };
+
+    const handleDelete = async (id: string) => {
+        if (confirm('Tem certeza que deseja excluir esta medição? Isso afetará o progresso da obra e o financeiro.')) {
+            await deleteMeasurement(id);
+        }
     };
 
     const getTotalMeasured = (projectId: string) => {
@@ -150,10 +207,26 @@ const MeasurementsPage: React.FC = () => {
                                             <p className="text-sm font-black text-slate-800">R$ {m.value.toLocaleString('pt-BR')}</p>
                                         </td>
                                         <td className="px-6 py-4">
-                                            <div className="flex justify-center">
+                                            <div className="flex justify-center items-center gap-2">
                                                 <span className="inline-flex items-center px-2 py-1 rounded text-[10px] font-bold uppercase bg-green-100 text-green-700">
-                                                    <CheckCircle2 size={12} className="mr-1" /> Pago/Liquidado
+                                                    <CheckCircle2 size={12} className="mr-1" /> Pago
                                                 </span>
+                                                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                    <button 
+                                                        onClick={() => handleEdit(m)}
+                                                        className="p-1.5 text-slate-400 hover:text-[#c79229] hover:bg-amber-50 rounded-lg transition-colors"
+                                                        title="Editar Medição"
+                                                    >
+                                                        <Edit size={16} />
+                                                    </button>
+                                                    <button 
+                                                        onClick={() => handleDelete(m.id)}
+                                                        className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                                                        title="Excluir Medição"
+                                                    >
+                                                        <Trash2 size={16} />
+                                                    </button>
+                                                </div>
                                             </div>
                                         </td>
                                     </tr>
@@ -175,8 +248,16 @@ const MeasurementsPage: React.FC = () => {
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
                     <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-200">
                         <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50">
-                            <h2 className="text-xl font-bold text-slate-800">Lançar Nova Medição</h2>
-                            <button onClick={() => setIsFormOpen(false)} className="text-slate-400 hover:text-slate-600 transition-colors">
+                            <h2 className="text-xl font-bold text-slate-800">
+                                {editingMeasurement ? 'Editar Medição' : 'Lançar Nova Medição'}
+                            </h2>
+                            <button 
+                                onClick={() => {
+                                    setIsFormOpen(false);
+                                    setEditingMeasurement(null);
+                                }} 
+                                className="text-slate-400 hover:text-slate-600 transition-colors"
+                            >
                                 <Plus size={24} className="rotate-45" />
                             </button>
                         </div>
@@ -217,44 +298,132 @@ const MeasurementsPage: React.FC = () => {
                                 />
                             </div>
 
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-sm font-bold text-slate-700 mb-1">Evolução (%)</label>
-                                    <div className="relative">
-                                        <input
-                                            type="number"
-                                            required
-                                            min="1"
-                                            max={100 - getTotalMeasured(selectedProjectId)}
-                                            step="0.1"
-                                            placeholder="Ex: 5"
-                                            className="w-full border border-slate-200 rounded-xl p-3 focus:ring-2 focus:ring-[#c79229] outline-none pr-10"
-                                            value={newMeasure.percentage || ''}
-                                            onChange={e => setNewMeasure({ ...newMeasure, percentage: parseFloat(e.target.value) })}
-                                        />
-                                        <span className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold">%</span>
-                                    </div>
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-bold text-slate-700 mb-1">Data</label>
-                                    <input
-                                        type="date"
-                                        required
-                                        className="w-full border border-slate-200 rounded-xl p-3 focus:ring-2 focus:ring-[#c79229] outline-none"
-                                        value={newMeasure.date}
-                                        onChange={e => setNewMeasure({ ...newMeasure, date: e.target.value })}
-                                    />
-                                </div>
+                            <div className="flex bg-slate-100 p-1 rounded-xl">
+                                <button
+                                    type="button"
+                                    onClick={() => setMeasurementType('percent')}
+                                    className={`flex-1 py-2 px-4 rounded-lg text-sm font-bold transition-all ${measurementType === 'percent' ? 'bg-white text-[#c79229] shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                                >
+                                    Por Porcentagem (%)
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setMeasurementType('unit')}
+                                    className={`flex-1 py-2 px-4 rounded-lg text-sm font-bold transition-all ${measurementType === 'unit' ? 'bg-white text-[#c79229] shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                                >
+                                    Por Unidade (M², M, etc.)
+                                </button>
                             </div>
 
-                            {selectedProjectId && newMeasure.percentage > 0 && (
-                                <div className="p-4 bg-green-50 rounded-xl border border-green-100">
-                                    <div className="flex items-center gap-2 mb-1">
-                                        <DollarSign size={16} className="text-green-600" />
-                                        <span className="text-sm font-bold text-green-800">Valor da Medição</span>
+                            {measurementType === 'percent' ? (
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-sm font-bold text-slate-700 mb-1">Evolução (%)</label>
+                                        <div className="relative">
+                                            <input
+                                                type="number"
+                                                required
+                                                min="0.01"
+                                                max={100 - (editingMeasurement ? 0 : getTotalMeasured(selectedProjectId))}
+                                                step="0.1"
+                                                placeholder="Ex: 5"
+                                                className="w-full border border-slate-200 rounded-xl p-3 focus:ring-2 focus:ring-[#c79229] outline-none pr-10"
+                                                value={newMeasure.percentage || ''}
+                                                onChange={e => setNewMeasure({ ...newMeasure, percentage: parseFloat(e.target.value) })}
+                                            />
+                                            <span className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold">%</span>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-bold text-slate-700 mb-1">Data</label>
+                                        <input
+                                            type="date"
+                                            required
+                                            className="w-full border border-slate-200 rounded-xl p-3 focus:ring-2 focus:ring-[#c79229] outline-none"
+                                            value={newMeasure.date}
+                                            onChange={e => setNewMeasure({ ...newMeasure, date: e.target.value })}
+                                        />
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="space-y-4">
+                                    <div className="grid grid-cols-3 gap-3">
+                                        <div>
+                                            <label className="block text-sm font-bold text-slate-700 mb-1">Unidade</label>
+                                            <select
+                                                className="w-full border border-slate-200 rounded-xl p-3 focus:ring-2 focus:ring-[#c79229] outline-none"
+                                                value={newMeasure.unit}
+                                                onChange={e => setNewMeasure({ ...newMeasure, unit: e.target.value })}
+                                            >
+                                                <option value="un">un</option>
+                                                <option value="M²">M²</option>
+                                                <option value="M³">M³</option>
+                                                <option value="M">M</option>
+                                                <option value="kg">kg</option>
+                                                <option value="vb">vb</option>
+                                            </select>
+                                        </div>
+                                        <div className="col-span-2">
+                                            <label className="block text-sm font-bold text-slate-700 mb-1">Preço Unitário (R$)</label>
+                                            <input
+                                                type="number"
+                                                required
+                                                min="0.01"
+                                                step="0.01"
+                                                placeholder="0,00"
+                                                className="w-full border border-slate-200 rounded-xl p-3 focus:ring-2 focus:ring-[#c79229] outline-none"
+                                                value={newMeasure.unitPrice || ''}
+                                                onChange={e => setNewMeasure({ ...newMeasure, unitPrice: parseFloat(e.target.value) })}
+                                            />
+                                        </div>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <label className="block text-sm font-bold text-slate-700 mb-1">Quantidade Executada</label>
+                                            <input
+                                                type="number"
+                                                required
+                                                min="0.01"
+                                                step="0.01"
+                                                className="w-full border border-slate-200 rounded-xl p-3 focus:ring-2 focus:ring-[#c79229] outline-none"
+                                                value={newMeasure.quantity || ''}
+                                                onChange={e => setNewMeasure({ ...newMeasure, quantity: parseFloat(e.target.value) })}
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-bold text-slate-700 mb-1">Data</label>
+                                            <input
+                                                type="date"
+                                                required
+                                                className="w-full border border-slate-200 rounded-xl p-3 focus:ring-2 focus:ring-[#c79229] outline-none"
+                                                value={newMeasure.date}
+                                                onChange={e => setNewMeasure({ ...newMeasure, date: e.target.value })}
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {selectedProjectId && (
+                                <div className="p-4 bg-green-50 rounded-xl border border-green-100 space-y-2">
+                                    <div className="flex justify-between items-center">
+                                        <div className="flex items-center gap-2">
+                                            <DollarSign size={16} className="text-green-600" />
+                                            <span className="text-sm font-bold text-green-800">Resumo da Medição</span>
+                                        </div>
+                                        {measurementType === 'unit' && newMeasure.unitPrice > 0 && newMeasure.quantity > 0 && (
+                                            <span className="text-[10px] font-black bg-green-200 text-green-800 px-2 py-0.5 rounded uppercase">
+                                                +{Math.round(((newMeasure.unitPrice * newMeasure.quantity) / (projects.find(p => p.id === selectedProjectId)?.budget || 1)) * 10000) / 100}% da obra
+                                            </span>
+                                        )}
                                     </div>
                                     <p className="text-2xl font-black text-green-600">
-                                        R$ {((projects.find(p => p.id === selectedProjectId)?.budget || 0) * (newMeasure.percentage / 100)).toLocaleString('pt-BR')}
+                                        R$ {
+                                            (measurementType === 'percent' 
+                                                ? ((projects.find(p => p.id === selectedProjectId)?.budget || 0) * (newMeasure.percentage / 100))
+                                                : (newMeasure.unitPrice * newMeasure.quantity)
+                                            ).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                                        }
                                     </p>
                                 </div>
                             )}

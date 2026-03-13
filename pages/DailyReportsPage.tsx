@@ -1,11 +1,12 @@
 
 import React, { useState } from 'react';
-import { Plus, FileText, Sun, CloudRain, Calendar, Search, Building } from 'lucide-react';
+import { Plus, FileText, Sun, CloudRain, Calendar, Search, Building, MoreVertical, Edit, Trash2 } from 'lucide-react';
 import { useData } from '../context/DataContext';
 import { DailyReport } from '../types';
 
 const DailyReportsPage: React.FC = () => {
-    const { projects, dailyReports, addDailyReport } = useData();
+    const { projects, dailyReports, addDailyReport, updateDailyReport, deleteDailyReport } = useData();
+    const [editingReport, setEditingReport] = useState<DailyReport | null>(null);
     const [selectedProjectId, setSelectedProjectId] = useState<string>('');
     const [isFormOpen, setIsFormOpen] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
@@ -32,14 +33,23 @@ const DailyReportsPage: React.FC = () => {
         e.preventDefault();
         if (!selectedProjectId || !newRDO.activitiesNotes) return;
 
-        await addDailyReport({
-            ...newRDO,
-            id: Date.now().toString(),
-            projectId: selectedProjectId,
-            createdAt: new Date().toISOString()
-        });
+        if (editingReport) {
+            await updateDailyReport({
+                ...editingReport,
+                ...newRDO,
+                projectId: selectedProjectId
+            });
+        } else {
+            await addDailyReport({
+                ...newRDO,
+                id: Date.now().toString(),
+                projectId: selectedProjectId,
+                createdAt: new Date().toISOString()
+            });
+        }
 
         setIsFormOpen(false);
+        setEditingReport(null);
         setNewRDO({
             date: new Date().toISOString().split('T')[0],
             weatherMorning: 'Ensolaorado' as any,
@@ -49,6 +59,27 @@ const DailyReportsPage: React.FC = () => {
             activitiesNotes: '',
             occurrencesNotes: ''
         });
+    };
+
+    const handleEdit = (report: DailyReport) => {
+        setEditingReport(report);
+        setSelectedProjectId(report.projectId);
+        setNewRDO({
+            date: report.date,
+            weatherMorning: report.weatherMorning,
+            weatherAfternoon: report.weatherAfternoon,
+            laborTotal: report.laborTotal,
+            equipmentNotes: report.equipmentNotes || '',
+            activitiesNotes: report.activitiesNotes,
+            occurrencesNotes: report.occurrencesNotes || ''
+        });
+        setIsFormOpen(true);
+    };
+
+    const handleDelete = async (id: string) => {
+        if (confirm('Tem certeza que deseja excluir este diário de obra?')) {
+            await deleteDailyReport(id);
+        }
     };
 
     return (
@@ -110,18 +141,36 @@ const DailyReportsPage: React.FC = () => {
                                         </div>
                                         <h3 className="text-lg font-bold text-slate-800">Relatório Diário</h3>
                                     </div>
-                                    <div className="flex items-center gap-4 text-sm bg-slate-50 px-3 py-2 rounded-lg border border-slate-100">
+                                    <div className="flex items-center gap-2">
+                                        <div className="flex items-center gap-4 text-sm bg-slate-50 px-3 py-2 rounded-lg border border-slate-100">
+                                            <div className="flex items-center gap-1">
+                                                <Sun size={16} className={report.weatherMorning === 'Ensolaorado' ? 'text-yellow-500' : 'text-slate-300'} />
+                                                <span className="text-slate-600">M: {report.weatherMorning}</span>
+                                            </div>
+                                            <div className="flex items-center gap-1 border-l border-slate-200 pl-4">
+                                                <CloudRain size={16} className={report.weatherAfternoon === 'Chuva' ? 'text-blue-500' : 'text-slate-300'} />
+                                                <span className="text-slate-600">T: {report.weatherAfternoon}</span>
+                                            </div>
+                                            <div className="flex items-center gap-1 border-l border-slate-200 pl-4">
+                                                <span className="font-bold text-[#c79229]">{report.laborTotal}</span>
+                                                <span className="text-slate-600">Pessoas</span>
+                                            </div>
+                                        </div>
                                         <div className="flex items-center gap-1">
-                                            <Sun size={16} className={report.weatherMorning === 'Ensolaorado' ? 'text-yellow-500' : 'text-slate-300'} />
-                                            <span className="text-slate-600">M: {report.weatherMorning}</span>
-                                        </div>
-                                        <div className="flex items-center gap-1 border-l border-slate-200 pl-4">
-                                            <CloudRain size={16} className={report.weatherAfternoon === 'Chuva' ? 'text-blue-500' : 'text-slate-300'} />
-                                            <span className="text-slate-600">T: {report.weatherAfternoon}</span>
-                                        </div>
-                                        <div className="flex items-center gap-1 border-l border-slate-200 pl-4">
-                                            <span className="font-bold text-[#c79229]">{report.laborTotal}</span>
-                                            <span className="text-slate-600">Pessoas</span>
+                                            <button 
+                                                onClick={() => handleEdit(report)}
+                                                className="p-2 text-slate-400 hover:text-[#c79229] hover:bg-amber-50 rounded-lg transition-colors"
+                                                title="Editar RDO"
+                                            >
+                                                <Edit size={18} />
+                                            </button>
+                                            <button 
+                                                onClick={() => handleDelete(report.id)}
+                                                className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                                                title="Excluir RDO"
+                                            >
+                                                <Trash2 size={18} />
+                                            </button>
                                         </div>
                                     </div>
                                 </div>
@@ -146,8 +195,16 @@ const DailyReportsPage: React.FC = () => {
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
                     <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden animate-in zoom-in-95 duration-200">
                         <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50">
-                            <h2 className="text-xl font-bold text-slate-800">Lançar Diário de Obra (RDO)</h2>
-                            <button onClick={() => setIsFormOpen(false)} className="text-slate-400 hover:text-slate-600 transition-colors">
+                            <h2 className="text-xl font-bold text-slate-800">
+                                {editingReport ? 'Editar Diário de Obra' : 'Lançar Diário de Obra (RDO)'}
+                            </h2>
+                            <button 
+                                onClick={() => {
+                                    setIsFormOpen(false);
+                                    setEditingReport(null);
+                                }} 
+                                className="text-slate-400 hover:text-slate-600 transition-colors"
+                            >
                                 <Plus size={24} className="rotate-45" />
                             </button>
                         </div>

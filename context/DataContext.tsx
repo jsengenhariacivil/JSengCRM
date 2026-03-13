@@ -87,9 +87,12 @@ interface DataContextType {
   // Engenharia (Fase 2)
   measurements: Measurement[];
   addMeasurement: (measurement: Measurement) => Promise<void>;
+  deleteMeasurement: (id: string) => Promise<void>;
+  updateMeasurement: (measurement: Measurement) => Promise<void>;
   dailyReports: DailyReport[];
   addDailyReport: (report: DailyReport) => Promise<void>;
   updateDailyReport: (report: DailyReport) => Promise<void>;
+  deleteDailyReport: (id: string) => Promise<void>;
 
   // Planejamento (Fase 2 - Etapa 2)
   projectTasks: ProjectTask[];
@@ -1679,6 +1682,61 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
+  const updateMeasurement = async (measurement: Measurement) => {
+    const oldMeasurement = measurements.find(m => m.id === measurement.id);
+    const { error } = await supabase.from('measurements').update({
+      description: measurement.description,
+      date: measurement.date,
+      percentage: measurement.percentage,
+      value: measurement.value,
+      status: measurement.status
+    }).eq('id', measurement.id);
+
+    if (!error) {
+      setMeasurements(prev => prev.map(m => m.id === measurement.id ? measurement : m));
+
+      // Reajustar progresso da obra se a porcentagem mudou
+      if (oldMeasurement && oldMeasurement.percentage !== measurement.percentage) {
+        const project = projects.find(p => p.id === measurement.projectId);
+        if (project) {
+          const newProgress = Math.min(100, (project.progress - oldMeasurement.percentage) + measurement.percentage);
+          await updateProject({ ...project, progress: newProgress });
+        }
+      }
+
+      // Atualizar registro financeiro correspondente
+      await updateFinancialRecord({
+        id: `M-${measurement.id}`,
+        type: 'Receita',
+        description: `Medição: ${measurement.description} - Obra: ${projects.find(p => p.id === measurement.projectId)?.title || measurement.projectId}`,
+        amount: measurement.value,
+        date: measurement.date,
+        status: measurement.status,
+        category: 'Obra',
+        projectId: measurement.projectId
+      });
+    }
+  };
+
+  const deleteMeasurement = async (id: string) => {
+    const measurement = measurements.find(m => m.id === id);
+    const { error } = await supabase.from('measurements').delete().eq('id', id);
+
+    if (!error && measurement) {
+      setMeasurements(prev => prev.filter(m => m.id !== id));
+
+      // Estornar progresso da obra
+      const project = projects.find(p => p.id === measurement.projectId);
+      if (project) {
+        const newProgress = Math.max(0, (project.progress || 0) - measurement.percentage);
+        await updateProject({ ...project, progress: newProgress });
+      }
+
+      // Remover registro financeiro correspondente
+      await deleteFinancialRecord(`M-${id}`);
+    }
+  };
+
   // --- DAILY REPORTS ---
   const addDailyReport = async (report: DailyReport) => {
     const { data, error } = await supabase.from('daily_reports').insert([{
@@ -1709,6 +1767,13 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }).eq('id', report.id);
 
     setDailyReports(prev => prev.map(r => r.id === report.id ? report : r));
+  };
+
+  const deleteDailyReport = async (id: string) => {
+    const { error } = await supabase.from('daily_reports').delete().eq('id', id);
+    if (!error) {
+      setDailyReports(prev => prev.filter(r => r.id !== id));
+    }
   };
 
   // --- PROJECT TASKS ---
@@ -2364,8 +2429,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       agendaEventos, addAgendaEvent, updateAgendaEvent, deleteAgendaEvent, syncAgendaEvent,
       notifications, markNotificationAsRead, addNotification,
       proposalHistory, addProposalHistory,
-      measurements, addMeasurement,
-      dailyReports, addDailyReport, updateDailyReport,
+      measurements, addMeasurement, updateMeasurement, deleteMeasurement,
+      dailyReports, addDailyReport, updateDailyReport, deleteDailyReport,
       projectTasks, addProjectTask, updateProjectTask, deleteProjectTask,
       projectMilestones, addProjectMilestone, updateProjectMilestone, deleteProjectMilestone,
       leads, addLead, updateLead, deleteLead, addLeadInteraction,
