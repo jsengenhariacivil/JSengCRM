@@ -32,18 +32,20 @@ const Engineering: React.FC = () => {
             let finalUrl = formData.fileUrl || '';
 
             if (formData.documentType !== 'Link' && selectedFile) {
-                // Sanitizar nome do arquivo (remover espaços e caracteres especiais)
+                // Sanitização ultra-robusta
                 const sanitizedFileName = selectedFile.name
-                    .replace(/\s+/g, '_')           // Troca espaços por underline
-                    .normalize('NFD')               // Normaliza para separar acentos
-                    .replace(/[\u0300-\u036f]/g, '') // Remove acentos
-                    .replace(/[^a-zA-Z0-9._-]/g, ''); // Remove qualquer coisa que não seja básico
+                    .normalize('NFD')
+                    .replace(/[\u0300-\u036f]/g, '')
+                    .replace(/\s+/g, '_')
+                    .replace(/[^a-zA-Z0-9._-]/g, '_')
+                    .replace(/_{2,}/g, '_'); // Evita múltiplos ____
 
                 const fileName = `${Date.now()}_${sanitizedFileName}`;
                 const path = formData.projectId
                     ? `projects/${formData.projectId}/${fileName}`
                     : `general/${fileName}`;
 
+                console.log("Tentando upload para path:", path);
                 finalUrl = await uploadFile('documents', path, selectedFile);
             }
 
@@ -66,7 +68,7 @@ const Engineering: React.FC = () => {
         } catch (error: any) {
             console.error("Erro ao salvar documento:", error);
             const errorMessage = error.message || (typeof error === 'string' ? error : "Erro desconhecido");
-            alert(`Erro ao salvar documento: ${errorMessage}. Verifique se você executou o arquivo storage_setup.sql no console do Supabase.`);
+            alert(`Erro ao salvar documento: ${errorMessage}.\n\nSe o erro for 'Invalid key', tente renomear o arquivo no seu computador para algo simples (sem espaços ou acentos) antes de subir.`);
         } finally {
             setIsUploading(false);
         }
