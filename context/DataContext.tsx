@@ -1655,17 +1655,26 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       date: measurement.date,
       percentage: measurement.percentage,
       value: measurement.value,
-      status: measurement.status
+      status: measurement.status,
+      photos: measurement.photos
     }]).select().single();
 
     if (!error && data) {
       setMeasurements(prev => [{ ...measurement, id: data.id }, ...prev]);
 
-      // Atualizar progresso da obra
+      // Recalcular progresso da obra somando todas as medições
+      const projectMeasurements = measurements.filter(m => m.projectId === measurement.projectId);
+      // O measurements ainda não tem a nova medição no momento do filter se usarmos o estado diretamente, 
+      // mas adicionamos ela agora no estado localmente. 
+      // Melhor: usar uma constante com a lista atualizada.
+      const updatedMeasurements = [{ ...measurement, id: data.id }, ...measurements];
+      const totalProgress = Math.min(100, updatedMeasurements
+        .filter(m => m.projectId === measurement.projectId)
+        .reduce((sum, m) => sum + m.percentage, 0));
+
       const project = projects.find(p => p.id === measurement.projectId);
       if (project) {
-        const newProgress = Math.min(100, (project.progress || 0) + measurement.percentage);
-        await updateProject({ ...project, progress: newProgress });
+        await updateProject({ ...project, progress: totalProgress });
       }
 
       // Adicionar registro financeiro (Receita)
@@ -1689,19 +1698,22 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       date: measurement.date,
       percentage: measurement.percentage,
       value: measurement.value,
-      status: measurement.status
+      status: measurement.status,
+      photos: measurement.photos
     }).eq('id', measurement.id);
 
     if (!error) {
       setMeasurements(prev => prev.map(m => m.id === measurement.id ? measurement : m));
 
-      // Reajustar progresso da obra se a porcentagem mudou
-      if (oldMeasurement && oldMeasurement.percentage !== measurement.percentage) {
-        const project = projects.find(p => p.id === measurement.projectId);
-        if (project) {
-          const newProgress = Math.min(100, (project.progress - oldMeasurement.percentage) + measurement.percentage);
-          await updateProject({ ...project, progress: newProgress });
-        }
+      // Recalcular progresso da obra somando todas as medições
+      const updatedMeasurements = measurements.map(m => m.id === measurement.id ? measurement : m);
+      const totalProgress = Math.min(100, updatedMeasurements
+        .filter(m => m.projectId === measurement.projectId)
+        .reduce((sum, m) => sum + m.percentage, 0));
+
+      const project = projects.find(p => p.id === measurement.projectId);
+      if (project) {
+        await updateProject({ ...project, progress: totalProgress });
       }
 
       // Atualizar registro financeiro correspondente
@@ -1725,11 +1737,15 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     if (!error && measurement) {
       setMeasurements(prev => prev.filter(m => m.id !== id));
 
-      // Estornar progresso da obra
+      // Recalcular progresso da obra
+      const updatedMeasurements = measurements.filter(m => m.id !== id); // Filter out the deleted measurement
+      const totalProgress = Math.min(100, updatedMeasurements
+        .filter(m => m.projectId === measurement.projectId)
+        .reduce((sum, m) => sum + m.percentage, 0));
+
       const project = projects.find(p => p.id === measurement.projectId);
       if (project) {
-        const newProgress = Math.max(0, (project.progress || 0) - measurement.percentage);
-        await updateProject({ ...project, progress: newProgress });
+        await updateProject({ ...project, progress: totalProgress });
       }
 
       // Remover registro financeiro correspondente
@@ -1747,7 +1763,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       labor_total: report.laborTotal,
       equipment_notes: report.equipmentNotes,
       activities_notes: report.activitiesNotes,
-      occurrences_notes: report.occurrencesNotes
+      occurrences_notes: report.occurrencesNotes,
+      photos: report.photos
     }]).select().single();
 
     if (!error && data) {
@@ -1763,7 +1780,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       labor_total: report.laborTotal,
       equipment_notes: report.equipmentNotes,
       activities_notes: report.activitiesNotes,
-      occurrences_notes: report.occurrencesNotes
+      occurrences_notes: report.occurrencesNotes,
+      photos: report.photos
     }).eq('id', report.id);
 
     setDailyReports(prev => prev.map(r => r.id === report.id ? report : r));

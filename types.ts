@@ -243,6 +243,7 @@ export interface Measurement {
   percentage: number; // Percentual desta medição (ex: 15%)
   value: number; // Valor financeiro correspondente
   status: Status;
+  photos?: string[];
 }
 
 export interface DailyReport {
@@ -255,15 +256,8 @@ export interface DailyReport {
   equipmentNotes: string;
   activitiesNotes: string;
   occurrencesNotes: string;
-  images?: DailyReportImage[];
+  photos?: string[];
   createdAt: string;
-}
-
-export interface DailyReportImage {
-  id: string;
-  reportId: string;
-  url: string;
-  caption?: string;
 }
 
 // --- NOVAS INTERFACES DE PLANEJAMENTO (ETAPA 2) ---

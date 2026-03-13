@@ -1,8 +1,9 @@
 
 import React, { useState } from 'react';
-import { Plus, BarChart3, TrendingUp, DollarSign, Calendar, Search, Building, CheckCircle2, Trash2, Edit, Scissors } from 'lucide-react';
+import { Plus, BarChart3, TrendingUp, DollarSign, Calendar, Search, Building, CheckCircle2, Trash2, Edit, Scissors, Camera, Image as ImageIcon, X } from 'lucide-react';
 import { useData } from '../context/DataContext';
 import { Status, Measurement } from '../types';
+import { supabase } from '../supabaseClient';
 
 const MeasurementsPage: React.FC = () => {
     const { projects, measurements, addMeasurement, updateMeasurement, deleteMeasurement } = useData();
@@ -18,8 +19,11 @@ const MeasurementsPage: React.FC = () => {
         unit: 'un',
         unitPrice: 0,
         quantity: 0,
-        date: new Date().toISOString().split('T')[0]
+        date: new Date().toISOString().split('T')[0],
+        photos: [] as string[]
     });
+
+    const [isUploading, setIsUploading] = useState(false);
 
     const filteredMeasurements = measurements.filter(m => {
         const matchesProject = selectedProjectId ? m.projectId === selectedProjectId : true;
@@ -75,7 +79,8 @@ const MeasurementsPage: React.FC = () => {
             unit: 'un',
             unitPrice: 0,
             quantity: 0,
-            date: new Date().toISOString().split('T')[0] 
+            date: new Date().toISOString().split('T')[0],
+            photos: []
         });
     };
 
@@ -88,7 +93,8 @@ const MeasurementsPage: React.FC = () => {
             unit: 'un', // Placeholder, idealmente viria do objeto Measurement
             unitPrice: 0,
             quantity: 0,
-            date: m.date
+            date: m.date,
+            photos: m.photos || []
         });
         setMeasurementType('percent');
         setIsFormOpen(true);
@@ -193,6 +199,14 @@ const MeasurementsPage: React.FC = () => {
                                             <div>
                                                 <p className="text-xs font-bold text-[#c79229] uppercase mb-0.5">{project?.title || 'Obra'}</p>
                                                 <p className="text-sm font-medium text-slate-800">{m.description}</p>
+                                                {m.photos && m.photos.length > 0 && (
+                                                    <div className="flex gap-1 mt-1">
+                                                        {m.photos.slice(0, 3).map((url, i) => (
+                                                            <img key={i} src={url} className="w-6 h-6 rounded object-cover border border-slate-200" alt="" />
+                                                        ))}
+                                                        {m.photos.length > 3 && <span className="text-[10px] text-slate-400">+{m.photos.length - 3}</span>}
+                                                    </div>
+                                                )}
                                             </div>
                                         </td>
                                         <td className="px-6 py-4 text-sm text-slate-500">
@@ -404,29 +418,61 @@ const MeasurementsPage: React.FC = () => {
                                 </div>
                             )}
 
-                            {selectedProjectId && (
-                                <div className="p-4 bg-green-50 rounded-xl border border-green-100 space-y-2">
-                                    <div className="flex justify-between items-center">
-                                        <div className="flex items-center gap-2">
-                                            <DollarSign size={16} className="text-green-600" />
-                                            <span className="text-sm font-bold text-green-800">Resumo da Medição</span>
+                            <div>
+                                <label className="block text-sm font-bold text-slate-700 mb-2">Fotos do Serviço</label>
+                                <div className="grid grid-cols-4 gap-2 mb-2">
+                                    {newMeasure.photos.map((url, idx) => (
+                                        <div key={idx} className="relative aspect-square rounded-lg overflow-hidden border border-slate-200">
+                                            <img src={url} className="w-full h-full object-cover" alt="" />
+                                            <button
+                                                type="button"
+                                                onClick={() => setNewMeasure(prev => ({ ...prev, photos: prev.photos.filter((_, i) => i !== idx) }))}
+                                                className="absolute top-1 right-1 bg-red-500 text-white p-0.5 rounded-full shadow-sm"
+                                            >
+                                                <X size={12} />
+                                            </button>
                                         </div>
-                                        {measurementType === 'unit' && newMeasure.unitPrice > 0 && newMeasure.quantity > 0 && (
-                                            <span className="text-[10px] font-black bg-green-200 text-green-800 px-2 py-0.5 rounded uppercase">
-                                                +{Math.round(((newMeasure.unitPrice * newMeasure.quantity) / (projects.find(p => p.id === selectedProjectId)?.budget || 1)) * 10000) / 100}% da obra
-                                            </span>
-                                        )}
-                                    </div>
-                                    <p className="text-2xl font-black text-green-600">
-                                        R$ {
-                                            (measurementType === 'percent' 
-                                                ? ((projects.find(p => p.id === selectedProjectId)?.budget || 0) * (newMeasure.percentage / 100))
-                                                : (newMeasure.unitPrice * newMeasure.quantity)
-                                            ).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-                                        }
-                                    </p>
+                                    ))}
+                                    <label className={`flex flex-col items-center justify-center aspect-square rounded-lg border-2 border-dashed border-slate-200 hover:border-[#c79229] hover:bg-amber-50 cursor-pointer transition-all ${isUploading ? 'opacity-50 cursor-wait' : ''}`}>
+                                        <Camera size={20} className="text-slate-400" />
+                                        <span className="text-[10px] font-bold text-slate-400 mt-1">{isUploading ? 'Enviando...' : 'Adicionar'}</span>
+                                        <input
+                                            type="file"
+                                            accept="image/*"
+                                            capture="environment"
+                                            className="hidden"
+                                            disabled={isUploading}
+                                            onChange={async (e) => {
+                                                const file = e.target.files?.[0];
+                                                if (!file || !selectedProjectId) return;
+                                                
+                                                setIsUploading(true);
+                                                try {
+                                                    const fileExt = file.name.split('.').pop();
+                                                    const fileName = `measure_${Date.now()}.${fileExt}`;
+                                                    const filePath = `${selectedProjectId}/${fileName}`;
+
+                                                    const { error: uploadError } = await supabase.storage
+                                                        .from('project-photos')
+                                                        .upload(filePath, file);
+
+                                                    if (uploadError) throw uploadError;
+
+                                                    const { data: { publicUrl } } = supabase.storage
+                                                        .from('project-photos')
+                                                        .getPublicUrl(filePath);
+
+                                                    setNewMeasure(prev => ({ ...prev, photos: [...prev.photos, publicUrl] }));
+                                                } catch (err: any) {
+                                                    alert('Erro no upload: ' + err.message);
+                                                } finally {
+                                                    setIsUploading(false);
+                                                }
+                                            }}
+                                        />
+                                    </label>
                                 </div>
-                            )}
+                            </div>
 
                             <div className="pt-4 flex gap-3">
                                 <button

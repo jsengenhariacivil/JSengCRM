@@ -1,8 +1,9 @@
 
 import React, { useState } from 'react';
-import { Plus, FileText, Sun, CloudRain, Calendar, Search, Building, MoreVertical, Edit, Trash2 } from 'lucide-react';
+import { Plus, FileText, Sun, CloudRain, Calendar, Search, Building, MoreVertical, Edit, Trash2, Camera, Image as ImageIcon, X } from 'lucide-react';
 import { useData } from '../context/DataContext';
 import { DailyReport } from '../types';
+import { supabase } from '../supabaseClient';
 
 const DailyReportsPage: React.FC = () => {
     const { projects, dailyReports, addDailyReport, updateDailyReport, deleteDailyReport } = useData();
@@ -18,8 +19,11 @@ const DailyReportsPage: React.FC = () => {
         laborTotal: 0,
         equipmentNotes: '',
         activitiesNotes: '',
-        occurrencesNotes: ''
+        occurrencesNotes: '',
+        photos: [] as string[]
     });
+
+    const [isUploading, setIsUploading] = useState(false);
 
     const filteredReports = dailyReports.filter(report => {
         const matchesProject = selectedProjectId ? report.projectId === selectedProjectId : true;
@@ -57,7 +61,8 @@ const DailyReportsPage: React.FC = () => {
             laborTotal: 0,
             equipmentNotes: '',
             activitiesNotes: '',
-            occurrencesNotes: ''
+            occurrencesNotes: '',
+            photos: []
         });
     };
 
@@ -71,7 +76,8 @@ const DailyReportsPage: React.FC = () => {
             laborTotal: report.laborTotal,
             equipmentNotes: report.equipmentNotes || '',
             activitiesNotes: report.activitiesNotes,
-            occurrencesNotes: report.occurrencesNotes || ''
+            occurrencesNotes: report.occurrencesNotes || '',
+            photos: report.photos || []
         });
         setIsFormOpen(true);
     };
@@ -176,7 +182,15 @@ const DailyReportsPage: React.FC = () => {
                                 </div>
                                 <div className="bg-slate-50/50 p-4 rounded-lg border border-slate-100">
                                     <h4 className="text-xs font-bold text-slate-400 uppercase mb-2">Atividades do Dia</h4>
-                                    <p className="text-slate-700 whitespace-pre-wrap">{report.activitiesNotes}</p>
+                                    <p className="text-slate-700 whitespace-pre-wrap mb-4">{report.activitiesNotes}</p>
+                                    
+                                    {report.photos && report.photos.length > 0 && (
+                                        <div className="flex flex-wrap gap-2">
+                                            {report.photos.map((url, i) => (
+                                                <img key={i} src={url} className="w-20 h-20 rounded-lg object-cover border border-slate-200" alt="" />
+                                            ))}
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         );
@@ -286,6 +300,62 @@ const DailyReportsPage: React.FC = () => {
                                         value={newRDO.activitiesNotes}
                                         onChange={e => setNewRDO({ ...newRDO, activitiesNotes: e.target.value })}
                                     />
+                                </div>
+
+                                <div className="col-span-2">
+                                    <label className="block text-sm font-bold text-slate-700 mb-2">Fotos do Dia</label>
+                                    <div className="grid grid-cols-4 sm:grid-cols-6 gap-2 mb-2">
+                                        {newRDO.photos.map((url, idx) => (
+                                            <div key={idx} className="relative aspect-square rounded-lg overflow-hidden border border-slate-200">
+                                                <img src={url} className="w-full h-full object-cover" alt="" />
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setNewRDO(prev => ({ ...prev, photos: prev.photos.filter((_, i) => i !== idx) }))}
+                                                    className="absolute top-1 right-1 bg-red-500 text-white p-0.5 rounded-full shadow-sm"
+                                                >
+                                                    <X size={12} />
+                                                </button>
+                                            </div>
+                                        ))}
+                                        <label className={`flex flex-col items-center justify-center aspect-square rounded-lg border-2 border-dashed border-slate-200 hover:border-[#c79229] hover:bg-amber-50 cursor-pointer transition-all ${isUploading ? 'opacity-50 cursor-wait' : ''}`}>
+                                            <Camera size={20} className="text-slate-400" />
+                                            <span className="text-[10px] font-bold text-slate-400 mt-1">{isUploading ? '...' : 'Adicionar'}</span>
+                                            <input
+                                                type="file"
+                                                accept="image/*"
+                                                capture="environment"
+                                                className="hidden"
+                                                disabled={isUploading}
+                                                onChange={async (e) => {
+                                                    const file = e.target.files?.[0];
+                                                    if (!file || !selectedProjectId) return;
+                                                    
+                                                    setIsUploading(true);
+                                                    try {
+                                                        const fileExt = file.name.split('.').pop();
+                                                        const fileName = `rdo_${Date.now()}.${fileExt}`;
+                                                        const filePath = `${selectedProjectId}/${fileName}`;
+
+                                                        const { error: uploadError } = await supabase.storage
+                                                            .from('project-photos')
+                                                            .upload(filePath, file);
+
+                                                        if (uploadError) throw uploadError;
+
+                                                        const { data: { publicUrl } } = supabase.storage
+                                                            .from('project-photos')
+                                                            .getPublicUrl(filePath);
+
+                                                        setNewRDO(prev => ({ ...prev, photos: [...prev.photos, publicUrl] }));
+                                                    } catch (err: any) {
+                                                        alert('Erro no upload: ' + err.message);
+                                                    } finally {
+                                                        setIsUploading(false);
+                                                    }
+                                                }}
+                                            />
+                                        </label>
+                                    </div>
                                 </div>
                             </div>
 
