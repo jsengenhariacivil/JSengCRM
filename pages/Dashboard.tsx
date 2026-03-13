@@ -57,8 +57,7 @@ const Dashboard: React.FC = () => {
   const chartData = useMemo(() => {
     const monthlyMap = new Map<string, { name: string; receita: number; despesa: number; sortDate: number }>();
 
-    financials.forEach(record => {
-      // REMOVIDO: if (record.status !== Status.PAID) return; 
+    financials.filter(r => r.financial_entity === 'PJ' || !r.financial_entity).forEach(record => {
       // Agora mostramos tudo que foi lançado para dar feedback visual imediato
 
       const date = new Date(record.date);
@@ -88,7 +87,7 @@ const Dashboard: React.FC = () => {
     const categories: Record<string, number> = {};
 
     financials
-      .filter(f => f.type === 'Despesa') // Removido filtro de Status.PAID
+      .filter(f => f.type === 'Despesa' && (f.financial_entity === 'PJ' || !f.financial_entity)) // Apenas PJ
       .forEach(f => {
         categories[f.category] = (categories[f.category] || 0) + f.amount;
       });
@@ -175,7 +174,7 @@ const Dashboard: React.FC = () => {
 
   // Totais Gerais (Visão de Competência)
   const totalRevenue = useMemo(() => financials
-    .filter(f => f.type === 'Receita')
+    .filter(f => f.type === 'Receita' && (f.financial_entity === 'PJ' || !f.financial_entity))
     .reduce((acc, curr) => acc + curr.amount, 0), [financials]);
 
   const totalContractedVolume = useMemo(() => projects

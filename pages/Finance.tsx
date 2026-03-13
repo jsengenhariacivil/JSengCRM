@@ -10,8 +10,7 @@ const Finance: React.FC = () => {
   const [filterType, setFilterType] = useState<'All' | 'Receita' | 'Despesa'>('All');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-
-  // New features state
+  const [currentEntity, setCurrentEntity] = useState<'PJ' | 'Pessoal'>('PJ');
   const [paymentForm, setPaymentForm] = useState<'unique' | 'installment' | 'recurring'>('unique');
   const [installmentCount, setInstallmentCount] = useState(1);
   const [installmentEntryValue, setInstallmentEntryValue] = useState(0);
@@ -25,13 +24,15 @@ const Finance: React.FC = () => {
     amount: 0,
     category: '',
     date: new Date().toISOString().split('T')[0],
-    status: Status.PENDING
+    status: Status.PENDING,
+    financial_entity: 'PJ'
   });
 
   const filteredData = financials.filter(item => {
     const matchesType = filterType === 'All' ? true : item.type === filterType;
     const matchesMonth = item.date.startsWith(selectedMonth);
-    return matchesType && matchesMonth;
+    const matchesEntity = item.financial_entity === currentEntity || (!item.financial_entity && currentEntity === 'PJ');
+    return matchesType && matchesMonth && matchesEntity;
   });
 
   const handleExport = () => {
@@ -68,7 +69,8 @@ const Finance: React.FC = () => {
       category: item.category,
       date: item.date.split('T')[0],
       status: item.status,
-      projectId: item.projectId
+      projectId: item.projectId,
+      financial_entity: item.financial_entity || 'PJ'
     });
     setIsModalOpen(true);
   };
@@ -83,7 +85,8 @@ const Finance: React.FC = () => {
       amount: 0,
       category: '',
       date: new Date().toISOString().split('T')[0],
-      status: Status.PENDING
+      status: Status.PENDING,
+      financial_entity: currentEntity
     });
     setIsModalOpen(true);
   };
@@ -101,11 +104,8 @@ const Finance: React.FC = () => {
         date: newTransaction.date || new Date().toISOString(),
         category: newTransaction.category || 'Geral',
         status: newTransaction.status as Status,
-        projectId: newTransaction.projectId,
-        parentRecordId: newTransaction.parentRecordId,
-        installmentNumber: newTransaction.installmentNumber,
-        totalInstallments: newTransaction.totalInstallments,
-        isRecurring: newTransaction.isRecurring
+        isRecurring: newTransaction.isRecurring,
+        financial_entity: newTransaction.financial_entity as any || 'PJ'
       });
     } else {
       const baseRecord: Partial<FinancialRecord> = {
@@ -115,7 +115,8 @@ const Finance: React.FC = () => {
         date: newTransaction.date || new Date().toISOString(),
         category: newTransaction.category || 'Geral',
         status: newTransaction.status as Status,
-        projectId: newTransaction.projectId
+        projectId: newTransaction.projectId,
+        financial_entity: newTransaction.financial_entity as any || 'PJ'
       };
 
       if (paymentForm === 'unique') {
@@ -271,6 +272,28 @@ const Finance: React.FC = () => {
         </div>
       </div>
 
+      {/* Entidade Selector (Tabs Superiores) */}
+      <div className="flex p-1 bg-slate-100/80 rounded-xl w-full sm:w-fit border border-slate-200">
+        <button
+          onClick={() => setCurrentEntity('PJ')}
+          className={`flex-1 sm:flex-none px-6 py-2.5 rounded-lg text-sm font-bold transition-all ${currentEntity === 'PJ'
+            ? 'bg-[#181418] text-[#c79229] shadow-md'
+            : 'text-slate-500 hover:text-slate-800'
+          }`}
+        >
+          Configurações da Empresa (PJ)
+        </button>
+        <button
+          onClick={() => setCurrentEntity('Pessoal')}
+          className={`flex-1 sm:flex-none px-6 py-2.5 rounded-lg text-sm font-bold transition-all ${currentEntity === 'Pessoal'
+            ? 'bg-[#181418] text-[#c79229] shadow-md'
+            : 'text-slate-500 hover:text-slate-800'
+          }`}
+        >
+          Minhas Finanças (Pessoal)
+        </button>
+      </div>
+
       {/* Tabs e Resumo Rápido */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div className="flex space-x-1 bg-slate-200 p-1 rounded-lg w-fit">
@@ -290,13 +313,17 @@ const Finance: React.FC = () => {
 
         <div className="flex gap-4">
           <div className="text-right">
-            <p className="text-[10px] text-slate-500 uppercase font-bold">Receitas no Mês</p>
+            <p className="text-[10px] text-slate-500 uppercase font-bold">
+              Receitas {currentEntity === 'PJ' ? 'PJ' : 'Pessoais'}
+            </p>
             <p className="text-sm font-bold text-green-600">
               R$ {filteredData.filter(i => i.type === 'Receita').reduce((acc, curr) => acc + curr.amount, 0).toLocaleString()}
             </p>
           </div>
           <div className="text-right border-l pl-4 border-slate-300">
-            <p className="text-[10px] text-slate-500 uppercase font-bold">Despesas no Mês</p>
+            <p className="text-[10px] text-slate-500 uppercase font-bold">
+              Despesas {currentEntity === 'PJ' ? 'PJ' : 'Pessoais'}
+            </p>
             <p className="text-sm font-bold text-red-600">
               R$ {filteredData.filter(i => i.type === 'Despesa').reduce((acc, curr) => acc + curr.amount, 0).toLocaleString()}
             </p>
@@ -396,6 +423,30 @@ const Finance: React.FC = () => {
 
             <form onSubmit={handleSaveTransaction} className="p-6 space-y-4">
               <div className="flex flex-col gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Destino do Lançamento</label>
+                  <div className="flex space-x-4 bg-slate-50 p-2 rounded-lg border border-slate-200">
+                    <label className="flex items-center space-x-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        checked={newTransaction.financial_entity === 'PJ'}
+                        onChange={() => setNewTransaction({ ...newTransaction, financial_entity: 'PJ' })}
+                        className="text-[#c79229] focus:ring-[#c79229]"
+                      />
+                      <span className="text-sm text-slate-700 font-medium">Empresa (PJ)</span>
+                    </label>
+                    <label className="flex items-center space-x-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        checked={newTransaction.financial_entity === 'Pessoal'}
+                        onChange={() => setNewTransaction({ ...newTransaction, financial_entity: 'Pessoal' })}
+                        className="text-[#c79229] focus:ring-[#c79229]"
+                      />
+                      <span className="text-sm text-slate-700 font-medium">Pessoal</span>
+                    </label>
+                  </div>
+                </div>
+
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Tipo</label>
                   <div className="flex space-x-4">
@@ -576,6 +627,9 @@ const Finance: React.FC = () => {
                     <option value="Materiais">Materiais</option>
                     <option value="Administrativo">Administrativo</option>
                     <option value="Taxas">Taxas</option>
+                    <option value="Pró-labore">Pró-labore</option>
+                    <option value="Retirada">Retirada</option>
+                    <option value="Pessoal">Pessoal (Geral)</option>
                   </select>
                 </div>
                 <div>

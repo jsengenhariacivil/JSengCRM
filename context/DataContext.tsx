@@ -940,11 +940,36 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         parent_record_id: r.parentRecordId,
         installment_number: r.installmentNumber,
         total_installments: r.totalInstallments,
-        is_recurring: r.isRecurring
+        is_recurring: r.isRecurring,
+        financial_entity: r.financial_entity || 'PJ'
       };
       if (r.id) data.id = r.id;
       return data;
     });
+
+    // Automação de Pró-labore/Retirada
+    const automatedRecords: any[] = [];
+    records.forEach(r => {
+      const isWithdrawal = r.type === 'Despesa' && 
+                          (r.category === 'Pró-labore' || r.category === 'Retirada') && 
+                          (r.financial_entity === 'PJ' || !r.financial_entity);
+      
+      if (isWithdrawal) {
+        automatedRecords.push({
+          type: 'Receita',
+          description: `[Automação] Pró-labore/Retirada: ${r.description}`,
+          amount: r.amount,
+          date: r.date,
+          status: r.status,
+          category: 'Pessoal',
+          financial_entity: 'Pessoal'
+        });
+      }
+    });
+
+    if (automatedRecords.length > 0) {
+      toInsert.push(...automatedRecords);
+    }
 
     const { data, error } = await supabase.from('financial_records').insert(toInsert).select();
 
@@ -961,7 +986,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         parentRecordId: d.parent_record_id,
         installmentNumber: d.installment_number,
         totalInstallments: d.total_installments,
-        isRecurring: d.is_recurring
+        isRecurring: d.is_recurring,
+        financial_entity: d.financial_entity
       }));
       setFinancials(prev => [...insertedRecords, ...prev]);
     } else if (error) {
@@ -982,7 +1008,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       parent_record_id: record.parentRecordId,
       installment_number: record.installmentNumber,
       total_installments: record.totalInstallments,
-      is_recurring: record.isRecurring
+      is_recurring: record.isRecurring,
+      financial_entity: record.financial_entity || 'PJ'
     }).eq('id', record.id);
 
     setFinancials(prev => prev.map(f => f.id === record.id ? record : f));
@@ -1158,8 +1185,15 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       // --- AUTOMATION: Lead Creation/Update ---
       try {
         const client = clients.find(c => c.id === proposal.clientId);
-        const searchName = proposal.clientName.trim().toLowerCase();
-        const existingLead = leads.find(l => l.name.trim().toLowerCase() === searchName);
+        const searchName = (proposal.clientName || client?.name || '').trim().toLowerCase();
+        const searchEmail = (client?.email || '').trim().toLowerCase();
+        
+        const existingLead = leads.find(l => 
+          l.name.trim().toLowerCase() === searchName || 
+          (searchEmail && l.email?.trim().toLowerCase() === searchEmail)
+        );
+
+        console.log(`[DEBUG Lead Auto] Buscando lead para: ${searchName} / ${searchEmail}. Encontrado: ${existingLead ? 'SIM' : 'NÃO'}`);
 
         if (existingLead) {
           if (existingLead.status !== 'Convertido') {
@@ -1173,7 +1207,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         } else {
           await addLead({
             id: '',
-            name: proposal.clientName,
+            name: proposal.clientName || client?.name || 'Cliente Novo',
             email: client?.email || '',
             phone: client?.phone || '',
             status: 'Negociação',
@@ -1359,8 +1393,15 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     // --- AUTOMATION: Lead Creation/Update ---
     try {
       const client = clients.find(c => c.id === proposal.clientId);
-      const searchName = proposal.clientName.trim().toLowerCase();
-      const existingLead = leads.find(l => l.name.trim().toLowerCase() === searchName);
+      const searchName = (proposal.clientName || client?.name || '').trim().toLowerCase();
+      const searchEmail = (client?.email || '').trim().toLowerCase();
+      
+      const existingLead = leads.find(l => 
+        l.name.trim().toLowerCase() === searchName || 
+        (searchEmail && l.email?.trim().toLowerCase() === searchEmail)
+      );
+
+      console.log(`[DEBUG Lead Auto Update] Buscando lead para: ${searchName}. Encontrado: ${existingLead ? 'SIM' : 'NÃO'}`);
 
       if (existingLead) {
         if (existingLead.status !== 'Convertido') {
@@ -1374,7 +1415,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       } else {
         await addLead({
           id: '',
-          name: proposal.clientName,
+          name: proposal.clientName || client?.name || 'Cliente Novo',
           email: client?.email || '',
           phone: client?.phone || '',
           status: proposal.status === Status.APPROVED ? 'Convertido' : 'Negociação',

@@ -34,6 +34,8 @@ export interface Project {
   proposalId?: string; // Link to the original proposal if automated
 }
 
+export type FinancialEntity = 'PJ' | 'Pessoal';
+
 export interface FinancialRecord {
   id: string;
   type: 'Receita' | 'Despesa';
@@ -47,6 +49,7 @@ export interface FinancialRecord {
   installmentNumber?: number;
   totalInstallments?: number;
   isRecurring?: boolean;
+  financial_entity?: FinancialEntity;
 }
 
 export interface Service {
