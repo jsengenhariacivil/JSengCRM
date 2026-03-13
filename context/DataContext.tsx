@@ -470,7 +470,16 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             type: t.type,
             email: t.email,
             phone: t.phone,
-            status: t.status
+            status: t.status,
+            gender: t.gender,
+            document_cpf: t.document_cpf,
+            document_rg: t.document_rg,
+            birth_date: t.birth_date,
+            admission_date: t.admission_date,
+            address: t.address,
+            emergency_contact: t.emergency_contact,
+            bank_pix: t.bank_pix,
+            bank_info: t.bank_info
           })));
         }
 
@@ -1399,7 +1408,16 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       type: member.type,
       email: member.email,
       phone: member.phone,
-      status: member.status
+      status: member.status,
+      gender: member.gender,
+      document_cpf: member.document_cpf,
+      document_rg: member.document_rg,
+      birth_date: member.birth_date,
+      admission_date: member.admission_date,
+      address: member.address,
+      emergency_contact: member.emergency_contact,
+      bank_pix: member.bank_pix,
+      bank_info: member.bank_info
     }]).select().single();
 
     if (error) throw new Error(error.message);
@@ -1415,7 +1433,16 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       type: member.type,
       email: member.email,
       phone: member.phone,
-      status: member.status
+      status: member.status,
+      gender: member.gender,
+      document_cpf: member.document_cpf,
+      document_rg: member.document_rg,
+      birth_date: member.birth_date,
+      admission_date: member.admission_date,
+      address: member.address,
+      emergency_contact: member.emergency_contact,
+      bank_pix: member.bank_pix,
+      bank_info: member.bank_info
     }).eq('id', member.id);
 
     if (error) throw new Error(error.message);

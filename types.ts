@@ -164,6 +164,16 @@ export interface TeamMember {
   email: string;
   phone: string;
   status: string;
+  // Novos campos para RH
+  gender?: string;
+  document_cpf?: string;
+  document_rg?: string;
+  birth_date?: string;
+  admission_date?: string;
+  address?: string;
+  emergency_contact?: string;
+  bank_pix?: string;
+  bank_info?: string;
 }
 
 export interface PaymentRecord {
