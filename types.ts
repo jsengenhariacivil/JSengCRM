@@ -373,6 +373,7 @@ export interface EngineeringDocument {
   projectId?: string;
   title: string;
   category: 'Planta' | 'Memorial' | 'Especificação' | 'Outros';
+  documentType: 'Link' | 'PDF' | 'Excel';
   fileUrl: string;
   version: string;
   uploadedBy: string;

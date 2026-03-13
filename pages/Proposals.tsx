@@ -1199,7 +1199,7 @@ const CreateProposal = ({ onCancel, onSave, initialData }: { onCancel: () => voi
 
 const Proposals: React.FC<ProposalsProps> = ({ viewMode = 'list', filterStatus }) => {
   const navigate = useNavigate();
-  const { proposals, addProposal, updateProposal, deleteProposal, updateProposalStatus, clients } = useData();
+  const { proposals, addProposal, updateProposal, deleteProposal, updateProposalStatus, clients, uploadFile } = useData();
   const { currentUser } = useAuth();
 
   const [isCreating, setIsCreating] = useState(viewMode === 'create');
@@ -1211,6 +1211,115 @@ const Proposals: React.FC<ProposalsProps> = ({ viewMode = 'list', filterStatus }
     setIsCreating(viewMode === 'create');
     if (viewMode !== 'create') setEditingProposal(null);
   }, [viewMode]);
+
+  const generateAndUploadPDF = async (proposal: Proposal) => {
+    // 1. Renderizar o conteúdo em um elemento oculto
+    const hiddenDiv = document.createElement('div');
+    hiddenDiv.style.position = 'absolute';
+    hiddenDiv.style.left = '-9999px';
+    hiddenDiv.style.top = '0';
+    hiddenDiv.id = 'automation-pdf-content';
+    document.body.appendChild(hiddenDiv);
+
+    // Encontrar o cliente para os detalhes
+    const client = clients.find(c => c.id === proposal.clientId) || {
+      name: proposal.clientName,
+      document: 'N/A',
+      address: 'N/A',
+      email: 'N/A'
+    };
+
+    // Usaremos um template simplificado mas profissional para automação
+    hiddenDiv.innerHTML = `
+        <div style="padding: 40px; font-family: sans-serif; color: #181418; background: white; width: 210mm; min-height: 297mm;">
+            <div style="display: flex; justify-content: space-between; border-bottom: 2px solid #c79229; padding-bottom: 20px; margin-bottom: 30px;">
+                <div>
+                    <h1 style="margin: 0; font-size: 24px;">PROPOSTA COMERCIAL</h1>
+                    <p style="margin: 5px 0 0 0; color: #c79229; font-weight: bold;">#${proposal.id.substring(0, 8).toUpperCase()}</p>
+                </div>
+                <div style="text-align: right;">
+                    <h2 style="margin: 0; font-size: 18px;">JS Engenharia</h2>
+                    <p style="margin: 5px 0 0 0; font-size: 12px; color: #666;">Data: ${new Date(proposal.date).toLocaleDateString()}</p>
+                </div>
+            </div>
+
+            <div style="background: #f8fafc; padding: 20px; border-radius: 8px; margin-bottom: 30px; border-left: 4px solid #c79229;">
+                <h3 style="margin: 0 0 10px 0; font-size: 12px; color: #c79229; text-transform: uppercase;">Cliente</h3>
+                <p style="margin: 0; font-weight: bold; font-size: 16px;">${client.name}</p>
+                <p style="margin: 5px 0 0 0; color: #666; font-size: 12px;">${client.document} | ${client.address}</p>
+            </div>
+
+            <table style="width: 100%; border-collapse: collapse; margin-bottom: 30px;">
+                <thead>
+                    <tr style="background: #181418; color: white;">
+                        <th style="padding: 10px; text-align: left; font-size: 12px;">Descrição</th>
+                        <th style="padding: 10px; text-align: center; font-size: 12px; width: 60px;">Und</th>
+                        <th style="padding: 10px; text-align: center; font-size: 12px; width: 60px;">Qtd</th>
+                        <th style="padding: 10px; text-align: right; font-size: 12px; width: 100px;">Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${(proposal.etapas && proposal.etapas.length > 0) ?
+        proposal.etapas.map(etapa => `
+                            <tr style="background: #eee; font-weight: bold;">
+                                <td colspan="4" style="padding: 8px 10px; font-size: 12px;">${etapa.name}</td>
+                            </tr>
+                            ${etapa.items.map(item => `
+                                <tr style="border-bottom: 1px solid #eee;">
+                                    <td style="padding: 10px; font-size: 12px;">${item.name}</td>
+                                    <td style="padding: 10px; text-align: center; font-size: 12px;">${item.unit || 'un'}</td>
+                                    <td style="padding: 10px; text-align: center; font-size: 12px;">${item.quantity}</td>
+                                    <td style="padding: 10px; text-align: right; font-size: 12px;">R$ ${(item.quantity * item.unitPrice).toLocaleString()}</td>
+                                </tr>
+                            `).join('')}
+                        `).join('') :
+        (proposal.items || []).map(item => `
+                            <tr style="border-bottom: 1px solid #eee;">
+                                <td style="padding: 10px; font-size: 12px;">${item.name}</td>
+                                <td style="padding: 10px; text-align: center; font-size: 12px;">${item.unit || 'un'}</td>
+                                <td style="padding: 10px; text-align: center; font-size: 12px;">${item.quantity}</td>
+                                <td style="padding: 10px; text-align: right; font-size: 12px;">R$ ${(item.quantity * item.unitPrice).toLocaleString()}</td>
+                            </tr>
+                        `).join('')
+      }
+                </tbody>
+            </table>
+
+            <div style="display: flex; justify-content: flex-end;">
+                <div style="width: 200px; background: #f8fafc; padding: 15px; border-radius: 8px;">
+                    <p style="margin: 0; font-size: 12px; color: #666;">Total da Proposta</p>
+                    <p style="margin: 5px 0 0 0; font-size: 20px; font-weight: 900; color: #c79229;">R$ ${proposal.total.toLocaleString()}</p>
+                </div>
+            </div>
+        </div>
+    `;
+
+    try {
+      const opt = {
+        margin: 0,
+        filename: `proposta_${proposal.id}.pdf`,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2, useCORS: true },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+      };
+
+      // @ts-ignore
+      if (window.html2pdf) {
+        // @ts-ignore
+        const pdfBlob = await window.html2pdf().set(opt).from(hiddenDiv).output('blob');
+
+        // Upload para o Storage
+        const path = `proposals/proposta_${proposal.id}.pdf`;
+        const file = new File([pdfBlob], `proposta_${proposal.id}.pdf`, { type: 'application/pdf' });
+        await uploadFile('documents', path, file);
+        console.log("PDF da proposta gerado e enviado com sucesso.");
+      }
+    } catch (err) {
+      console.error("Erro na automação de PDF:", err);
+    } finally {
+      document.body.removeChild(hiddenDiv);
+    }
+  };
 
   // HTML5 Drag and Drop Handlers
   const handleDragStart = (e: React.DragEvent, proposalId: string) => {
@@ -1230,6 +1339,11 @@ const Proposals: React.FC<ProposalsProps> = ({ viewMode = 'list', filterStatus }
       const proposal = proposals.find(p => p.id === proposalId);
       if (proposal && proposal.status !== newStatus) {
         await updateProposalStatus(proposalId, newStatus);
+
+        // Se aprovado, gerar PDF automaticamente
+        if (newStatus === Status.APPROVED) {
+          generateAndUploadPDF(proposal);
+        }
       }
     }
   };
@@ -1268,8 +1382,12 @@ const Proposals: React.FC<ProposalsProps> = ({ viewMode = 'list', filterStatus }
   };
 
   const handleApprove = async (id: string) => {
+    const proposal = proposals.find(p => p.id === id);
     await updateProposalStatus(id, Status.APPROVED);
-    alert(`Proposta #${id} aprovada com sucesso!`);
+    if (proposal) {
+      generateAndUploadPDF(proposal);
+    }
+    alert(`Proposta #${id} aprovada com sucesso! O PDF foi gerado e vinculado à nova obra.`);
   };
 
   const filteredProposals = filterStatus

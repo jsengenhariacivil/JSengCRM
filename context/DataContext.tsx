@@ -141,6 +141,7 @@ interface DataContextType {
   engineeringDocuments: EngineeringDocument[];
   addEngineeringDocument: (doc: EngineeringDocument) => Promise<void>;
   deleteEngineeringDocument: (id: string) => Promise<void>;
+  uploadFile: (bucket: string, path: string, file: File) => Promise<string>;
 
   qualityInspections: QualityInspection[];
   addQualityInspection: (inspection: QualityInspection) => Promise<void>;
@@ -661,6 +662,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             projectId: e.project_id,
             title: e.title,
             category: e.category,
+            documentType: (e.document_type as any) || 'Link',
             fileUrl: e.file_url,
             version: e.version,
             uploadedBy: e.uploaded_by,
@@ -1204,6 +1206,28 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             ...existingLead,
             status: 'Convertido',
             lastContact: new Date().toISOString()
+          });
+        }
+
+        // --- AUTOMATION: Proposal PDF Registration ---
+        // Buscamos o projeto recém criado para vincular o documento
+        const { data: newProj } = await supabase
+          .from('projects')
+          .select('id')
+          .eq('proposalId', id)
+          .single();
+
+        if (newProj) {
+          await addEngineeringDocument({
+            id: '',
+            projectId: newProj.id,
+            title: `Proposta Comercial - #${id.substring(0, 8)}`,
+            category: 'Memorial',
+            documentType: 'PDF',
+            fileUrl: `documents/proposals/proposta_${id}.pdf`,
+            version: '1.0',
+            uploadedBy: 'Sistema',
+            createdAt: new Date().toISOString()
           });
         }
       } else if (status === Status.REJECTED || status === Status.PENDING) {
@@ -2010,9 +2034,12 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   // --- CONTRACTS ---
   const addContract = async (contract: Contract) => {
     try {
+      const proposalId = contract.proposalId && contract.proposalId.trim() !== "" ? contract.proposalId : null;
+      const clientId = contract.clientId && contract.clientId.trim() !== "" ? contract.clientId : null;
+
       const { data, error } = await supabase.from('contracts').insert([{
-        proposal_id: contract.proposalId,
-        client_id: contract.clientId,
+        proposal_id: proposalId,
+        client_id: clientId,
         title: contract.title,
         value: contract.value,
         start_date: contract.startDate,
@@ -2040,15 +2067,31 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   const updateContract = async (contract: Contract) => {
-    await supabase.from('contracts').update({
-      title: contract.title,
-      value: contract.value,
-      start_date: contract.startDate,
-      end_date: contract.endDate,
-      status: contract.status,
-      terms: contract.terms
-    }).eq('id', contract.id);
-    setContracts(prev => prev.map(c => c.id === contract.id ? contract : c));
+    try {
+      const proposalId = contract.proposalId && contract.proposalId.trim() !== "" ? contract.proposalId : null;
+      const clientId = contract.clientId && contract.clientId.trim() !== "" ? contract.clientId : null;
+
+      const { error } = await supabase.from('contracts').update({
+        proposal_id: proposalId,
+        client_id: clientId,
+        title: contract.title,
+        value: contract.value,
+        start_date: contract.startDate,
+        end_date: contract.endDate,
+        status: contract.status,
+        terms: contract.terms
+      }).eq('id', contract.id);
+
+      if (error) {
+        console.error('Erro ao atualizar contrato:', error);
+        throw error;
+      }
+
+      setContracts(prev => prev.map(c => c.id === contract.id ? contract : c));
+    } catch (err) {
+      console.error('Erro em updateContract:', err);
+      throw err;
+    }
   };
 
   const deleteContract = async (id: string) => {
@@ -2059,9 +2102,12 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   // --- PURCHASE ORDERS ---
   const addPurchaseOrder = async (po: PurchaseOrder) => {
     try {
+      const projectId = po.projectId && po.projectId.trim() !== "" ? po.projectId : null;
+      const supplierId = po.supplierId && po.supplierId.trim() !== "" ? po.supplierId : null;
+
       const { data, error } = await supabase.from('purchase_orders').insert([{
-        supplier_id: po.supplierId,
-        project_id: po.projectId,
+        supplier_id: supplierId,
+        project_id: projectId,
         description: po.description,
         total_value: po.totalValue,
         date: po.date,
@@ -2097,11 +2143,26 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   const updatePurchaseOrder = async (po: PurchaseOrder) => {
-    await supabase.from('purchase_orders').update({
-      status: po.status,
-      description: po.description
-    }).eq('id', po.id);
-    setPurchaseOrders(prev => prev.map(p => p.id === po.id ? po : p));
+    try {
+      const projectId = po.projectId && po.projectId.trim() !== "" ? po.projectId : null;
+      const supplierId = po.supplierId && po.supplierId.trim() !== "" ? po.supplierId : null;
+
+      const { error } = await supabase.from('purchase_orders').update({
+        status: po.status,
+        description: po.description,
+        project_id: projectId,
+        supplier_id: supplierId,
+        total_value: po.totalValue,
+        date: po.date
+      }).eq('id', po.id);
+
+      if (error) throw error;
+
+      setPurchaseOrders(prev => prev.map(p => p.id === po.id ? po : p));
+    } catch (err) {
+      console.error('Erro em updatePurchaseOrder:', err);
+      throw err;
+    }
   };
 
   const deletePurchaseOrder = async (id: string) => {
@@ -2171,16 +2232,38 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   // --- ENGINEERING DOCUMENTS ---
+  const uploadFile = async (bucket: string, path: string, file: File) => {
+    const { data, error } = await supabase.storage.from(bucket).upload(path, file, {
+      cacheControl: '3600',
+      upsert: true
+    });
+    if (error) throw error;
+
+    const { data: { publicUrl } } = supabase.storage.from(bucket).getPublicUrl(path);
+    return publicUrl;
+  };
+
   const addEngineeringDocument = async (doc: EngineeringDocument) => {
+    const projectId = doc.projectId && doc.projectId.trim() !== "" ? doc.projectId : null;
+
     const { data, error } = await supabase.from('engineering_documents').insert([{
-      project_id: doc.projectId,
+      project_id: projectId,
       title: doc.title,
       category: doc.category,
+      document_type: doc.documentType || 'Link',
       file_url: doc.fileUrl,
       version: doc.version,
       uploaded_by: doc.uploadedBy
     }]).select().single();
-    if (!error && data) setEngineeringDocuments(prev => [{ ...doc, id: data.id, createdAt: data.created_at }, ...prev]);
+
+    if (!error && data) {
+      setEngineeringDocuments(prev => [{
+        ...doc,
+        id: data.id,
+        documentType: doc.documentType || 'Link',
+        createdAt: data.created_at
+      }, ...prev]);
+    }
   };
 
   const deleteEngineeringDocument = async (id: string) => {
@@ -2191,8 +2274,10 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   // --- QUALITY INSPECTIONS ---
   const addQualityInspection = async (inspection: QualityInspection) => {
     try {
+      const projectId = inspection.projectId && inspection.projectId.trim() !== "" ? inspection.projectId : null;
+
       const { data, error } = await supabase.from('quality_inspections').insert([{
-        project_id: inspection.projectId,
+        project_id: projectId,
         title: inspection.title,
         description: inspection.description,
         status: inspection.status,
@@ -2220,13 +2305,29 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   const updateQualityInspection = async (inspection: QualityInspection) => {
-    await supabase.from('quality_inspections').update({
-      title: inspection.title,
-      description: inspection.description,
-      status: inspection.status,
-      notes: inspection.notes
-    }).eq('id', inspection.id);
-    setQualityInspections(prev => prev.map(q => q.id === inspection.id ? inspection : q));
+    try {
+      const projectId = inspection.projectId && inspection.projectId.trim() !== "" ? inspection.projectId : null;
+
+      const { error } = await supabase.from('quality_inspections').update({
+        project_id: projectId,
+        title: inspection.title,
+        description: inspection.description,
+        status: inspection.status,
+        inspector: inspection.inspector,
+        date: inspection.date,
+        notes: inspection.notes
+      }).eq('id', inspection.id);
+
+      if (error) {
+        console.error('Erro ao atualizar inspeção no Supabase:', error);
+        throw new Error(`Erro ao atualizar inspeção: ${error.message}`);
+      }
+
+      setQualityInspections(prev => prev.map(q => q.id === inspection.id ? inspection : q));
+    } catch (err) {
+      console.error('Falha inesperada em updateQualityInspection:', err);
+      throw err;
+    }
   };
 
   const deleteQualityInspection = async (id: string) => {
@@ -2268,7 +2369,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       contracts, addContract, updateContract, deleteContract,
       purchaseOrders, addPurchaseOrder, updatePurchaseOrder, deletePurchaseOrder,
       safetyRecords, addSafetyRecord, updateSafetyRecord, deleteSafetyRecord,
-      engineeringDocuments, addEngineeringDocument, deleteEngineeringDocument,
+      engineeringDocuments, addEngineeringDocument, deleteEngineeringDocument, uploadFile,
       qualityInspections, addQualityInspection, updateQualityInspection, deleteQualityInspection,
       loading,
       refreshData

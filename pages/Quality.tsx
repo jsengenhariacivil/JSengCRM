@@ -132,7 +132,7 @@ const Quality: React.FC = () => {
                                             <span className="font-bold text-slate-700">{q.title}</span>
                                         </div>
                                     </td>
-                                    <td className="px-6 py-4 text-slate-600">{projects.find(p => p.id === q.projectId)?.title || 'N/A'}</td>
+                                    <td className="px-6 py-4 text-slate-600">{projects.find(p => p.id === q.projectId)?.title || 'Geral/Empresa'}</td>
                                     <td className="px-6 py-4 text-slate-600 italic">{q.inspector}</td>
                                     <td className="px-6 py-4 text-slate-500 font-mono text-xs">{new Date(q.date).toLocaleDateString()}</td>
                                     <td className="px-6 py-4">{getStatusBadge(q.status)}</td>

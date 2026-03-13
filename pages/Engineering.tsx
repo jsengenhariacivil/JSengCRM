@@ -4,7 +4,7 @@ import { useData } from '../context/DataContext';
 import { EngineeringDocument } from '../types';
 
 const Engineering: React.FC = () => {
-    const { engineeringDocuments, addEngineeringDocument, deleteEngineeringDocument, projects } = useData();
+    const { engineeringDocuments, addEngineeringDocument, deleteEngineeringDocument, projects, uploadFile } = useData();
     const [searchTerm, setSearchTerm] = useState('');
     const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -12,10 +12,13 @@ const Engineering: React.FC = () => {
         projectId: '',
         title: '',
         category: 'Outros',
+        documentType: 'Link',
         fileUrl: '',
         version: '1.0',
         uploadedBy: ''
     });
+    const [selectedFile, setSelectedFile] = useState<File | null>(null);
+    const [isUploading, setIsUploading] = useState(false);
 
     const filteredDocs = engineeringDocuments.filter(doc =>
         doc.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -24,8 +27,41 @@ const Engineering: React.FC = () => {
 
     const handleSave = async (e: React.FormEvent) => {
         e.preventDefault();
-        await addEngineeringDocument(formData as EngineeringDocument);
-        setIsModalOpen(false);
+        setIsUploading(true);
+        try {
+            let finalUrl = formData.fileUrl || '';
+
+            if (formData.documentType !== 'Link' && selectedFile) {
+                const fileName = `${Date.now()}_${selectedFile.name}`;
+                const path = formData.projectId
+                    ? `projects/${formData.projectId}/${fileName}`
+                    : `general/${fileName}`;
+
+                finalUrl = await uploadFile('documents', path, selectedFile);
+            }
+
+            await addEngineeringDocument({
+                ...formData,
+                fileUrl: finalUrl,
+            } as EngineeringDocument);
+
+            setIsModalOpen(false);
+            setFormData({
+                projectId: '',
+                title: '',
+                category: 'Outros',
+                documentType: 'Link',
+                fileUrl: '',
+                version: '1.0',
+                uploadedBy: ''
+            });
+            setSelectedFile(null);
+        } catch (error) {
+            console.error("Erro no upload:", error);
+            alert("Erro ao salvar documento. Verifique o console.");
+        } finally {
+            setIsUploading(false);
+        }
     };
 
     const getCategoryColor = (cat: string) => {
@@ -81,56 +117,120 @@ const Engineering: React.FC = () => {
                 </div>
 
                 <div className="overflow-x-auto">
-                    <table className="w-full text-left">
-                        <thead className="bg-slate-50 text-slate-500 font-bold text-xs uppercase tracking-wider border-b border-slate-100">
-                            <tr>
-                                <th className="px-6 py-4">Arquivo</th>
-                                <th className="px-6 py-4">Categoria</th>
-                                <th className="px-6 py-4">Obra</th>
-                                <th className="px-6 py-4">Versão</th>
-                                <th className="px-6 py-4">Data</th>
-                                <th className="px-6 py-4 text-right">Ações</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100 text-sm border-t border-slate-100">
-                            {filteredDocs.map((doc) => (
-                                <tr key={doc.id} className="hover:bg-slate-50 transition-colors group">
-                                    <td className="px-6 py-4">
-                                        <div className="flex items-center gap-3">
-                                            <div className="p-2 bg-slate-100 text-slate-400 rounded group-hover:bg-[#c79229]/10 group-hover:text-[#c79229] transition-colors">
-                                                <FileText size={20} />
-                                            </div>
-                                            <div>
-                                                <p className="font-bold text-slate-700">{doc.title}</p>
-                                                <p className="text-[10px] text-slate-400 font-mono truncate max-w-[150px]">{doc.fileUrl}</p>
-                                            </div>
-                                        </div>
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <span className={`px-2 py-1 rounded-full text-[10px] font-bold border uppercase ${getCategoryColor(doc.category)}`}>
-                                            {doc.category}
-                                        </span>
-                                    </td>
-                                    <td className="px-6 py-4 text-slate-600 truncate max-w-[200px]">{projects.find(p => p.id === doc.projectId)?.title || 'Geral'}</td>
-                                    <td className="px-6 py-4 font-mono font-bold text-slate-500 underline decoration-[#c79229]/30">v{doc.version}</td>
-                                    <td className="px-6 py-4 text-slate-400">{new Date(doc.createdAt).toLocaleDateString()}</td>
-                                    <td className="px-6 py-4 text-right">
-                                        <div className="flex items-center justify-end gap-2">
-                                            <a href={doc.fileUrl} target="_blank" rel="noopener noreferrer" className="p-1.5 text-[#c79229] hover:bg-[#c79229]/10 rounded-lg"><Download size={16} /></a>
-                                            <button onClick={() => deleteEngineeringDocument(doc.id)} className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg"><Trash2 size={16} /></button>
-                                        </div>
-                                    </td>
-                                </tr>
-                            ))}
-                            {filteredDocs.length === 0 && (
-                                <tr>
-                                    <td colSpan={6} className="px-6 py-12 text-center text-slate-400 italic bg-slate-50/20">
-                                        Nenhum documento técnico cadastrado.
-                                    </td>
-                                </tr>
-                            )}
-                        </tbody>
-                    </table>
+                    {/* Agrupamento por Obra */}
+                    {projects.map(project => {
+                        const projectDocs = filteredDocs.filter(d => d.projectId === project.id);
+                        if (projectDocs.length === 0) return null;
+
+                        return (
+                            <div key={project.id} className="border-b border-slate-100 last:border-0">
+                                <div className="bg-slate-100/30 px-6 py-3 flex items-center justify-between">
+                                    <h3 className="font-bold text-slate-700 flex items-center gap-2">
+                                        <Building size={16} className="text-[#c79229]" />
+                                        {project.title}
+                                    </h3>
+                                    <span className="bg-white px-2 py-0.5 rounded-full text-[10px] font-bold text-slate-400 border border-slate-200">
+                                        {projectDocs.length} documento(s)
+                                    </span>
+                                </div>
+                                <table className="w-full text-left">
+                                    <tbody className="divide-y divide-slate-100 text-sm">
+                                        {projectDocs.map((doc) => (
+                                            <tr key={doc.id} className="hover:bg-slate-50 transition-colors group">
+                                                <td className="px-6 py-4">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="p-2 bg-slate-100 text-slate-400 rounded group-hover:bg-[#c79229]/10 group-hover:text-[#c79229] transition-colors">
+                                                            {doc.documentType === 'Link' ? <ExternalLink size={20} /> : <FileText size={20} />}
+                                                        </div>
+                                                        <div>
+                                                            <p className="font-bold text-slate-700">{doc.title}</p>
+                                                            <p className="text-[10px] text-slate-400 font-mono truncate max-w-[250px]">{doc.fileUrl}</p>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    <span className={`px-2 py-1 rounded-full text-[10px] font-bold border uppercase ${getCategoryColor(doc.category)}`}>
+                                                        {doc.category}
+                                                    </span>
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    <span className={`px-2 py-0.5 rounded bg-slate-100 text-slate-500 font-bold text-[9px] uppercase`}>
+                                                        {doc.documentType}
+                                                    </span>
+                                                </td>
+                                                <td className="px-6 py-4 font-mono font-bold text-slate-500 underline decoration-[#c79229]/30">v{doc.version}</td>
+                                                <td className="px-6 py-4 text-slate-400">{new Date(doc.createdAt).toLocaleDateString()}</td>
+                                                <td className="px-6 py-4 text-right">
+                                                    <div className="flex items-center justify-end gap-2">
+                                                        <a href={doc.fileUrl} target="_blank" rel="noopener noreferrer" className="p-1.5 text-[#c79229] hover:bg-[#c79229]/10 rounded-lg">
+                                                            {doc.documentType === 'Link' ? <ExternalLink size={16} /> : <Download size={16} />}
+                                                        </a>
+                                                        <button onClick={() => deleteEngineeringDocument(doc.id)} className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg"><Trash2 size={16} /></button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        );
+                    })}
+
+                    {/* Documentos Gerais (Sem Obra) */}
+                    {filteredDocs.filter(d => !d.projectId).length > 0 && (
+                        <div className="border-b border-slate-100 last:border-0">
+                            <div className="bg-slate-100/30 px-6 py-3">
+                                <h3 className="font-bold text-slate-700 flex items-center gap-2 underline decoration-[#c79229]/30 underline-offset-4">
+                                    Documentos Gerais / Escritório
+                                </h3>
+                            </div>
+                            <table className="w-full text-left">
+                                <tbody className="divide-y divide-slate-100 text-sm">
+                                    {filteredDocs.filter(d => !d.projectId).map((doc) => (
+                                        <tr key={doc.id} className="hover:bg-slate-50 transition-colors group">
+                                            <td className="px-6 py-4">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="p-2 bg-slate-100 text-slate-400 rounded group-hover:bg-[#c79229]/10 group-hover:text-[#c79229] transition-colors">
+                                                        {doc.documentType === 'Link' ? <ExternalLink size={20} /> : <FileText size={20} />}
+                                                    </div>
+                                                    <div>
+                                                        <p className="font-bold text-slate-700">{doc.title}</p>
+                                                        <p className="text-[10px] text-slate-400 font-mono truncate max-w-[250px]">{doc.fileUrl}</p>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <span className={`px-2 py-1 rounded-full text-[10px] font-bold border uppercase ${getCategoryColor(doc.category)}`}>
+                                                    {doc.category}
+                                                </span>
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <span className={`px-2 py-0.5 rounded bg-slate-100 text-slate-500 font-bold text-[9px] uppercase`}>
+                                                    {doc.documentType}
+                                                </span>
+                                            </td>
+                                            <td className="px-6 py-4 font-mono font-bold text-slate-500 underline decoration-[#c79229]/30">v{doc.version}</td>
+                                            <td className="px-6 py-4 text-slate-400">{new Date(doc.createdAt).toLocaleDateString()}</td>
+                                            <td className="px-6 py-4 text-right">
+                                                <div className="flex items-center justify-end gap-2">
+                                                    <a href={doc.fileUrl} target="_blank" rel="noopener noreferrer" className="p-1.5 text-[#c79229] hover:bg-[#c79229]/10 rounded-lg">
+                                                        {doc.documentType === 'Link' ? <ExternalLink size={16} /> : <Download size={16} />}
+                                                    </a>
+                                                    <button onClick={() => deleteEngineeringDocument(doc.id)} className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg"><Trash2 size={16} /></button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
+
+                    {filteredDocs.length === 0 && (
+                        <div className="px-6 py-12 text-center text-slate-400 italic bg-slate-50/20">
+                            Nenhum documento técnico cadastrado.
+                        </div>
+                    )}
                 </div>
             </div>
 
@@ -198,16 +298,45 @@ const Engineering: React.FC = () => {
                                 </select>
                             </div>
 
-                            <div>
-                                <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Link do Arquivo (URL)</label>
-                                <input
-                                    type="url"
-                                    required
-                                    className="w-full border border-slate-300 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-[#c79229] outline-none font-mono text-blue-600"
-                                    value={formData.fileUrl}
-                                    onChange={e => setFormData({ ...formData, fileUrl: e.target.value })}
-                                    placeholder="https://exemplo.com/projeto.pdf"
-                                />
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Tipo de Documento</label>
+                                    <select
+                                        className="w-full border border-slate-300 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-[#c79229] outline-none"
+                                        value={formData.documentType}
+                                        onChange={e => setFormData({ ...formData, documentType: e.target.value as any, fileUrl: '' })}
+                                    >
+                                        <option value="Link">🔗 Link Externo</option>
+                                        <option value="PDF">📕 Arquivo PDF</option>
+                                        <option value="Excel">📊 Planilha Excel</option>
+                                    </select>
+                                </div>
+                                <div className="flex flex-col justify-end">
+                                    {formData.documentType === 'Link' ? (
+                                        <>
+                                            <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Link (URL)</label>
+                                            <input
+                                                type="url"
+                                                required
+                                                className="w-full border border-slate-300 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-[#c79229] outline-none font-mono text-blue-600"
+                                                value={formData.fileUrl}
+                                                onChange={e => setFormData({ ...formData, fileUrl: e.target.value })}
+                                                placeholder="https://exemplo.com/doc.pdf"
+                                            />
+                                        </>
+                                    ) : (
+                                        <>
+                                            <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Arquivo ({formData.documentType})</label>
+                                            <input
+                                                type="file"
+                                                required
+                                                accept={formData.documentType === 'PDF' ? '.pdf' : '.xls,.xlsx,.csv'}
+                                                onChange={e => setSelectedFile(e.target.files?.[0] || null)}
+                                                className="w-full text-xs file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-[#c79229]/10 file:text-[#c79229] hover:file:bg-[#c79229]/20"
+                                            />
+                                        </>
+                                    )}
+                                </div>
                             </div>
 
                             <div className="pt-6 flex justify-end gap-3 border-t border-slate-100 mt-6">
