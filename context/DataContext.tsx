@@ -928,20 +928,23 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   // --- FINANCIAL RECORDS ---
   const addFinancialRecord = async (record: (Omit<FinancialRecord, 'id'> & { id?: string }) | (Omit<FinancialRecord, 'id'> & { id?: string })[]) => {
     const records = Array.isArray(record) ? record : [record];
-    const toInsert = records.map(r => ({
-      id: r.id, // Incluir ID se fornecido
-      type: r.type,
-      description: r.description,
-      amount: r.amount,
-      date: r.date,
-      status: r.status,
-      category: r.category,
-      project_id: r.projectId,
-      parent_record_id: r.parentRecordId,
-      installment_number: r.installmentNumber,
-      total_installments: r.totalInstallments,
-      is_recurring: r.isRecurring
-    }));
+    const toInsert = records.map(r => {
+      const data: any = {
+        type: r.type,
+        description: r.description,
+        amount: r.amount,
+        date: r.date,
+        status: r.status,
+        category: r.category,
+        project_id: r.projectId,
+        parent_record_id: r.parentRecordId,
+        installment_number: r.installmentNumber,
+        total_installments: r.totalInstallments,
+        is_recurring: r.isRecurring
+      };
+      if (r.id) data.id = r.id;
+      return data;
+    });
 
     const { data, error } = await supabase.from('financial_records').insert(toInsert).select();
 
