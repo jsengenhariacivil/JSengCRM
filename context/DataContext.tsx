@@ -1325,31 +1325,25 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     // --- AUTOMATION: Lead Creation/Update ---
     try {
       const client = clients.find(c => c.id === proposal.clientId);
-      const existingLead = leads.find(l => l.name.toLowerCase() === proposal.clientName.toLowerCase());
+      const searchName = proposal.clientName.trim().toLowerCase();
+      const existingLead = leads.find(l => l.name.trim().toLowerCase() === searchName);
 
       if (existingLead) {
-        // Se a proposta foi aprovada agora, o status do lead deve ser 'Convertido'
-        // Caso contrário, 'Proposta Enviada' (se já não estiver num status posterior)
-        let newLeadStatus = existingLead.status;
-        if (proposal.status === Status.APPROVED) {
-          newLeadStatus = 'Convertido';
-        } else if (['Novo', 'Contato Feito'].includes(existingLead.status)) {
-          newLeadStatus = 'Proposta Enviada';
+        if (existingLead.status !== 'Convertido') {
+          await updateLead({
+            ...existingLead,
+            status: 'Negociação',
+            value: proposal.total,
+            lastContact: new Date().toISOString()
+          });
         }
-
-        await updateLead({
-          ...existingLead,
-          status: newLeadStatus as any,
-          value: proposal.total,
-          lastContact: new Date().toISOString()
-        });
       } else {
         await addLead({
           id: '',
           name: proposal.clientName,
           email: client?.email || '',
           phone: client?.phone || '',
-          status: proposal.status === Status.APPROVED ? 'Convertido' : 'Proposta Enviada',
+          status: proposal.status === Status.APPROVED ? 'Convertido' : 'Negociação',
           source: 'Sistema (Proposta)',
           notes: `Gerado automaticamente a partir da edição da Proposta #${proposal.id?.substring(0, 8)}`,
           value: proposal.total,
@@ -1386,14 +1380,23 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   const deleteProposal = async (id: string) => {
-    const { error } = await supabase.from('proposals').delete().eq('id', id);
-    if (!error) {
-      setProposals(prev => prev.filter(p => p.id !== id));
-      // Apagar da Agenda também, se existir
-      supabase.from('agenda_eventos').delete().eq('id_referencia', id).then();
-    } else {
+    try {
+      // 1. Desvincular obras para evitar erro de Foreign Key
+      await supabase.from('projects').update({ proposalId: null }).eq('proposalId', id);
+      
+      // 2. Apagar a proposta
+      const { error } = await supabase.from('proposals').delete().eq('id', id);
+      
+      if (!error) {
+        setProposals(prev => prev.filter(p => p.id !== id));
+        // Apagar da Agenda também, se existir
+        supabase.from('agenda_eventos').delete().eq('id_referencia', id).then();
+      } else {
+        throw error;
+      }
+    } catch (error: any) {
       console.error('Erro ao excluir proposta:', error);
-      alert('Erro ao excluir proposta: ' + error.message);
+      alert('Erro ao excluir proposta: ' + (error.message || error));
     }
   };
 
