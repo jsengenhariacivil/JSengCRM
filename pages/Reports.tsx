@@ -5,7 +5,7 @@ import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Toolti
 import * as XLSX from 'xlsx';
 
 const Reports: React.FC = () => {
-    const { projects, financials, clients, contracts } = useData();
+    const { projects, financials, clients, contracts, teamMembers, suppliers } = useData();
 
     // 1. Processamento de Dados para o Gráfico de Desempenho (Últimos 6 meses)
     const performanceData = useMemo(() => {
@@ -61,6 +61,13 @@ const Reports: React.FC = () => {
     const COLORS = ['#c79229', '#10b981', '#64748b'];
 
     // 3. Funções de Exportação
+    const downloadExcel = (data: any[], fileName: string, sheetName: string) => {
+        const wb = XLSX.utils.book_new();
+        const ws = XLSX.utils.json_to_sheet(data);
+        XLSX.utils.book_append_sheet(wb, ws, sheetName);
+        XLSX.writeFile(wb, `${fileName}_${new Date().toISOString().split('T')[0]}.xlsx`);
+    };
+
     const exportToExcel = () => {
         const wb = XLSX.utils.book_new();
 
@@ -86,7 +93,7 @@ const Reports: React.FC = () => {
         })));
         XLSX.utils.book_append_sheet(wb, wsProj, "Projetos");
 
-        XLSX.writeFile(wb, `Relatorio_JSeng_${new Date().toISOString().split('T')[0]}.xlsx`);
+        XLSX.writeFile(wb, `Relatorio_Geral_JSeng_${new Date().toISOString().split('T')[0]}.xlsx`);
     };
 
     const handlePrintPDF = () => {
@@ -204,18 +211,51 @@ const Reports: React.FC = () => {
 
             <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden print:hidden">
                 <div className="p-4 border-b border-slate-100 bg-slate-50 flex justify-between items-center">
-                    <h3 className="font-bold text-slate-700">Exploração de Dados</h3>
+                    <h3 className="font-bold text-slate-700 text-lg flex items-center gap-2">
+                        <FileText className="text-[#c79229]" size={20} />
+                        Exploração de Dados e Exportação Seletiva
+                    </h3>
                 </div>
-                <div className="p-8 text-center space-y-4">
-                    <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto text-slate-400">
-                        <FileText size={32} />
-                    </div>
-                    <div>
-                        <p className="font-bold text-slate-700">Relatórios Detalhados</p>
-                        <p className="text-sm text-slate-500 max-w-sm mx-auto">
-                            Utilize os botões de exportação no topo da página para baixar planilhas completas com todos os lançamentos financeiros e status de obras.
-                        </p>
-                    </div>
+                <div className="p-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    {[
+                        {
+                            title: 'Financeiro',
+                            desc: 'Extrato completo de receitas e despesas com categorias.',
+                            icon: <TrendingUp size={24} className="text-green-600" />,
+                            action: () => downloadExcel(financials, 'Relatorio_Financeiro', 'Financeiro')
+                        },
+                        {
+                            title: 'Obras e Projetos',
+                            desc: 'Lista de obras, status, prazos e orçamentos.',
+                            icon: <BarChart3 size={24} className="text-blue-600" />,
+                            action: () => downloadExcel(projects, 'Relatorio_Obras', 'Projetos')
+                        },
+                        {
+                            title: 'Equipe e RH',
+                            desc: 'Cadastro completo de funcionários e dados de contato.',
+                            icon: <FileText size={24} className="text-slate-600" />,
+                            action: () => downloadExcel(teamMembers, 'Relatorio_Equipe', 'RH')
+                        },
+                        {
+                            title: 'Fornecedores',
+                            desc: 'Lista de parceiros e categorias de fornecimento.',
+                            icon: <FileSpreadsheet size={24} className="text-[#c79229]" />,
+                            action: () => downloadExcel(suppliers, 'Relatorio_Fornecedores', 'Fornecedores')
+                        },
+                    ].map((card, i) => (
+                        <div key={i} className="p-4 border border-slate-100 rounded-xl hover:border-[#c79229]/30 hover:bg-[#c79229]/5 transition-all group">
+                            <div className="mb-4">{card.icon}</div>
+                            <h4 className="font-bold text-slate-800 mb-1">{card.title}</h4>
+                            <p className="text-xs text-slate-500 mb-4 h-8">{card.desc}</p>
+                            <button
+                                onClick={card.action}
+                                className="w-full flex items-center justify-center gap-2 py-2 bg-slate-100 text-slate-600 rounded-lg group-hover:bg-[#c79229] group-hover:text-white transition-all text-xs font-bold"
+                            >
+                                <Download size={14} />
+                                Baixar Excel
+                            </button>
+                        </div>
+                    ))}
                 </div>
             </div>
         </div>
