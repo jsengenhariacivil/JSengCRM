@@ -1659,6 +1659,11 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       photos: measurement.photos
     }]).select().single();
 
+    if (error) {
+      console.error('Erro ao adicionar medição:', error.message);
+      return;
+    }
+
     if (!error && data) {
       setMeasurements(prev => [{ ...measurement, id: data.id }, ...prev]);
 
@@ -1701,6 +1706,11 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       status: measurement.status,
       photos: measurement.photos
     }).eq('id', measurement.id);
+
+    if (error) {
+      console.error('Erro ao atualizar medição:', error.message);
+      return;
+    }
 
     if (!error) {
       setMeasurements(prev => prev.map(m => m.id === measurement.id ? measurement : m));
@@ -1767,13 +1777,18 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       photos: report.photos
     }]).select().single();
 
+    if (error) {
+      console.error('Erro ao adicionar RDO:', error.message);
+      return;
+    }
+
     if (!error && data) {
       setDailyReports(prev => [{ ...report, id: data.id }, ...prev]);
     }
   };
 
   const updateDailyReport = async (report: DailyReport) => {
-    await supabase.from('daily_reports').update({
+    const { error } = await supabase.from('daily_reports').update({
       date: report.date,
       weather_morning: report.weatherMorning,
       weather_afternoon: report.weatherAfternoon,
@@ -1783,6 +1798,11 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       occurrences_notes: report.occurrencesNotes,
       photos: report.photos
     }).eq('id', report.id);
+
+    if (error) {
+      console.error('Erro ao atualizar RDO:', error.message);
+      return;
+    }
 
     setDailyReports(prev => prev.map(r => r.id === report.id ? report : r));
   };

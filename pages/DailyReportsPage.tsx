@@ -83,7 +83,7 @@ const DailyReportsPage: React.FC = () => {
     };
 
     const handleDelete = async (id: string) => {
-        if (confirm('Tem certeza que deseja excluir este diário de obra?')) {
+        if (confirm('Tem certeza que deseja excluir este RDO?')) {
             await deleteDailyReport(id);
         }
     };
@@ -92,7 +92,7 @@ const DailyReportsPage: React.FC = () => {
         <div className="space-y-6">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div>
-                    <h1 className="text-2xl font-bold text-[#181418]">Diário de Obra (RDO)</h1>
+                    <h1 className="text-2xl font-bold text-[#181418]">RDO</h1>
                     <p className="text-slate-500">Registro diário de atividades, clima e efetivo</p>
                 </div>
                 <button
@@ -145,7 +145,7 @@ const DailyReportsPage: React.FC = () => {
                                             <span className="text-slate-300">|</span>
                                             <span className="text-sm font-medium text-slate-500">{new Date(report.date + 'T12:00:00').toLocaleDateString('pt-BR')}</span>
                                         </div>
-                                        <h3 className="text-lg font-bold text-slate-800">Relatório Diário</h3>
+                                        <h3 className="text-lg font-bold text-slate-800">RDO</h3>
                                     </div>
                                     <div className="flex items-center gap-2">
                                         <div className="flex items-center gap-4 text-sm bg-slate-50 px-3 py-2 rounded-lg border border-slate-100">
@@ -198,7 +198,7 @@ const DailyReportsPage: React.FC = () => {
                 ) : (
                     <div className="text-center py-20 bg-white rounded-xl border-2 border-dashed border-slate-200 text-slate-400">
                         <FileText size={48} className="mx-auto mb-4 opacity-20" />
-                        <p className="text-lg font-medium">Nenhum diário de obra encontrado</p>
+                        <p className="text-lg font-medium">Nenhum RDO encontrado</p>
                         <p className="text-sm">Selecione uma obra ou mude sua busca.</p>
                     </div>
                 )}
@@ -210,7 +210,7 @@ const DailyReportsPage: React.FC = () => {
                     <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden animate-in zoom-in-95 duration-200">
                         <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50">
                             <h2 className="text-xl font-bold text-slate-800">
-                                {editingReport ? 'Editar Diário de Obra' : 'Lançar Diário de Obra (RDO)'}
+                                {editingReport ? 'Editar RDO' : 'Lançar RDO'}
                             </h2>
                             <button 
                                 onClick={() => {

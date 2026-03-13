@@ -235,7 +235,7 @@ const NavContent = ({
             <div className="space-y-1 animate-in slide-in-from-top-2 duration-200">
               <SidebarItem to="/obras" icon={Folder} label="Obras / Projetos" isSubItem onClick={mobile ? toggleMenu : undefined} />
               <SidebarItem to="/planejamento" icon={Calendar} label="Planejamento" isSubItem onClick={mobile ? toggleMenu : undefined} />
-              <SidebarItem to="/diario" icon={FileText} label="Diário de Obra (RDO)" isSubItem onClick={mobile ? toggleMenu : undefined} />
+              <SidebarItem to="/diario" icon={FileText} label="RDO" isSubItem onClick={mobile ? toggleMenu : undefined} />
               <SidebarItem to="/medicao" icon={CheckSquare} label="Medição" isSubItem onClick={mobile ? toggleMenu : undefined} />
             </div>
           )}
