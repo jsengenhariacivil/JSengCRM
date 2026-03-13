@@ -130,80 +130,61 @@ const NavContent = ({
   canViewTeam,
   canManageSettings,
   isCRMOpen, toggleCRM, isCRMActive,
-  isCadastroOpen, toggleCadastro, isCadastroActive,
   isFinanceOpen, toggleFinance,
+  isObrasOpen, toggleObras,
+  isSuprimentosOpen, toggleSuprimentos,
   isRHOpen, toggleRH, isRHActive,
   handleLogout
 }: any) => (
-  <>
+  <nav className="flex-1 px-4 py-4 space-y-4 overflow-y-auto custom-scrollbar">
+    {/* Dashboard */}
     <SidebarItem to="/" icon={LayoutDashboard} label="Dashboard" onClick={mobile ? toggleMenu : undefined} />
 
-    {/* CRM e Comercial */}
-    {canViewProposals && (
-      <div className="space-y-1">
-        <button
-          onClick={toggleCRM}
-          className={`w-full flex items-center justify-between px-4 py-3 rounded-lg transition-colors ${isCRMActive ? 'bg-[#c79229] text-[#181418] font-bold shadow-md' : 'text-slate-400 hover:text-[#c79229] hover:bg-[#181418]/50'}`}
-        >
-          <div className="flex items-center space-x-3">
-            <Briefcase size={20} />
-            <span className="font-medium">CRM e Comercial</span>
-          </div>
-          {isCRMOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-        </button>
-
-        {isCRMOpen && (
-          <div className="space-y-1 animate-in slide-in-from-top-2 duration-200">
-            <SidebarItem to="/crm" icon={Users} label="Leads" isSubItem onClick={mobile ? toggleMenu : undefined} />
-            <SidebarItem to="/propostas" icon={FileText} label="Propostas" isSubItem onClick={mobile ? toggleMenu : undefined} />
-            <SidebarItem to="/comercial/contratos" icon={ClipboardList} label="Contratos" isSubItem onClick={mobile ? toggleMenu : undefined} />
-          </div>
-        )}
-      </div>
-    )}
-
-    {/* Cadastro */}
+    {/* CRM */}
     <div className="space-y-1">
       <button
-        onClick={toggleCadastro}
-        className={`w-full flex items-center justify-between px-4 py-3 rounded-lg transition-colors ${isCadastroActive ? 'bg-[#c79229] text-[#181418] font-bold shadow-md' : 'text-slate-400 hover:text-[#c79229] hover:bg-[#181418]/50'}`}
+        onClick={toggleCRM}
+        className={`w-full flex items-center justify-between px-4 py-3 rounded-lg transition-colors ${isCRMActive ? 'bg-[#c79229] text-[#181418] font-bold shadow-md' : 'text-slate-400 hover:text-[#c79229] hover:bg-[#181418]/50'}`}
       >
         <div className="flex items-center space-x-3">
-          <PlusCircle size={20} />
-          <span className="font-medium">Cadastros</span>
+          <Briefcase size={20} />
+          <span className="font-medium">CRM</span>
         </div>
-        {isCadastroOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+        {isCRMOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
       </button>
 
-      {isCadastroOpen && (
+      {isCRMOpen && (
         <div className="space-y-1 animate-in slide-in-from-top-2 duration-200">
+          <SidebarItem to="/crm" icon={LayoutDashboard} label="Funil de Vendas" isSubItem onClick={mobile ? toggleMenu : undefined} />
+          <SidebarItem to="/propostas" icon={FileText} label="Propostas" isSubItem onClick={mobile ? toggleMenu : undefined} />
+          <SidebarItem to="/comercial/contratos" icon={PlusCircle} label="Contratos" isSubItem onClick={mobile ? toggleMenu : undefined} />
           <SidebarItem to="/clientes" icon={User} label="Clientes" isSubItem onClick={mobile ? toggleMenu : undefined} />
-          <SidebarItem to="/fornecedores" icon={Truck} label="Fornecedores" isSubItem onClick={mobile ? toggleMenu : undefined} />
-          <SidebarItem to="/servicos" icon={Briefcase} label="Serviços" isSubItem onClick={mobile ? toggleMenu : undefined} />
         </div>
       )}
     </div>
 
-    {/* Obras */}
-    {canViewProjects && (
-      <SidebarItem to="/obras" icon={HardHat} label="Obras" onClick={mobile ? toggleMenu : undefined} />
-    )}
+    {/* RH */}
+    {canViewTeam && (
+      <div className="space-y-1">
+        <button
+          onClick={toggleRH}
+          className={`w-full flex items-center justify-between px-4 py-3 rounded-lg transition-colors ${isRHActive ? 'bg-[#c79229] text-[#181418] font-bold shadow-md' : 'text-slate-400 hover:text-[#c79229] hover:bg-[#181418]/50'}`}
+        >
+          <div className="flex items-center space-x-3">
+            <Users size={20} />
+            <span className="font-medium">RH</span>
+          </div>
+          {isRHOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+        </button>
 
-    {/* Planejamento, Diário e Medição (Desmembrados) */}
-    {canViewProjects && (
-      <>
-        <SidebarItem to="/planejamento" icon={Calendar} label="Planejamento" onClick={mobile ? toggleMenu : undefined} />
-        <SidebarItem to="/diario" icon={FileText} label="Diário de Obra" onClick={mobile ? toggleMenu : undefined} />
-        <SidebarItem to="/medicao" icon={BarChart3} label="Medição" onClick={mobile ? toggleMenu : undefined} />
-      </>
-    )}
-
-    {/* Compras */}
-    <SidebarItem to="/compras" icon={ShoppingCart} label="Compras" onClick={mobile ? toggleMenu : undefined} />
-
-    {/* Estoque */}
-    {canViewProjects && (
-      <SidebarItem to="/estoque" icon={Package} label="Estoque" onClick={mobile ? toggleMenu : undefined} />
+        {isRHOpen && (
+          <div className="space-y-1 animate-in slide-in-from-top-2 duration-200">
+            <SidebarItem to="/equipe/funcionarios" icon={UserCog} label="Funcionários" isSubItem onClick={mobile ? toggleMenu : undefined} />
+            <SidebarItem to="/equipe/prestadores" icon={Users} label="Prestadores" isSubItem onClick={mobile ? toggleMenu : undefined} />
+            <SidebarItem to="/equipe/pagamentos" icon={Banknote} label="Pagamentos" isSubItem onClick={mobile ? toggleMenu : undefined} />
+          </div>
+        )}
+      </div>
     )}
 
     {/* Gestão Financeira */}
@@ -231,51 +212,77 @@ const NavContent = ({
       </div>
     )}
 
-    {/* RH */}
-    {canViewTeam && (
+    {/* Gestão de Obras */}
+    {canViewProjects && (
       <div className="space-y-1">
         <button
-          onClick={toggleRH}
-          className={`w-full flex items-center justify-between px-4 py-3 rounded-lg transition-colors ${isRHActive ? 'bg-[#c79229] text-[#181418] font-bold shadow-md' : 'text-slate-400 hover:text-[#c79229] hover:bg-[#181418]/50'}`}
+          onClick={toggleObras}
+          className={`w-full flex items-center justify-between px-4 py-3 rounded-lg transition-colors ${['/obras', '/planejamento', '/diario', '/medicao'].some(p => location.pathname.startsWith(p)) ? 'bg-[#c79229] text-[#181418] font-bold shadow-md' : 'text-slate-400 hover:text-[#c79229] hover:bg-[#181418]/50'}`}
         >
           <div className="flex items-center space-x-3">
-            <UserCog size={20} />
-            <span className="font-medium">RH</span>
+            <HardHat size={20} />
+            <span className="font-medium">Gestão de Obras</span>
           </div>
-          {isRHOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+          {isObrasOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
         </button>
 
-        {isRHOpen && (
+        {isObrasOpen && (
           <div className="space-y-1 animate-in slide-in-from-top-2 duration-200">
-            <SidebarItem to="/equipe/funcionarios" icon={User} label="Funcionários" isSubItem onClick={mobile ? toggleMenu : undefined} />
-            <SidebarItem to="/equipe/prestadores" icon={Briefcase} label="Prestadores" isSubItem onClick={mobile ? toggleMenu : undefined} />
-            {canViewFinancial && (
-              <SidebarItem to="/equipe/pagamentos" icon={Banknote} label="Pagamentos" isSubItem onClick={mobile ? toggleMenu : undefined} />
-            )}
+            <SidebarItem to="/obras" icon={Folder} label="Obras / Projetos" isSubItem onClick={mobile ? toggleMenu : undefined} />
+            <SidebarItem to="/planejamento" icon={Calendar} label="Planejamento" isSubItem onClick={mobile ? toggleMenu : undefined} />
+            <SidebarItem to="/diario" icon={FileText} label="Diário de Obra (RDO)" isSubItem onClick={mobile ? toggleMenu : undefined} />
+            <SidebarItem to="/medicao" icon={CheckSquare} label="Medição" isSubItem onClick={mobile ? toggleMenu : undefined} />
           </div>
         )}
       </div>
     )}
 
+    {/* Suprimentos */}
+    {canViewProjects && (
+      <div className="space-y-1">
+        <button
+          onClick={toggleSuprimentos}
+          className={`w-full flex items-center justify-between px-4 py-3 rounded-lg transition-colors ${['/compras', '/estoque', '/fornecedores', '/servicos'].some(p => location.pathname.startsWith(p)) ? 'bg-[#c79229] text-[#181418] font-bold shadow-md' : 'text-slate-400 hover:text-[#c79229] hover:bg-[#181418]/50'}`}
+        >
+          <div className="flex items-center space-x-3">
+            <ShoppingCart size={20} />
+            <span className="font-medium">Suprimentos</span>
+          </div>
+          {isSuprimentosOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+        </button>
+
+        {isSuprimentosOpen && (
+          <div className="space-y-1 animate-in slide-in-from-top-2 duration-200">
+            <SidebarItem to="/compras" icon={ShoppingCart} label="Compras" isSubItem onClick={mobile ? toggleMenu : undefined} />
+            <SidebarItem to="/estoque" icon={Package} label="Estoque" isSubItem onClick={mobile ? toggleMenu : undefined} />
+            <SidebarItem to="/fornecedores" icon={Truck} label="Fornecedores" isSubItem onClick={mobile ? toggleMenu : undefined} />
+            <SidebarItem to="/servicos" icon={ClipboardList} label="Serviços" isSubItem onClick={mobile ? toggleMenu : undefined} />
+          </div>
+        )}
+      </div>
+    )}
+
+    {/* Agenda */}
+    {canViewProjects && (
+      <SidebarItem to="/agenda" icon={Calendar} label="Agenda" onClick={mobile ? toggleMenu : undefined} />
+    )}
+
     {/* Segurança do Trabalho */}
     <SidebarItem to="/seguranca" icon={ShieldCheck} label="Segurança do Trabalho" onClick={mobile ? toggleMenu : undefined} />
-
-    {/* Documentos e Engenharia */}
-    <SidebarItem to="/engenharia" icon={Folder} label="Documentos e Engenharia" onClick={mobile ? toggleMenu : undefined} />
 
     {/* Qualidade */}
     <SidebarItem to="/qualidade" icon={CheckSquare} label="Qualidade" onClick={mobile ? toggleMenu : undefined} />
 
-    {/* Agenda */}
-    {(canViewFinancial || canViewProjects) && (
-      <SidebarItem to="/agenda" icon={Calendar} label="Agenda" onClick={mobile ? toggleMenu : undefined} />
-    )}
-
-    {/* Relatórios */}
-    <SidebarItem to="/relatorios" icon={BarChart3} label="Relatórios" onClick={mobile ? toggleMenu : undefined} />
+    {/* Documentos (Engenharia) */}
+    <SidebarItem to="/engenharia" icon={Folder} label="Documentos" onClick={mobile ? toggleMenu : undefined} />
 
     {/* Administração */}
     <SidebarItem to="/administracao" icon={Shield} label="Administração" onClick={mobile ? toggleMenu : undefined} />
+
+    {/* Configurações */}
+    {canManageSettings && (
+      <SidebarItem to="/configuracoes" icon={Settings} label="Configurações" onClick={mobile ? toggleMenu : undefined} />
+    )}
 
     {/* PWA Install */}
     <SidebarItem to="/instalar" icon={Smartphone} label="App no Celular" onClick={mobile ? toggleMenu : undefined} />
@@ -313,7 +320,7 @@ const NavContent = ({
         </button>
       </div>
     </div>
-  </>
+  </nav>
 );
 
 const Layout: React.FC = () => {
@@ -328,6 +335,7 @@ const Layout: React.FC = () => {
   const [isRHOpen, setIsRHOpen] = useState(false);
   const [isCadastroOpen, setIsCadastroOpen] = useState(false);
   const [isFinanceOpen, setIsFinanceOpen] = useState(false);
+  const [isSuprimentosOpen, setIsSuprimentosOpen] = useState(false);
 
   const toggleMenu = () => setIsMobileMenuOpen(!isMobileMenuOpen);
   const toggleCRM = () => setIsCRMOpen(!isCRMOpen);
@@ -335,8 +343,9 @@ const Layout: React.FC = () => {
   const toggleRH = () => setIsRHOpen(!isRHOpen);
   const toggleCadastro = () => setIsCadastroOpen(!isCadastroOpen);
   const toggleFinance = () => setIsFinanceOpen(!isFinanceOpen);
+  const toggleSuprimentos = () => setIsSuprimentosOpen(!isSuprimentosOpen);
 
-  const isCRMActive = ['/crm', '/propostas', '/comercial'].some(p => location.pathname.startsWith(p));
+  const isCRMActive = ['/crm', '/propostas', '/comercial', '/clientes'].some(p => location.pathname.startsWith(p));
   const isCadastroActive = ['/clientes', '/fornecedores', '/servicos'].some(p => location.pathname.startsWith(p));
   const isRHActive = ['/equipe'].some(p => location.pathname.startsWith(p));
 
@@ -347,19 +356,22 @@ const Layout: React.FC = () => {
 
   useEffect(() => {
     const path = location.pathname;
-    if (['/crm', '/propostas', '/comercial'].some(p => path.startsWith(p))) {
+    if (['/crm', '/propostas', '/comercial', '/clientes'].some(p => path.startsWith(p))) {
       setIsCRMOpen(true);
     }
-    if (path.startsWith('/obras')) {
+    if (['/obras', '/planejamento', '/diario', '/medicao'].some(p => path.startsWith(p))) {
       setIsObrasOpen(true);
     }
     if (path.startsWith('/financeiro')) {
       setIsFinanceOpen(true);
     }
+    if (['/compras', '/estoque', '/fornecedores', '/servicos'].some(p => path.startsWith(p))) {
+      setIsSuprimentosOpen(true);
+    }
     if (path.startsWith('/equipe')) {
       setIsRHOpen(true);
     }
-    if (['/clientes', '/fornecedores', '/servicos'].some(p => path.startsWith(p))) {
+    if (['/fornecedores', '/servicos'].some(p => path.startsWith(p))) {
       setIsCadastroOpen(true);
     }
   }, [location.pathname]);
@@ -374,6 +386,8 @@ const Layout: React.FC = () => {
     isCRMOpen, toggleCRM, isCRMActive,
     isCadastroOpen, toggleCadastro, isCadastroActive,
     isFinanceOpen, toggleFinance,
+    isObrasOpen, toggleObras,
+    isSuprimentosOpen, toggleSuprimentos,
     isRHOpen, toggleRH, isRHActive,
     handleLogout
   };
