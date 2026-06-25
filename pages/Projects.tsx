@@ -5,15 +5,17 @@ import { useAuth } from '../context/AuthContext';
 import { Status, Project } from '../types';
 import { ResponsiveContainer, ComposedChart, Line, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend } from 'recharts';
 import { supabase } from '../supabaseClient';
+import Cronograma from '../components/Cronograma';
 
 interface ProjectCardProps {
   project: Project;
   onDetails: (p: Project) => void;
   onEdit: (p: Project) => void;
   onDelete: (id: string) => void;
+  onCronograma: (p: Project) => void;
 }
 
-const ProjectCard: React.FC<ProjectCardProps> = ({ project, onDetails, onEdit, onDelete }) => {
+const ProjectCard: React.FC<ProjectCardProps> = ({ project, onDetails, onEdit, onDelete, onCronograma }) => {
   const { currentUser } = useAuth();
 
   const getStatusColor = (s: string) => {
@@ -71,6 +73,13 @@ const ProjectCard: React.FC<ProjectCardProps> = ({ project, onDetails, onEdit, o
           Detalhes
         </button>
         <button
+          onClick={() => onCronograma(project)}
+          className="flex-1 py-2 text-sm font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg border border-blue-200 text-center"
+          title="Cronograma Físico-Financeiro"
+        >
+          Gantt
+        </button>
+        <button
           onClick={() => onEdit(project)}
           className="flex-1 py-2 text-sm font-medium text-[#181418] bg-[#c79229] hover:bg-[#a67922] rounded-lg font-bold"
         >
@@ -94,8 +103,9 @@ const Projects: React.FC = () => {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
+  const [cronogramaProject, setCronogramaProject] = useState<Project | null>(null);
   const [activeTab, setActiveTab] = useState<'info' | 'curva_s'>('info');
-  const { measurements, projectTasks, dailyReports, projectMilestones } = useData();
+  const { measurements, projectTasks, dailyReports, projectMilestones, projectStages } = useData();
 
   // Removidos states locais de Medição/RDO para centralização
 
@@ -281,6 +291,7 @@ const Projects: React.FC = () => {
             project={project}
             onDetails={handleDetails}
             onEdit={handleEdit}
+            onCronograma={(p) => setCronogramaProject(p)}
             onDelete={async (id) => {
               if (window.confirm('Tem certeza que deseja excluir esta obra? Esta ação não pode ser desfeita.')) {
                 await deleteProject(id);

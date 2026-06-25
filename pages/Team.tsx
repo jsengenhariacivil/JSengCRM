@@ -3,6 +3,8 @@ import React, { useState } from 'react';
 import { User, UserCog, Calendar, Banknote, Plus, Search, MoreVertical, Phone, Mail, X, Save, Trash2, Edit } from 'lucide-react';
 import { useData } from '../context/DataContext';
 import { TeamMember, PaymentRecord, Status } from '../types';
+import PontoModal from '../components/PontoModal';
+import { Clock } from 'lucide-react';
 
 interface TeamProps {
   view: 'employees' | 'contractors' | 'payments';
@@ -41,6 +43,7 @@ const Team: React.FC<TeamProps> = ({ view }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [punchEmployee, setPunchEmployee] = useState<TeamMember | null>(null);
 
   React.useEffect(() => {
     // Check constraints if possible
@@ -242,6 +245,13 @@ const Team: React.FC<TeamProps> = ({ view }) => {
                         title="Editar"
                       >
                         <Edit size={18} />
+                      </button>
+                      <button
+                        onClick={() => setPunchEmployee(item)}
+                        className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                        title="Ponto / Atividades"
+                      >
+                        <Clock size={18} />
                       </button>
                       <button
                         onClick={() => handleDelete(item.id)}
@@ -714,6 +724,10 @@ const Team: React.FC<TeamProps> = ({ view }) => {
             </div>
           </div>
         </div>
+      )}
+
+      {punchEmployee && (
+        <PontoModal employee={punchEmployee} onClose={() => setPunchEmployee(null)} />
       )}
     </div>
   );

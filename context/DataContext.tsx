@@ -1,7 +1,7 @@
 
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
-import { Client, Project, FinancialRecord, Service, Proposal, ProposalItem, ProposalEtapa, SinapiService, Supplier, TeamMember, PaymentRecord, Status, UserData, UserPermissions, AgendaEvento, AppNotification, ProposalHistory, Measurement, DailyReport, ProjectTask, ProjectMilestone, Lead, LeadInteraction, InventoryItem, InventoryMovement, Goal, Contract, PurchaseOrder, SafetyRecord, EngineeringDocument, QualityInspection } from '../types';
+import { Client, Project, FinancialRecord, Service, Proposal, ProposalItem, ProposalEtapa, SinapiService, Supplier, TeamMember, PaymentRecord, Status, UserData, UserPermissions, AgendaEvento, AppNotification, ProposalHistory, Measurement, DailyReport, ProjectTask, ProjectMilestone, Lead, LeadInteraction, InventoryItem, InventoryMovement, Goal, Contract, PurchaseOrder, SafetyRecord, EngineeringDocument, QualityInspection, ProjectStage, ProjectSubStage, TimePunch } from '../types';
 
 interface DataContextType {
   // Base SINAPI (Mock)
@@ -153,6 +153,21 @@ interface DataContextType {
 
   loading: boolean;
   refreshData: () => Promise<void>;
+
+  // --- CRONOGRAMA ---
+  projectStages: ProjectStage[];
+  addProjectStage: (stage: Omit<ProjectStage, 'id'>) => Promise<void>;
+  updateProjectStage: (id: string, data: Partial<ProjectStage>) => Promise<void>;
+  deleteProjectStage: (id: string) => Promise<void>;
+  addProjectSubStage: (subStage: Omit<ProjectSubStage, 'id'>) => Promise<void>;
+  updateProjectSubStage: (id: string, data: Partial<ProjectSubStage>) => Promise<void>;
+  deleteProjectSubStage: (id: string) => Promise<void>;
+
+  // --- RH PONTO ---
+  timePunches: TimePunch[];
+  addTimePunch: (punch: Omit<TimePunch, 'id'>) => Promise<void>;
+  updateTimePunch: (id: string, data: Partial<TimePunch>) => Promise<void>;
+  deleteTimePunch: (id: string) => Promise<void>;
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
@@ -281,9 +296,12 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [measurements, setMeasurements] = useState<Measurement[]>([]);
   const [dailyReports, setDailyReports] = useState<DailyReport[]>([]);
   const [projectTasks, setProjectTasks] = useState<ProjectTask[]>([]);
+  const [projectStages, setProjectStages] = useState<ProjectStage[]>([]);
+  const [timePunches, setTimePunches] = useState<TimePunch[]>([]);
   const [projectMilestones, setProjectMilestones] = useState<ProjectMilestone[]>([]);
   const [leads, setLeads] = useState<Lead[]>([]);
   const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
+  const [inventoryMovements, setInventoryMovements] = useState<InventoryMovement[]>([]);
   const [goals, setGoals] = useState<Goal[]>([]);
   const [contracts, setContracts] = useState<Contract[]>([]);
   const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>([]);
@@ -750,6 +768,62 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           title: m.title,
           date: m.date,
           isCompleted: m.is_completed
+        })));
+      }
+
+      // Carregar Cronograma (Stages e SubStages)
+      const { data: stagesData } = await supabase.from('project_stages').select('*');
+      const { data: subStagesData } = await supabase.from('project_sub_stages').select('*');
+      if (stagesData) {
+        setProjectStages(stagesData.map(s => {
+          const subs = subStagesData?.filter(sub => sub.stage_id === s.id) || [];
+          return {
+            id: s.id,
+            obra_id: s.obra_id,
+            name: s.name,
+            weight: parseFloat(s.weight),
+            progress: parseFloat(s.progress),
+            startDate: s.start_date,
+            endDate: s.end_date,
+            value: parseFloat(s.value || 0),
+            subStages: subs.map(sub => ({
+              id: sub.id,
+              stage_id: sub.stage_id,
+              name: sub.name,
+              progress: parseFloat(sub.progress),
+              weight: parseFloat(sub.weight)
+            }))
+          };
+        }));
+      }
+
+      // Carregar Ponto RH (Time Punches)
+      const { data: punchesData } = await supabase.from('time_punches').select('*');
+      if (punchesData) {
+        setTimePunches(punchesData.map(p => ({
+          id: p.id,
+          employee_id: p.employee_id,
+          date: p.date,
+          entry_time: p.entry_time,
+          exit_time: p.exit_time,
+          hours_worked: parseFloat(p.hours_worked),
+          value_paid: parseFloat(p.value_paid),
+          note: p.note
+        })));
+      }
+
+      // Carregar Movimentações de Estoque
+      const { data: movementsData } = await supabase.from('inventory_movements').select('*').order('date', { ascending: false });
+      if (movementsData) {
+        setInventoryMovements(movementsData.map(m => ({
+          id: m.id,
+          itemId: m.item_id,
+          type: m.type as 'IN' | 'OUT',
+          quantity: parseFloat(m.quantity),
+          date: m.date,
+          projectId: m.project_id,
+          responsible: m.responsible,
+          notes: m.notes
         })));
       }
 
@@ -2152,7 +2226,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   const updateInventoryItem = async (item: InventoryItem) => {
-    await supabase.from('inventory_items').update({
+    const { error } = await supabase.from('inventory_items').update({
       name: item.name,
       category: item.category,
       unit: item.unit,
@@ -2163,6 +2237,10 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       supplier_id: item.supplierId,
       status: item.status
     }).eq('id', item.id);
+    if (error) {
+      console.error('Erro detalhado ao atualizar almoxarifado:', error.message);
+      throw new Error(error.message);
+    }
     setInventoryItems(prev => prev.map(i => i.id === item.id ? item : i));
   };
 
@@ -2171,21 +2249,38 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setInventoryItems(prev => prev.filter(i => i.id !== id));
   };
 
-  const addInventoryMovement = async (movement: Omit<InventoryMovement, 'id' | 'date'>) => {
+  const addInventoryMovement = async (movement: Omit<InventoryMovement, 'id'>) => {
     const { data, error } = await supabase.from('inventory_movements').insert([{
       item_id: movement.itemId,
       type: movement.type,
       quantity: movement.quantity,
-      reason: movement.reason,
-      user_name: movement.userName,
-      project_id: movement.projectId
+      date: movement.date,
+      project_id: movement.projectId,
+      responsible: movement.responsible,
+      notes: movement.notes
     }]).select().single();
 
-    if (!error && data) {
+    if (error) {
+      console.error('Error adding inventory movement:', error);
+      throw new Error(`Erro ao salvar movimentação: ${error.message}`);
+    }
+
+    if (data) {
+      setInventoryMovements(prev => [{
+        id: data.id,
+        itemId: data.item_id,
+        type: data.type as 'IN' | 'OUT',
+        quantity: parseFloat(data.quantity),
+        date: data.date,
+        projectId: data.project_id,
+        responsible: data.responsible,
+        notes: data.notes
+      }, ...prev]);
+
       // Atualizar quantidade no estado local
       setInventoryItems(prev => prev.map(i => {
         if (i.id === movement.itemId) {
-          const newQty = movement.type === 'Entrada' ? i.quantity + movement.quantity : i.quantity - movement.quantity;
+          const newQty = movement.type === 'IN' ? i.quantity + movement.quantity : i.quantity - movement.quantity;
           return { ...i, quantity: newQty };
         }
         return i;
@@ -2554,6 +2649,99 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     await supabase.from('quality_inspections').delete().eq('id', id);
     setQualityInspections(prev => prev.filter(q => q.id !== id));
   };
+
+  // --- CRONOGRAMA ---
+  const addProjectStage = async (stage: Omit<ProjectStage, 'id'>) => {
+    const payload = {
+      obra_id: stage.obra_id,
+      name: stage.name,
+      weight: stage.weight,
+      progress: stage.progress,
+      start_date: stage.startDate,
+      end_date: stage.endDate,
+      value: stage.value
+    };
+    const { data, error } = await supabase.from('project_stages').insert([payload]).select().single();
+    if (error) {
+      console.error('Erro addProjectStage:', error);
+      throw error;
+    }
+    if (data) {
+      setProjectStages(prev => [...prev, { ...stage, id: data.id }]);
+    }
+  };
+  const updateProjectStage = async (id: string, stageData: Partial<ProjectStage>) => {
+    const payload: any = { ...stageData };
+    if (payload.startDate) { payload.start_date = payload.startDate; delete payload.startDate; }
+    if (payload.endDate) { payload.end_date = payload.endDate; delete payload.endDate; }
+
+    const { error } = await supabase.from('project_stages').update(payload).eq('id', id);
+    if (error) {
+      console.error('Erro updateProjectStage:', error);
+      throw error;
+    }
+    setProjectStages(prev => prev.map(s => s.id === id ? { ...s, ...stageData } : s));
+  };
+  const deleteProjectStage = async (id: string) => {
+    await supabase.from('project_stages').delete().eq('id', id);
+    setProjectStages(prev => prev.filter(s => s.id !== id));
+  };
+
+  const addProjectSubStage = async (subStage: Omit<ProjectSubStage, 'id'>) => {
+    const { data, error } = await supabase.from('project_sub_stages').insert([subStage]).select().single();
+    if (error) {
+      console.error('Erro addProjectSubStage:', error);
+      throw error;
+    }
+    // Update local state to nest it in stages
+    setProjectStages(prev => prev.map(s => {
+      if (s.id === subStage.stage_id) {
+        return { ...s, subStages: [...(s.subStages || []), data] };
+      }
+      return s;
+    }));
+  };
+  const updateProjectSubStage = async (id: string, subStageData: Partial<ProjectSubStage>) => {
+    const { error } = await supabase.from('project_sub_stages').update(subStageData).eq('id', id);
+    if (error) {
+      console.error('Erro updateProjectSubStage:', error);
+      throw error;
+    }
+    setProjectStages(prev => prev.map(s => ({
+      ...s,
+      subStages: (s.subStages || []).map(sub => sub.id === id ? { ...sub, ...subStageData } : sub)
+    })));
+  };
+  const deleteProjectSubStage = async (id: string) => {
+    await supabase.from('project_sub_stages').delete().eq('id', id);
+    setProjectStages(prev => prev.map(s => ({
+      ...s,
+      subStages: (s.subStages || []).filter(sub => sub.id !== id)
+    })));
+  };
+
+  // --- RH PONTO ---
+  const addTimePunch = async (punch: Omit<TimePunch, 'id'>) => {
+    const { data, error } = await supabase.from('time_punches').insert([punch]).select().single();
+    if (error) {
+      console.error('Erro addTimePunch:', error);
+      throw error;
+    }
+    if (data) setTimePunches(prev => [...prev, data]);
+  };
+  const updateTimePunch = async (id: string, punchData: Partial<TimePunch>) => {
+    const { error } = await supabase.from('time_punches').update(punchData).eq('id', id);
+    if (error) {
+      console.error('Erro updateTimePunch:', error);
+      throw error;
+    }
+    setTimePunches(prev => prev.map(p => p.id === id ? { ...p, ...punchData } : p));
+  };
+  const deleteTimePunch = async (id: string) => {
+    await supabase.from('time_punches').delete().eq('id', id);
+    setTimePunches(prev => prev.filter(p => p.id !== id));
+  };
+
   return (
     <DataContext.Provider value={{
       sinapiDatabase: MOCK_SINAPI_DB,
@@ -2584,13 +2772,15 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       projectTasks, addProjectTask, updateProjectTask, deleteProjectTask,
       projectMilestones, addProjectMilestone, updateProjectMilestone, deleteProjectMilestone,
       leads, addLead, updateLead, deleteLead, addLeadInteraction,
-      inventoryItems, addInventoryItem, updateInventoryItem, deleteInventoryItem, addInventoryMovement,
+      inventoryItems, addInventoryItem, updateInventoryItem, deleteInventoryItem, addInventoryMovement, inventoryMovements,
       goals, addGoal, updateGoal, deleteGoal,
       contracts, addContract, updateContract, deleteContract,
       purchaseOrders, addPurchaseOrder, updatePurchaseOrder, deletePurchaseOrder,
       safetyRecords, addSafetyRecord, updateSafetyRecord, deleteSafetyRecord,
       engineeringDocuments, addEngineeringDocument, deleteEngineeringDocument, uploadFile,
       qualityInspections, addQualityInspection, updateQualityInspection, deleteQualityInspection,
+      projectStages, addProjectStage, updateProjectStage, deleteProjectStage, addProjectSubStage, updateProjectSubStage, deleteProjectSubStage,
+      timePunches, addTimePunch, updateTimePunch, deleteTimePunch,
       loading,
       refreshData
     }}>

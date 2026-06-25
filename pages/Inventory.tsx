@@ -21,10 +21,11 @@ import {
 } from 'lucide-react';
 
 const Inventory: React.FC = () => {
-    const { inventoryItems, addInventoryItem, updateInventoryItem, deleteInventoryItem } = useData();
+    const { inventoryItems, addInventoryItem, updateInventoryItem, deleteInventoryItem, inventoryMovements } = useData();
     const [searchTerm, setSearchTerm] = useState('');
     const [categoryFilter, setCategoryFilter] = useState('Todas');
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+    const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
     const [newItem, setNewItem] = useState<Partial<InventoryItem>>({
         name: '',
         category: 'Materiais',
@@ -94,7 +95,10 @@ const Inventory: React.FC = () => {
                 </div>
 
                 <div className="flex items-center gap-3">
-                    <button className="flex items-center gap-2 text-slate-600 bg-white hover:bg-slate-50 border border-slate-200 px-4 py-2 rounded-lg transition-colors shadow-sm">
+                    <button 
+                        onClick={() => setIsHistoryModalOpen(true)}
+                        className="flex items-center gap-2 text-slate-600 bg-white hover:bg-slate-50 border border-slate-200 px-4 py-2 rounded-lg transition-colors shadow-sm"
+                    >
                         <History size={20} />
                         Histórico
                     </button>
@@ -138,7 +142,13 @@ const Inventory: React.FC = () => {
                         <span className="text-sm text-slate-500">Movimentações (Mês)</span>
                         <ArrowUpRight size={18} className="text-[#c79229]" />
                     </div>
-                    <div className="text-2xl font-bold text-slate-800">124</div>
+                    <div className="text-2xl font-bold text-slate-800">
+                        {inventoryMovements.filter(m => {
+                            const d = new Date(m.date);
+                            const now = new Date();
+                            return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+                        }).length}
+                    </div>
                 </div>
             </div>
 
@@ -393,6 +403,63 @@ const Inventory: React.FC = () => {
                                 </button>
                             </div>
                         </form>
+                    </div>
+                </div>
+            )}
+
+            {/* History Modal */}
+            {isHistoryModalOpen && (
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-2xl shadow-xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+                        <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+                            <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+                                <History size={20} className="text-[#c79229]" />
+                                Histórico de Movimentações
+                            </h3>
+                            <button onClick={() => setIsHistoryModalOpen(false)} className="p-2 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-200 transition-colors">
+                                <X size={20} />
+                            </button>
+                        </div>
+                        <div className="overflow-y-auto p-6 flex-1 custom-scrollbar">
+                            {inventoryMovements.length === 0 ? (
+                                <p className="text-slate-500 text-center py-8">Nenhuma movimentação registrada.</p>
+                            ) : (
+                                <table className="w-full text-left text-sm text-slate-700">
+                                    <thead className="bg-slate-50 border-b border-slate-200 text-xs uppercase font-medium text-slate-500">
+                                        <tr>
+                                            <th className="px-4 py-3">Data</th>
+                                            <th className="px-4 py-3">Tipo</th>
+                                            <th className="px-4 py-3">Item</th>
+                                            <th className="px-4 py-3">Qtd</th>
+                                            <th className="px-4 py-3">Responsável</th>
+                                            <th className="px-4 py-3">Motivo / Obs</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-100">
+                                        {inventoryMovements.map(m => {
+                                            const item = inventoryItems.find(i => i.id === m.itemId);
+                                            return (
+                                                <tr key={m.id} className="hover:bg-slate-50">
+                                                    <td className="px-4 py-3">{new Date(m.date + 'T00:00:00').toLocaleDateString('pt-BR')}</td>
+                                                    <td className="px-4 py-3">
+                                                        <span className={`px-2 py-1 rounded text-xs font-bold ${m.type === 'IN' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                                                            {m.type === 'IN' ? 'Entrada' : 'Saída'}
+                                                        </span>
+                                                    </td>
+                                                    <td className="px-4 py-3 font-medium">{item?.name || 'Item Removido'}</td>
+                                                    <td className="px-4 py-3">{m.quantity} {item?.unit}</td>
+                                                    <td className="px-4 py-3">{m.responsible || '---'}</td>
+                                                    <td className="px-4 py-3 text-slate-500">{m.notes || '---'}</td>
+                                                </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                </table>
+                            )}
+                        </div>
+                        <div className="px-6 py-4 border-t border-slate-100 bg-slate-50 flex justify-end">
+                            <button onClick={() => setIsHistoryModalOpen(false)} className="px-6 py-2.5 bg-slate-200 text-slate-800 rounded-xl hover:bg-slate-300 font-medium">Fechar</button>
+                        </div>
                     </div>
                 </div>
             )}

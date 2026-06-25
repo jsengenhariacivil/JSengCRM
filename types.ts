@@ -32,6 +32,27 @@ export interface Project {
   progress: number; // 0-100
   photos?: string[]; // URLs of photos uploaded to storage
   proposalId?: string; // Link to the original proposal if automated
+  stages?: ProjectStage[]; // Cronograma Físico-Financeiro
+}
+
+export interface ProjectSubStage {
+  id: string;
+  stage_id?: string;
+  name: string;
+  progress: number;
+  weight?: number;
+}
+
+export interface ProjectStage {
+  id: string;
+  obra_id?: string;
+  name: string;
+  weight: number;
+  progress: number;
+  startDate: string;
+  endDate: string;
+  value?: number;
+  subStages?: ProjectSubStage[];
 }
 
 export type FinancialEntity = 'PJ' | 'Pessoal';
@@ -177,6 +198,19 @@ export interface TeamMember {
   emergency_contact?: string;
   bank_pix?: string;
   bank_info?: string;
+  dailyRate?: number; // Valor da diária para RH
+  paymentType?: 'diaria' | 'quinzenal' | 'mensal' | 'hora';
+}
+
+export interface TimePunch {
+  id: string;
+  employee_id: string;
+  date: string;
+  entry_time: string;
+  exit_time: string;
+  hours_worked: number;
+  value_paid: number;
+  note?: string;
 }
 
 export interface PaymentRecord {
