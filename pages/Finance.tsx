@@ -127,9 +127,9 @@ const Finance: React.FC = () => {
         
         if (!isProLabore) return null;
         
-        const generateMirror = (r: FinancialRecord): FinancialRecord => ({
+        const generateMirror = (r: any): any => ({
           ...r,
-          id: `${Date.now()}-${Math.floor(Math.random() * 1000)}`, // Generate new ID
+          id: undefined, // Let Supabase generate ID
           type: 'Receita',
           financial_entity: 'Pessoal',
           description: `${r.description} (Automático)`,
@@ -143,16 +143,15 @@ const Finance: React.FC = () => {
       };
 
       if (paymentForm === 'unique') {
-        const transaction: FinancialRecord = {
-          id: (Date.now()).toString(),
+        const transaction: any = {
           ...baseRecord
-        } as FinancialRecord;
+        };
         await addFinancialRecord(transaction);
         const mirror = generateMirroredRecords(transaction);
         if (mirror) await addFinancialRecord(mirror);
       } else if (paymentForm === 'installment') {
-        const records: FinancialRecord[] = [];
-        const parentId = `p-${Date.now()}`;
+        const records: any[] = [];
+        const parentId = crypto.randomUUID();
         const count = installmentCount;
         const entryValue = installmentEntryValue;
         const remainingAmount = Number(newTransaction.amount) - entryValue;
@@ -173,7 +172,6 @@ const Finance: React.FC = () => {
         if (entryValue > 0) {
           const entryDate = newTransaction.date || new Date().toISOString();
           records.push({
-            id: `entry-${Date.now()}`,
             ...baseRecord,
             description: `[1/${totalWithEntry}] ${baseRecord.description} (Entrada)`,
             amount: entryValue,
@@ -182,7 +180,7 @@ const Finance: React.FC = () => {
             parentRecordId: parentId,
             installmentNumber: 1,
             totalInstallments: totalWithEntry
-          } as FinancialRecord);
+          });
         }
 
         for (let i = 1; i <= count; i++) {
@@ -192,7 +190,6 @@ const Finance: React.FC = () => {
           const currentNum = entryValue > 0 ? i + 1 : i;
 
           records.push({
-            id: `inst-${Date.now()}-${i}`,
             ...baseRecord,
             description: `[${currentNum}/${totalWithEntry}] ${baseRecord.description}`,
             amount: installmentValue,
@@ -201,14 +198,14 @@ const Finance: React.FC = () => {
             parentRecordId: parentId,
             installmentNumber: currentNum,
             totalInstallments: totalWithEntry
-          } as FinancialRecord);
+          });
         }
         await addFinancialRecord(records);
         const mirror = generateMirroredRecords(records);
         if (mirror) await addFinancialRecord(mirror);
       } else if (paymentForm === 'recurring') {
-        const records: FinancialRecord[] = [];
-        const parentId = `rec-${Date.now()}`;
+        const records: any[] = [];
+        const parentId = crypto.randomUUID();
         const count = isFixed ? 24 : recurrenceCount;
         const startDate = new Date(newTransaction.date || new Date().toISOString());
 
@@ -227,13 +224,12 @@ const Finance: React.FC = () => {
           date.setMonth(startDate.getMonth() + i);
           const dateStr = date.toISOString().split('T')[0];
           records.push({
-            id: `rec-${Date.now()}-${i}`,
             ...baseRecord,
             date: dateStr,
             status: getStatusForDate(dateStr),
             parentRecordId: parentId,
             isRecurring: true
-          } as FinancialRecord);
+          });
         }
         await addFinancialRecord(records);
         const mirror = generateMirroredRecords(records);
