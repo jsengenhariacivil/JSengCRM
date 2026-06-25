@@ -119,12 +119,37 @@ const Finance: React.FC = () => {
         financial_entity: newTransaction.financial_entity as any || 'PJ'
       };
 
+      const generateMirroredRecords = (sourceRecords: FinancialRecord | FinancialRecord[]) => {
+        const cat = (baseRecord.category || '').toLowerCase();
+        const isProLabore = baseRecord.type === 'Despesa' && 
+                            baseRecord.financial_entity === 'PJ' && 
+                            (cat.includes('pró-labore') || cat.includes('pro-labore') || cat.includes('prolabore') || cat.includes('retirada'));
+        
+        if (!isProLabore) return null;
+        
+        const generateMirror = (r: FinancialRecord): FinancialRecord => ({
+          ...r,
+          id: `${Date.now()}-${Math.floor(Math.random() * 1000)}`, // Generate new ID
+          type: 'Receita',
+          financial_entity: 'Pessoal',
+          description: `${r.description} (Automático)`,
+          projectId: undefined
+        });
+        
+        if (Array.isArray(sourceRecords)) {
+          return sourceRecords.map(generateMirror);
+        }
+        return generateMirror(sourceRecords);
+      };
+
       if (paymentForm === 'unique') {
         const transaction: FinancialRecord = {
           id: (Date.now()).toString(),
           ...baseRecord
         } as FinancialRecord;
         await addFinancialRecord(transaction);
+        const mirror = generateMirroredRecords(transaction);
+        if (mirror) await addFinancialRecord(mirror);
       } else if (paymentForm === 'installment') {
         const records: FinancialRecord[] = [];
         const parentId = `p-${Date.now()}`;
@@ -179,6 +204,8 @@ const Finance: React.FC = () => {
           } as FinancialRecord);
         }
         await addFinancialRecord(records);
+        const mirror = generateMirroredRecords(records);
+        if (mirror) await addFinancialRecord(mirror);
       } else if (paymentForm === 'recurring') {
         const records: FinancialRecord[] = [];
         const parentId = `rec-${Date.now()}`;
@@ -209,6 +236,8 @@ const Finance: React.FC = () => {
           } as FinancialRecord);
         }
         await addFinancialRecord(records);
+        const mirror = generateMirroredRecords(records);
+        if (mirror) await addFinancialRecord(mirror);
       }
     }
 
