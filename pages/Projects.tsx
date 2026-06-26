@@ -98,7 +98,7 @@ const ProjectCard: React.FC<ProjectCardProps> = ({ project, onDetails, onEdit, o
 };
 
 const Projects: React.FC = () => {
-  const { projects, addProject, updateProject, deleteProject, clients, financials } = useData();
+  const { projects, addProject, updateProject, deleteProject, clients, addClient, financials } = useData();
   const { currentUser } = useAuth();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);

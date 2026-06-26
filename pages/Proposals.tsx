@@ -6,6 +6,7 @@ import { useAuth } from '../context/AuthContext';
 import { Status, Proposal, ProposalEtapa, ProposalItem } from '../types';
 import * as XLSX from 'xlsx';
 import { supabase } from '../supabaseClient';
+import QuickClientSupplierForm from '../components/QuickClientSupplierForm';
 
 interface ProposalsProps {
   viewMode?: 'list' | 'create';
@@ -412,6 +413,7 @@ const CreateProposal = ({ onCancel, onSave, initialData }: { onCancel: () => voi
   const [proposalSinapiType, setProposalSinapiType] = useState('AMBOS');
   const [sinapiResults, setSinapiResults] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState<'orcamento' | 'followup'>('orcamento');
+  const [isNewClientMode, setIsNewClientMode] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -844,17 +846,36 @@ const CreateProposal = ({ onCancel, onSave, initialData }: { onCancel: () => voi
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">Cliente</label>
-          <select
-            className="w-full border border-slate-300 rounded-lg p-2.5 bg-white text-slate-900 focus:ring-2 focus:ring-[#c79229] outline-none"
-            value={selectedClient}
-            onChange={(e) => setSelectedClient(e.target.value)}
-          >
-            <option value="">Selecione um cliente...</option>
-            {clients.map(client => (
-              <option key={client.id} value={client.id}>{client.name} - {client.document}</option>
-            ))}
-          </select>
+          <div className="flex justify-between items-center mb-1">
+            <label className="block text-sm font-medium text-slate-700">Cliente</label>
+            {!isNewClientMode && (
+              <button 
+                type="button" 
+                onClick={() => setIsNewClientMode(true)}
+                className="text-xs font-bold text-[#c79229] hover:text-[#a67922] flex items-center gap-1"
+              >
+                <UserPlus size={12} /> Novo Cliente
+              </button>
+            )}
+          </div>
+          {isNewClientMode ? (
+            <QuickClientSupplierForm 
+              type="client" 
+              onSuccess={(id) => { setSelectedClient(id); setIsNewClientMode(false); }} 
+              onCancel={() => setIsNewClientMode(false)} 
+            />
+          ) : (
+            <select
+              className="w-full border border-slate-300 rounded-lg p-2.5 bg-white text-slate-900 focus:ring-2 focus:ring-[#c79229] outline-none"
+              value={selectedClient}
+              onChange={(e) => setSelectedClient(e.target.value)}
+            >
+              <option value="">Selecione um cliente...</option>
+              {clients.map(client => (
+                <option key={client.id} value={client.id}>{client.name} - {client.document}</option>
+              ))}
+            </select>
+          )}
         </div>
         <div>
           <label className="block text-sm font-medium text-slate-700 mb-1">Data de Validade</label>

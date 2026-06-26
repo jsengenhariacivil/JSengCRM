@@ -58,7 +58,6 @@ const ServicesPage: React.FC = () => {
       // Criar Novo
       const newService: Service = {
         ...formData as Service,
-        id: (Date.now()).toString(),
       };
       await addService(newService);
     }

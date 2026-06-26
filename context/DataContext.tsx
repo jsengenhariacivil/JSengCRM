@@ -2095,7 +2095,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       status: lead.status,
       source: lead.source,
       notes: lead.notes,
-      valor: isNaN(lead.value as number) ? 0 : lead.value,
+      value: isNaN(lead.value as number) ? 0 : lead.value,
       ...(lead.assignedTo ? { assigned_to: lead.assignedTo } : {})
     };
 
@@ -2134,7 +2134,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       status: lead.status,
       source: lead.source,
       notes: lead.notes,
-      valor: isNaN(lead.value as number) ? 0 : lead.value,
+      value: isNaN(lead.value as number) ? 0 : lead.value,
       ...(lead.assignedTo ? { assigned_to: lead.assignedTo } : {}),
       last_contact: new Date().toISOString()
     };

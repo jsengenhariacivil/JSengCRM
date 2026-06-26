@@ -44,7 +44,7 @@ const Finance: React.FC = () => {
         row.type,
         `"${row.description}"`,
         row.category,
-        new Date(row.date).toLocaleDateString(),
+        new Date(row.date + 'T12:00:00').toLocaleDateString(),
         row.amount,
         row.status
       ].join(','))
@@ -162,7 +162,7 @@ const Finance: React.FC = () => {
         const getStatusForDate = (dateStr: string) => {
           const today = new Date();
           today.setHours(0, 0, 0, 0);
-          const recordDate = new Date(dateStr);
+          const recordDate = new Date(dateStr + 'T12:00:00');
           if (recordDate > today && newTransaction.status === Status.LATE) {
             return Status.PENDING;
           }
@@ -212,7 +212,7 @@ const Finance: React.FC = () => {
         const getStatusForDate = (dateStr: string) => {
           const today = new Date();
           today.setHours(0, 0, 0, 0);
-          const recordDate = new Date(dateStr);
+          const recordDate = new Date(dateStr + 'T12:00:00');
           if (recordDate > today && newTransaction.status === Status.LATE) {
             return Status.PENDING;
           }
@@ -388,7 +388,7 @@ const Finance: React.FC = () => {
                   <td className="px-6 py-4">
                     <span className="px-2 py-1 bg-slate-100 rounded text-slate-600 text-xs">{item.category}</span>
                   </td>
-                  <td className="px-6 py-4 text-slate-500">{new Date(item.date).toLocaleDateString('pt-BR')}</td>
+                  <td className="px-6 py-4 text-slate-500">{new Date(item.date + 'T12:00:00').toLocaleDateString('pt-BR')}</td>
                   <td className={`px-6 py-4 text-right font-bold ${item.type === 'Receita' ? 'text-green-600' : 'text-[#181418]'}`}>
                     R$ {item.amount.toLocaleString()}
                   </td>

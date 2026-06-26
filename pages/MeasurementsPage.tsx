@@ -6,12 +6,13 @@ import { Status, Measurement } from '../types';
 import { supabase } from '../supabaseClient';
 
 const MeasurementsPage: React.FC = () => {
-    const { projects, measurements, addMeasurement, updateMeasurement, deleteMeasurement } = useData();
+    const { projects, measurements, addMeasurement, updateMeasurement, deleteMeasurement, addFinancialRecord } = useData();
     const [selectedProjectId, setSelectedProjectId] = useState<string>('');
     const [isFormOpen, setIsFormOpen] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const [editingMeasurement, setEditingMeasurement] = useState<Measurement | null>(null);
     const [measurementType, setMeasurementType] = useState<'percent' | 'unit'>('percent');
+    const [financeType, setFinanceType] = useState<'Receita' | 'Despesa'>('Receita');
 
     const [newMeasure, setNewMeasure] = useState({
         description: '',
@@ -61,7 +62,7 @@ const MeasurementsPage: React.FC = () => {
                     projectId: selectedProjectId,
                     value: finalValue,
                     percentage: finalPercentage,
-                    status: Status.PAID
+                    status: Status.PENDING
                 });
             } else {
                 await addMeasurement({
@@ -69,8 +70,19 @@ const MeasurementsPage: React.FC = () => {
                     projectId: selectedProjectId,
                     value: finalValue,
                     percentage: finalPercentage,
-                    status: Status.PAID
+                    status: Status.PENDING
                 });
+                // Lançar no financeiro
+                await addFinancialRecord([{
+                    id: crypto.randomUUID(),
+                    description: `Medição: ${newMeasure.description} - ${project.title}`,
+                    amount: finalValue,
+                    type: financeType,
+                    category: financeType === 'Receita' ? 'Medição Recebida' : 'Medição Paga',
+                    status: Status.PENDING,
+                    date: newMeasure.date,
+                    clientSupplier: project.clientId
+                }]);
             }
 
             setIsFormOpen(false);
@@ -422,7 +434,21 @@ const MeasurementsPage: React.FC = () => {
                                         </div>
                                     </div>
                                 </div>
+                                </div>
                             )}
+
+                            <div className="pt-4 border-t border-slate-100">
+                                <label className="block text-sm font-bold text-slate-700 mb-1">Impacto Financeiro (Medição)</label>
+                                <select
+                                    value={financeType}
+                                    onChange={(e) => setFinanceType(e.target.value as 'Receita' | 'Despesa')}
+                                    className="w-full border border-slate-200 rounded-xl p-3 focus:ring-2 focus:ring-[#c79229] outline-none"
+                                >
+                                    <option value="Receita">É uma Receita (Cobrando do Cliente)</option>
+                                    <option value="Despesa">É uma Despesa (Pagando Subempreiteiro/Fornecedor)</option>
+                                </select>
+                                <p className="text-xs text-slate-500 mt-1">Isso vai gerar um lançamento Pendente no Financeiro.</p>
+                            </div>
 
                             <div>
                                 <label className="block text-sm font-bold text-slate-700 mb-2">Fotos do Serviço</label>

@@ -29,7 +29,6 @@ const PlanningPage: React.FC = () => {
 
         await addProjectTask({
             ...newTask,
-            id: Date.now().toString(),
             projectId: selectedProjectId
         });
 
@@ -43,7 +42,6 @@ const PlanningPage: React.FC = () => {
 
         await addProjectMilestone({
             ...newMilestone,
-            id: Date.now().toString(),
             projectId: selectedProjectId
         });
 

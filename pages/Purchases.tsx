@@ -1,13 +1,15 @@
 import React, { useState } from 'react';
-import { Plus, Search, ShoppingCart, Calendar, DollarSign, User, Package, Trash2, Edit2, CheckCircle, Clock, X, Save } from 'lucide-react';
+import { Plus, Search, ShoppingCart, Calendar, DollarSign, User, Package, Trash2, Edit2, CheckCircle, Clock, X, Save, FileText, CheckCircle2, ArrowRight, UserPlus } from 'lucide-react';
 import { useData } from '../context/DataContext';
 import { PurchaseOrder, PurchaseOrderItem, Status } from '../types';
+import QuickClientSupplierForm from '../components/QuickClientSupplierForm';
 
 const Purchases: React.FC = () => {
     const { purchaseOrders, addPurchaseOrder, updatePurchaseOrder, deletePurchaseOrder, suppliers, projects } = useData();
     const [searchTerm, setSearchTerm] = useState('');
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingPO, setEditingPO] = useState<PurchaseOrder | null>(null);
+    const [isNewSupplierMode, setIsNewSupplierMode] = useState(false);
 
     // Form state
     const [formData, setFormData] = useState<Partial<PurchaseOrder>>({
@@ -220,19 +222,38 @@ const Purchases: React.FC = () => {
                                         <option value="Cancelado">Cancelado</option>
                                     </select>
                                 </div>
-                                <div>
-                                    <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Fornecedor</label>
-                                    <select
-                                        required
-                                        className="w-full border border-slate-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-[#c79229] outline-none"
-                                        value={formData.supplierId}
-                                        onChange={e => setFormData({ ...formData, supplierId: e.target.value })}
-                                    >
-                                        <option value="">Selecione...</option>
-                                        {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                                    </select>
+                                <div className="md:col-span-2">
+                                    <div className="flex justify-between items-center mb-1">
+                                        <label className="block text-xs font-bold text-slate-400 uppercase">Fornecedor</label>
+                                        {!isNewSupplierMode && (
+                                            <button 
+                                                type="button" 
+                                                onClick={() => setIsNewSupplierMode(true)}
+                                                className="text-xs font-bold text-[#c79229] hover:text-[#a67922] flex items-center gap-1"
+                                            >
+                                                <UserPlus size={12} /> Novo Fornecedor
+                                            </button>
+                                        )}
+                                    </div>
+                                    {isNewSupplierMode ? (
+                                        <QuickClientSupplierForm 
+                                            type="supplier" 
+                                            onSuccess={(id) => { setFormData({ ...formData, supplierId: id }); setIsNewSupplierMode(false); }} 
+                                            onCancel={() => setIsNewSupplierMode(false)} 
+                                        />
+                                    ) : (
+                                        <select
+                                            required
+                                            className="w-full border border-slate-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-[#c79229] outline-none"
+                                            value={formData.supplierId}
+                                            onChange={e => setFormData({ ...formData, supplierId: e.target.value })}
+                                        >
+                                            <option value="">Selecione...</option>
+                                            {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                                        </select>
+                                    )}
                                 </div>
-                                <div>
+                                <div className="md:col-span-2">
                                     <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Obra Vinculada</label>
                                     <select
                                         required
