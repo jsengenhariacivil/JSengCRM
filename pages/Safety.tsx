@@ -61,9 +61,10 @@ const Safety: React.FC = () => {
                 await addSafetyRecord(formData as SafetyRecord);
             }
             setIsModalOpen(false);
-        } catch (error) {
+        } catch (error: any) {
             console.error('Erro ao salvar registro de segurança:', error);
-            alert(`Erro ao salvar registro de segurança: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
+            const msg = error?.message || (typeof error === 'string' ? error : JSON.stringify(error));
+            alert(`Erro ao salvar registro de segurança: ${msg}`);
         } finally {
             setIsSaving(false);
         }
