@@ -563,7 +563,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             message: n.message,
             type: n.type,
             is_read: n.is_read,
-            user_id: n.user_id,
+            user_id: n.user_id || null,
             created_at: n.created_at
           })));
         }
@@ -571,7 +571,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         if (proposalHistoryData.data) {
           setProposalHistory(proposalHistoryData.data.map(ph => ({
             id: ph.id,
-            proposal_id: ph.proposal_id,
+            proposal_id: ph.proposal_id || null,
             description: ph.description,
             contact_type: ph.contact_type,
             user_name: ph.user_name,
@@ -779,7 +779,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           const subs = subStagesData?.filter(sub => sub.stage_id === s.id) || [];
           return {
             id: s.id,
-            obra_id: s.obra_id,
+            obra_id: s.obra_id || null,
             name: s.name,
             weight: parseFloat(s.weight),
             progress: parseFloat(s.progress),
@@ -788,7 +788,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             value: parseFloat(s.value || 0),
             subStages: subs.map(sub => ({
               id: sub.id,
-              stage_id: sub.stage_id,
+              stage_id: sub.stage_id || null,
               name: sub.name,
               progress: parseFloat(sub.progress),
               weight: parseFloat(sub.weight)
@@ -802,7 +802,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       if (punchesData) {
         setTimePunches(punchesData.map(p => ({
           id: p.id,
-          employee_id: p.employee_id,
+          employee_id: p.employee_id || null,
           date: p.date,
           entry_time: p.entry_time,
           exit_time: p.exit_time,
@@ -888,14 +888,14 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     try {
       const { data, error } = await supabase.from('projects').insert([{
         title: project.title,
-        client_id: project.clientId,
+        client_id: project.clientId || null,
         address: project.address,
         status: project.status,
         start_date: project.startDate || new Date().toISOString().split('T')[0],
         end_date: project.endDate || project.startDate || new Date().toISOString().split('T')[0],
         budget: project.budget,
         progress: project.progress,
-        proposal_id: project.proposalId
+        proposal_id: project.proposalId || null
       }]).select().single();
 
       if (error) {
@@ -930,7 +930,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const updateProject = async (project: Project) => {
     await supabase.from('projects').update({
       title: project.title,
-      client_id: project.clientId,
+      client_id: project.clientId || null,
       address: project.address,
       status: project.status,
       start_date: project.startDate || new Date().toISOString().split('T')[0],
@@ -1010,14 +1010,14 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         date: r.date,
         status: r.status,
         category: r.category,
-        project_id: r.projectId,
-        parent_record_id: r.parentRecordId,
+        project_id: r.projectId || null,
+        parent_record_id: r.parentRecordId || null,
         installment_number: r.installmentNumber,
         total_installments: r.totalInstallments,
         is_recurring: r.isRecurring,
         financial_entity: r.financial_entity || 'PJ'
       };
-      if (r.id) data.id = r.id;
+      
       return data;
     });
 
@@ -1078,8 +1078,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       date: record.date,
       status: record.status,
       category: record.category,
-      project_id: record.projectId,
-      parent_record_id: record.parentRecordId,
+      project_id: record.projectId || null,
+      parent_record_id: record.parentRecordId || null,
       installment_number: record.installmentNumber,
       total_installments: record.totalInstallments,
       is_recurring: record.isRecurring,
@@ -1127,7 +1127,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   // --- PROPOSALS ---
   const addProposal = async (proposal: Proposal) => {
     const { data: proposalData, error: proposalError } = await supabase.from('proposals').insert([{
-      client_id: proposal.clientId,
+      client_id: proposal.clientId || null,
       total: proposal.total,
       bdi: proposal.bdi || 0,
       status: proposal.status,
@@ -1145,7 +1145,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       if (proposal.etapas && proposal.etapas.length > 0) {
         for (const etapa of proposal.etapas) {
           const { data: etapaData, error: etapaError } = await supabase.from('proposal_etapas').insert([{
-            proposal_id: proposalData.id,
+            proposal_id: proposalData.id || null,
             name: etapa.name,
             order: etapa.order
           }]).select().single();
@@ -1161,9 +1161,9 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             const insertItemsRecursive = async (items: ProposalItem[], parentId: string | null = null) => {
               for (const item of items) {
                 const { data: itemData, error: itemError } = await supabase.from('proposal_items').insert([{
-                  proposal_id: proposalData.id,
-                  etapa_id: etapaData.id,
-                  parent_id: parentId,
+                  proposal_id: proposalData.id || null,
+                  etapa_id: etapaData.id || null,
+                  parent_id: parentId || null,
                   service_id: item.serviceId && item.serviceId.length >= 32 ? item.serviceId : null,
                   code: item.code || (item.serviceId && item.serviceId.length < 32 ? item.serviceId : ''),
                   banco: item.banco || 'PROPRIO',
@@ -1197,7 +1197,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       // Legacy fallback
       if (proposal.items && proposal.items.length > 0) {
         const flatItems = proposal.items.map(item => ({
-          proposal_id: proposalData.id,
+          proposal_id: proposalData.id || null,
           service_id: item.serviceId && item.serviceId.length >= 32 ? item.serviceId : null,
           code: item.code || (item.serviceId && item.serviceId.length < 32 ? item.serviceId : ''),
           banco: item.banco || 'PROPRIO',
@@ -1399,7 +1399,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     // Atualiza cabeçalho
     const { error: proposalError } = await supabase.from('proposals').update({
-      client_id: proposal.clientId,
+      client_id: proposal.clientId || null,
       total: proposal.total,
       bdi: proposal.bdi || 0,
       status: proposal.status,
@@ -1420,7 +1420,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     if (proposal.etapas && proposal.etapas.length > 0) {
       for (const etapa of proposal.etapas) {
         const { data: etapaData, error: etapaError } = await supabase.from('proposal_etapas').insert([{
-          proposal_id: proposal.id,
+          proposal_id: proposal.id || null,
           name: etapa.name,
           order: etapa.order
         }]).select().single();
@@ -1434,9 +1434,9 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           const insertItemsRecursive = async (items: ProposalItem[], parentId: string | null = null) => {
             for (const item of items) {
               const { data: itemData, error: itemError } = await supabase.from('proposal_items').insert([{
-                proposal_id: proposal.id,
-                etapa_id: etapaData.id,
-                parent_id: parentId,
+                proposal_id: proposal.id || null,
+                etapa_id: etapaData.id || null,
+                parent_id: parentId || null,
                 service_id: item.serviceId && item.serviceId.length >= 32 ? item.serviceId : null,
                 code: item.code || (item.serviceId && item.serviceId.length < 32 ? item.serviceId : ''),
                 banco: item.banco || 'PROPRIO',
@@ -1819,7 +1819,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     console.log('[DEBUG v2.1] addMeasurement iniciado');
     try {
       const { data, error } = await supabase.from('measurements').insert([{
-        project_id: measurement.projectId,
+        project_id: measurement.projectId || null,
         description: measurement.description,
         date: measurement.date,
         percentage: measurement.percentage,
@@ -1952,7 +1952,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const addDailyReport = async (report: Omit<DailyReport, 'id'> & { id?: string }) => {
     console.log('[DEBUG v2.1] addDailyReport iniciado');
     const { data, error } = await supabase.from('daily_reports').insert([{
-      project_id: report.projectId,
+      project_id: report.projectId || null,
       date: report.date,
       weather_morning: report.weatherMorning,
       weather_afternoon: report.weatherAfternoon,
@@ -2003,7 +2003,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   // --- PROJECT TASKS ---
   const addProjectTask = async (task: ProjectTask) => {
     const { data, error } = await supabase.from('project_tasks').insert([{
-      project_id: task.projectId,
+      project_id: task.projectId || null,
       title: task.title,
       start_date: task.startDate,
       end_date: task.endDate,
@@ -2036,7 +2036,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   // --- PROJECT MILESTONES ---
   const addProjectMilestone = async (milestone: ProjectMilestone) => {
     const { data, error } = await supabase.from('project_milestones').insert([{
-      project_id: milestone.projectId,
+      project_id: milestone.projectId || null,
       title: milestone.title,
       date: milestone.date,
       is_completed: milestone.isCompleted
@@ -2181,7 +2181,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const addLeadInteraction = async (interaction: Omit<LeadInteraction, 'id' | 'createdAt'>) => {
     await supabase.from('lead_interactions').insert([{
-      lead_id: interaction.leadId,
+      lead_id: interaction.leadId || null,
       type: interaction.type,
       content: interaction.content,
       user_name: interaction.userName
@@ -2234,7 +2234,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       min_quantity: item.minQuantity,
       location: item.location,
       unit_price: item.unitPrice,
-      supplier_id: item.supplierId,
+      supplier_id: item.supplierId || null,
       status: item.status
     }).eq('id', item.id);
     if (error) {
@@ -2251,11 +2251,11 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const addInventoryMovement = async (movement: Omit<InventoryMovement, 'id'>) => {
     const { data, error } = await supabase.from('inventory_movements').insert([{
-      item_id: movement.itemId,
+      item_id: movement.itemId || null,
       type: movement.type,
       quantity: movement.quantity,
       date: movement.date,
-      project_id: movement.projectId,
+      project_id: movement.projectId || null,
       responsible: movement.responsible,
       notes: movement.notes
     }]).select().single();
@@ -2348,8 +2348,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       const clientId = contract.clientId && contract.clientId.trim() !== "" ? contract.clientId : null;
 
       const { data, error } = await supabase.from('contracts').insert([{
-        proposal_id: proposalId,
-        client_id: clientId,
+        proposal_id: proposalId || null,
+        client_id: clientId || null,
         title: contract.title,
         value: contract.value,
         start_date: contract.startDate,
@@ -2382,8 +2382,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       const clientId = contract.clientId && contract.clientId.trim() !== "" ? contract.clientId : null;
 
       const { error } = await supabase.from('contracts').update({
-        proposal_id: proposalId,
-        client_id: clientId,
+        proposal_id: proposalId || null,
+        client_id: clientId || null,
         title: contract.title,
         value: contract.value,
         start_date: contract.startDate,
@@ -2416,8 +2416,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       const supplierId = po.supplierId && po.supplierId.trim() !== "" ? po.supplierId : null;
 
       const { data, error } = await supabase.from('purchase_orders').insert([{
-        supplier_id: supplierId,
-        project_id: projectId,
+        supplier_id: supplierId || null,
+        project_id: projectId || null,
         description: po.description,
         total_value: po.totalValue,
         date: po.date,
@@ -2432,7 +2432,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       if (data) {
         if (po.items && po.items.length > 0) {
           const itemsToInsert = po.items.map(item => ({
-            purchase_order_id: data.id,
+            purchase_order_id: data.id || null,
             description: item.description,
             quantity: item.quantity,
             unit: item.unit,
@@ -2460,8 +2460,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       const { error } = await supabase.from('purchase_orders').update({
         status: po.status,
         description: po.description,
-        project_id: projectId,
-        supplier_id: supplierId,
+        project_id: projectId || null,
+        supplier_id: supplierId || null,
         total_value: po.totalValue,
         date: po.date
       }).eq('id', po.id);
@@ -2493,7 +2493,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         date: record.date,
         responsible: record.responsible,
         status: record.status,
-        project_id: projectId
+        project_id: projectId || null
       }]).select().single();
 
       if (error) {
@@ -2521,7 +2521,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         date: record.date,
         status: record.status,
         responsible: record.responsible,
-        project_id: projectId
+        project_id: projectId || null
       }).eq('id', record.id);
 
       if (error) {
@@ -2557,7 +2557,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const projectId = doc.projectId && doc.projectId.trim() !== "" ? doc.projectId : null;
 
     const { data, error } = await supabase.from('engineering_documents').insert([{
-      project_id: projectId,
+      project_id: projectId || null,
       title: doc.title,
       category: doc.category,
       document_type: doc.documentType || 'Link',
@@ -2592,7 +2592,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       const projectId = inspection.projectId && inspection.projectId.trim() !== "" ? inspection.projectId : null;
 
       const { data, error } = await supabase.from('quality_inspections').insert([{
-        project_id: projectId,
+        project_id: projectId || null,
         title: inspection.title,
         description: inspection.description,
         status: inspection.status,
@@ -2624,7 +2624,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       const projectId = inspection.projectId && inspection.projectId.trim() !== "" ? inspection.projectId : null;
 
       const { error } = await supabase.from('quality_inspections').update({
-        project_id: projectId,
+        project_id: projectId || null,
         title: inspection.title,
         description: inspection.description,
         status: inspection.status,
@@ -2653,7 +2653,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   // --- CRONOGRAMA ---
   const addProjectStage = async (stage: Omit<ProjectStage, 'id'>) => {
     const payload = {
-      obra_id: stage.obra_id,
+      obra_id: stage.obra_id || null,
       name: stage.name,
       weight: stage.weight,
       progress: stage.progress,
