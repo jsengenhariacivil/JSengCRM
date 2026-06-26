@@ -123,14 +123,14 @@ const Team: React.FC<TeamProps> = ({ view }) => {
 
     try {
       if (view === 'payments') {
-        const paymentData: PaymentRecord = {
-          id: editingId || (Date.now()).toString(),
+        const paymentData: any = {
           name: formData.name,
           reference: formData.reference,
           date: formData.date,
           value: Number(formData.value),
           status: formData.status
         };
+        if (editingId) paymentData.id = editingId;
 
         if (formData.reference && !savedReferences.includes(formData.reference)) {
           setSavedReferences(prev => [...prev, formData.reference].sort());
@@ -143,15 +143,26 @@ const Team: React.FC<TeamProps> = ({ view }) => {
         }
 
       } else {
-        const memberData: TeamMember = {
-          id: editingId || (Date.now()).toString(),
+        const memberData: any = {
           name: formData.name || '',
           role: formData.role || '',
           email: formData.email || '',
           phone: formData.phone || '',
-          type: formData.type || '',
-          status: formData.status || 'Ativo'
+          type: formData.type || (view === 'employees' ? 'CLT' : 'Prestador'),
+          status: formData.status || 'Ativo',
+          document_cpf: formData.document_cpf || '',
+          document_rg: formData.document_rg || '',
+          birth_date: formData.birth_date || null,
+          gender: formData.gender || null,
+          address: formData.address || '',
+          emergency_contact: formData.emergency_contact || '',
+          admission_date: formData.admission_date || null,
+          bank_pix: formData.bank_pix || '',
+          bank_info: formData.bank_info || '',
+          dailyRate: Number(formData.dailyRate) || 0,
+          paymentType: formData.paymentType || 'mensal'
         };
+        if (editingId) memberData.id = editingId;
 
         if (editingId) {
           await updateTeamMember(memberData);
@@ -415,17 +426,21 @@ const Team: React.FC<TeamProps> = ({ view }) => {
                         </div>
                         <div className="grid grid-cols-2 gap-4">
                           <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-1">CPF</label>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">
+                              {formData.type === 'Empresa' ? 'CNPJ' : (view === 'contractors' ? 'CPF / CNPJ' : 'CPF')}
+                            </label>
                             <input
                               type="text"
-                              placeholder="000.000.000-00"
+                              placeholder={formData.type === 'Empresa' ? '00.000.000/0000-00' : '000.000.000-00'}
                               value={formData.document_cpf || ''}
                               onChange={(e) => setFormData({ ...formData, document_cpf: e.target.value })}
                               className="w-full border border-slate-300 rounded-lg p-3 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-[#c79229] outline-none"
                             />
                           </div>
                           <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-1">RG</label>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">
+                              {formData.type === 'Empresa' ? 'Inscrição Estadual / RG' : 'RG'}
+                            </label>
                             <input
                               type="text"
                               placeholder="MG-00.000.000"

@@ -13,9 +13,15 @@ const fmt = (v: number) =>
 
 function calcHours(entry: string, exit: string): number {
   if (!entry || !exit) return 0;
+  if (entry === '00:00' && exit === '00:00') return 0; // Falta
   const [eh, em] = entry.split(':').map(Number);
   const [xh, xm] = exit.split(':').map(Number);
-  return Math.max(0, (xh * 60 + xm - (eh * 60 + em)) / 60);
+  let total = (xh * 60 + xm - (eh * 60 + em)) / 60;
+  
+  if (entry === '07:00' && exit === '16:30') return 8; // 1.5h lunch break
+  if (entry === '08:00' && exit === '17:00') return 8; // 1h lunch break
+  if (total > 6) total -= 1; // fallback default lunch break
+  return Math.max(0, total);
 }
 
 export default function PontoModal({ employee, onClose }: PontoModalProps) {
@@ -92,26 +98,51 @@ export default function PontoModal({ employee, onClose }: PontoModalProps) {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
               <div>
                 <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Data</label>
-                <input required type="date" value={form.date} onChange={e => setForm({...form, date: e.target.value})} className="w-full px-3 py-1.5 text-sm bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 rounded-lg" />
+                <input required type="date" value={form.date} onChange={e => setForm({...form, date: e.target.value})} className="w-full px-3 py-1.5 text-sm bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 rounded-lg text-zinc-900 dark:text-white" />
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Entrada</label>
-                <input required type="time" value={form.entry_time} onChange={e => setForm({...form, entry_time: e.target.value})} className="w-full px-3 py-1.5 text-sm bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 rounded-lg" />
+                <input required type="time" value={form.entry_time} onChange={e => setForm({...form, entry_time: e.target.value})} className="w-full px-3 py-1.5 text-sm bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 rounded-lg text-zinc-900 dark:text-white" />
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Saída</label>
-                <input required type="time" value={form.exit_time} onChange={e => setForm({...form, exit_time: e.target.value})} className="w-full px-3 py-1.5 text-sm bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 rounded-lg" />
+                <input required type="time" value={form.exit_time} onChange={e => setForm({...form, exit_time: e.target.value})} className="w-full px-3 py-1.5 text-sm bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 rounded-lg text-zinc-900 dark:text-white" />
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Valor (R$)</label>
-                <input required type="number" min="0" step="0.01" value={form.value_paid || ''} onChange={e => setForm({...form, value_paid: Number(e.target.value)})} className="w-full px-3 py-1.5 text-sm bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 rounded-lg" />
+                <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Obs (Opcional)</label>
+                <input type="text" placeholder="Ex: Falta, Atraso..." value={form.note} onChange={e => setForm({...form, note: e.target.value})} className="w-full px-3 py-1.5 text-sm bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 rounded-lg text-zinc-900 dark:text-white" />
               </div>
+            </div>
+
+            {/* Quick Fill Options */}
+            <div className="flex flex-wrap gap-2 mb-4">
+              <button 
+                type="button" 
+                onClick={() => setForm({...form, entry_time: '07:00', exit_time: '16:30', note: 'Local (07:00 - 16:30)'})}
+                className="px-3 py-1 text-xs font-medium bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 rounded-lg hover:bg-emerald-200 transition-colors"
+              >
+                Dia Normal (Local)
+              </button>
+              <button 
+                type="button" 
+                onClick={() => setForm({...form, entry_time: '08:00', exit_time: '17:00', note: 'Condomínio (08:00 - 17:00)'})}
+                className="px-3 py-1 text-xs font-medium bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 rounded-lg hover:bg-blue-200 transition-colors"
+              >
+                Condomínio
+              </button>
+              <button 
+                type="button" 
+                onClick={() => setForm({...form, entry_time: '00:00', exit_time: '00:00', note: 'FALTA'})}
+                className="px-3 py-1 text-xs font-medium bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 rounded-lg hover:bg-red-200 transition-colors"
+              >
+                Marcar Falta
+              </button>
             </div>
 
             <div className="flex gap-3 items-end">
               <div className="flex-1">
-                <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Observação / Atividade</label>
-                <input type="text" value={form.note} onChange={e => setForm({...form, note: e.target.value})} className="w-full px-3 py-1.5 text-sm bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 rounded-lg" placeholder="Ex: Preparo de massa, Limpeza..." />
+                <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Valor (R$)</label>
+                <input required type="number" min="0" step="0.01" value={form.value_paid || ''} onChange={e => setForm({...form, value_paid: Number(e.target.value)})} className="w-full px-3 py-1.5 text-sm bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 rounded-lg text-zinc-900 dark:text-white" />
               </div>
               <button type="submit" className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg">
                 Salvar

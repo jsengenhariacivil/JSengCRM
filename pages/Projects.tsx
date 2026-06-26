@@ -107,35 +107,63 @@ const Projects: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'info' | 'curva_s'>('info');
   const { measurements, projectTasks, dailyReports, projectMilestones, projectStages } = useData();
 
-  // Removidos states locais de Medição/RDO para centralização
-
   // Form State
   const [formData, setFormData] = useState<Partial<Project>>({
     title: '',
     clientId: '',
-    clientName: '',
     address: '',
     status: Status.PENDING,
     startDate: new Date().toISOString().split('T')[0],
-    endDate: new Date().toISOString().split('T')[0],
     budget: 0,
-    progress: 0
+    progress: 0,
+    proposalId: ''
   });
+
+  const [isNewClientMode, setIsNewClientMode] = useState(false);
+  const [newClientData, setNewClientData] = useState({ name: '', type: 'Pessoa Jurídica', document: '' });
+  const [isSavingClient, setIsSavingClient] = useState(false);
 
   const handleOpenNew = () => {
     setSelectedProject(null);
     setFormData({
       title: '',
       clientId: '',
-      clientName: '',
       address: '',
       status: Status.PENDING,
       startDate: new Date().toISOString().split('T')[0],
-      endDate: new Date().toISOString().split('T')[0],
       budget: 0,
-      progress: 0
+      progress: 0,
+      proposalId: ''
     });
+    setIsNewClientMode(false);
     setIsFormOpen(true);
+  };
+
+  const handleCreateClient = async () => {
+    if (!newClientData.name) {
+      alert("O nome do cliente é obrigatório");
+      return;
+    }
+    setIsSavingClient(true);
+    try {
+      const { data, error } = await supabase.from('clients').insert([{
+        name: newClientData.name,
+        type: newClientData.type,
+        document: newClientData.document
+      }]).select().single();
+      
+      if (error) throw error;
+      if (data) {
+        addClient(data); // If addClient expects full object
+        setFormData(prev => ({ ...prev, clientId: data.id, clientName: data.name }));
+        setIsNewClientMode(false);
+        setNewClientData({ name: '', type: 'Pessoa Jurídica', document: '' });
+      }
+    } catch (err: any) {
+      alert("Erro ao criar cliente: " + err.message);
+    } finally {
+      setIsSavingClient(false);
+    }
   };
 
   const handleEdit = (project: Project) => {
@@ -338,29 +366,83 @@ const Projects: React.FC = () => {
                     />
                   </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Cliente</label>
-                    <select
-                      required
-                      value={formData.clientId}
-                      onChange={(e) => {
-                        const selectedClientId = e.target.value;
-                        const selectedClient = clients.find(c => c.id === selectedClientId);
-                        setFormData({
-                          ...formData,
-                          clientId: selectedClientId,
-                          clientName: selectedClient?.name || '',
-                          // Auto-fill address se for nova obra e o cliente tiver endereço
-                          address: (!selectedProject && selectedClient?.address) ? selectedClient.address : formData.address
-                        });
-                      }}
-                      className="w-full border border-slate-300 rounded-lg p-2.5 bg-white focus:ring-2 focus:ring-[#c79229] outline-none"
-                    >
-                      <option value="">Selecione...</option>
-                      {clients.map(client => (
-                        <option key={client.id} value={client.id}>{client.name}</option>
-                      ))}
-                    </select>
+                  <div className="flex flex-col gap-2">
+                    <div className="flex justify-between items-center">
+                      <label className="block text-sm font-medium text-slate-700">Cliente</label>
+                      {!isNewClientMode && (
+                        <button 
+                          type="button" 
+                          onClick={() => setIsNewClientMode(true)}
+                          className="text-xs text-[#c79229] hover:underline font-medium flex items-center"
+                        >
+                          <Plus size={12} className="mr-1" /> Novo Cliente
+                        </button>
+                      )}
+                    </div>
+                    
+                    {!isNewClientMode ? (
+                      <select
+                        required
+                        value={formData.clientId}
+                        onChange={(e) => {
+                          const selectedClientId = e.target.value;
+                          const selectedClient = clients.find(c => c.id === selectedClientId);
+                          setFormData({
+                            ...formData,
+                            clientId: selectedClientId,
+                            clientName: selectedClient?.name || '',
+                            address: (!selectedProject && selectedClient?.address) ? selectedClient.address : formData.address
+                          });
+                        }}
+                        className="w-full border border-slate-300 rounded-lg p-2.5 bg-white focus:ring-2 focus:ring-[#c79229] outline-none"
+                      >
+                        <option value="">Selecione...</option>
+                        {clients.map(client => (
+                          <option key={client.id} value={client.id}>{client.name}</option>
+                        ))}
+                      </select>
+                    ) : (
+                      <div className="border border-[#c79229] rounded-lg p-3 bg-orange-50/50 space-y-3">
+                        <div className="flex justify-between items-center">
+                          <span className="text-xs font-bold text-[#c79229]">CADASTRAR NOVO CLIENTE</span>
+                          <button type="button" onClick={() => setIsNewClientMode(false)} className="text-slate-400 hover:text-slate-700">
+                            <X size={14} />
+                          </button>
+                        </div>
+                        <input
+                          type="text"
+                          placeholder="Nome do Cliente"
+                          value={newClientData.name}
+                          onChange={e => setNewClientData({...newClientData, name: e.target.value})}
+                          className="w-full border border-slate-300 rounded p-2 text-sm outline-none focus:border-[#c79229]"
+                        />
+                        <div className="flex gap-2">
+                          <select 
+                            value={newClientData.type}
+                            onChange={e => setNewClientData({...newClientData, type: e.target.value})}
+                            className="border border-slate-300 rounded p-2 text-sm outline-none w-1/2"
+                          >
+                            <option value="Pessoa Jurídica">CNPJ</option>
+                            <option value="Pessoa Física">CPF</option>
+                          </select>
+                          <input
+                            type="text"
+                            placeholder={newClientData.type === 'Pessoa Jurídica' ? 'CNPJ' : 'CPF'}
+                            value={newClientData.document}
+                            onChange={e => setNewClientData({...newClientData, document: e.target.value})}
+                            className="w-full border border-slate-300 rounded p-2 text-sm outline-none focus:border-[#c79229]"
+                          />
+                        </div>
+                        <button 
+                          type="button" 
+                          onClick={handleCreateClient}
+                          disabled={isSavingClient || !newClientData.name}
+                          className="w-full bg-[#181418] text-white py-2 rounded text-sm font-bold hover:bg-[#c79229] transition-colors disabled:opacity-50"
+                        >
+                          {isSavingClient ? 'Salvando...' : 'Salvar Cliente e Selecionar'}
+                        </button>
+                      </div>
+                    )}
                   </div>
 
                   <div>
