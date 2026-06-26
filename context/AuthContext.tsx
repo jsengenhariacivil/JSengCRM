@@ -61,55 +61,40 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   useEffect(() => {
     let mounted = true;
 
-    const initAuth = async () => {
-      try {
-        const timeoutPromise = new Promise<{ data: { session: null }, error: Error }>((resolve) => setTimeout(() => resolve({ data: { session: null }, error: new Error('Auth Timeout') }), 8000));
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const authRequest: any = supabase.auth.getSession();
-
-        const { data: { session }, error: sessionError } = await Promise.race([authRequest, timeoutPromise]) as any;
-
-        if (sessionError) {
-          console.error('Supabase getSession error or timeout:', sessionError.message);
-          // Don't throw, just allow the app to finish loading as unauthenticated
-        }
-
-        if (session?.user && mounted) {
-          const userData = await fetchUserData(session.user.id);
-          if (mounted) setCurrentUser(userData);
-        }
-      } catch (error) {
-        console.error('Error initializing auth:', error);
-      } finally {
-        if (mounted) setLoading(false);
-      }
-    };
-
-    initAuth();
-
-    // Listener para mudanças de autenticação
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log('Auth state changed:', event);
-      if (event === 'SIGNED_IN' && session?.user) {
+    // 1. Busca inicial super rápida (lê do sessionStorage)
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      if (session?.user && mounted) {
         try {
           const userData = await fetchUserData(session.user.id);
-          if (userData && mounted) {
+          if (mounted && userData) {
             setCurrentUser(userData);
           }
         } catch (err) {
-          console.error('Failed to update user session on event', err);
+          console.error("Erro ao carregar dados do usuário no getSession", err);
+        }
+      }
+      if (mounted) setLoading(false);
+    });
+
+    // 2. Escuta mudanças (incluindo o evento INITIAL_SESSION disparado logo de cara)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log('Auth state changed:', event);
+      
+      if (event === 'INITIAL_SESSION') {
+        // Já tratado pelo getSession acima (ou aqui).
+      } else if (event === 'SIGNED_IN' || event === 'USER_UPDATED') {
+        if (session?.user && mounted) {
+          try {
+            const userData = await fetchUserData(session.user.id);
+            if (mounted && userData) {
+              setCurrentUser(userData);
+            }
+          } catch (err) {
+            console.error('Falha ao atualizar sessão do usuário no evento', err);
+          }
         }
       } else if (event === 'SIGNED_OUT') {
         if (mounted) setCurrentUser(null);
-      } else if (event === 'USER_UPDATED' && session?.user) {
-        try {
-          const userData = await fetchUserData(session.user.id);
-          if (userData && mounted) {
-            setCurrentUser(userData);
-          }
-        } catch (err) {
-          console.error('Failed to update user session on event', err);
-        }
       }
     });
 
@@ -119,29 +104,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         if (!mounted) return;
         const { data: { session }, error } = await supabase.auth.getSession();
 
-        // Verificamos o estado atual via setter funcional para evitar closure stale
-        setCurrentUser(prevUser => {
-          if (error || (!session && prevUser)) {
-            console.warn('Sessão expirada silenciosamente ou erro de heartbeat:', error);
-            return null;
-          } else if (session && !prevUser) {
-            console.log('Restaurando sessão a partir do heartbeat');
-            // Como estamos num recálculo síncrono reativo, não podemos fazer await no prevUser. 
-            // Ao invés disso, delegaremos para fora da closure:
-          }
-          return prevUser;
-        });
-
-        // Verificação assíncrona isolada do setter para não usar dados antigos da closure
-        if (session) {
+        if (error || !session) {
+          setCurrentUser(null);
+        } else if (session && mounted) {
           const currentData = await fetchUserData(session.user.id);
-          // Se o currentData for null (talvez erro de rede ou user apagado), DEIXAMOS QUETO
-          // O hook onAuthStateChange cuidará se a sessão expirar de fato.
           if (currentData && mounted) {
             setCurrentUser(currentData);
           }
         }
-
       } catch (err) {
         console.error('Falha no heartbeat de sessão', err);
       }
