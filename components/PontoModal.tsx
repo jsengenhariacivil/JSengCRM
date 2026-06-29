@@ -91,7 +91,7 @@ export default function PontoModal({ employee, onClose }: PontoModalProps) {
         <div className="p-6">
           <form onSubmit={handleSave} className="bg-gray-50 dark:bg-zinc-800/50 border border-gray-200 dark:border-zinc-700 rounded-xl p-4 mb-6">
             <h3 className="text-sm font-semibold text-zinc-800 dark:text-zinc-200 mb-4 flex items-center gap-2">
-              <Plus size={16} className="text-emerald-500" />
+              {editingId ? <Clock size={16} className="text-blue-500" /> : <Clock size={16} className="text-emerald-500" />}
               {editingId ? 'Editar Ponto' : 'Registrar Novo Ponto'}
             </h3>
             

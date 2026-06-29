@@ -44,6 +44,11 @@ const Team: React.FC<TeamProps> = ({ view }) => {
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [punchEmployee, setPunchEmployee] = useState<TeamMember | null>(null);
+  const [showBulkPunchModal, setShowBulkPunchModal] = useState(false);
+  const [bulkDates, setBulkDates] = useState({ 
+    start: new Date().toISOString().split('T')[0], 
+    end: new Date().toISOString().split('T')[0] 
+  });
 
   React.useEffect(() => {
     // Check constraints if possible
@@ -358,29 +363,7 @@ const Team: React.FC<TeamProps> = ({ view }) => {
         <div className="flex gap-2">
           {view === 'employees' && (
             <button
-              onClick={async () => {
-                if (!window.confirm('Deseja preencher a presença para todos os funcionários ativos hoje?')) return;
-                try {
-                  const today = new Date().toISOString().split('T')[0];
-                  const activeEmployees = employees.filter(e => e.status === 'Ativo');
-                  let count = 0;
-                  for (const emp of activeEmployees) {
-                    await addTimePunch({
-                      employee_id: emp.id,
-                      date: today,
-                      entry_time: '07:00',
-                      exit_time: '17:00',
-                      hours_worked: 9,
-                      value_paid: Number(emp.dailyRate) || 0,
-                      note: 'Presença Automática'
-                    });
-                    count++;
-                  }
-                  alert(`${count} presenças registradas com sucesso!`);
-                } catch (error: any) {
-                  alert('Erro ao registrar presenças: ' + error.message);
-                }
-              }}
+              onClick={() => setShowBulkPunchModal(true)}
               className="flex items-center space-x-2 px-4 py-2 bg-emerald-100 text-emerald-800 font-bold rounded-lg hover:bg-emerald-200 shadow-sm transition-colors"
             >
               <Clock size={18} />
@@ -810,6 +793,57 @@ const Team: React.FC<TeamProps> = ({ view }) => {
 
       {punchEmployee && (
         <PontoModal employee={punchEmployee} onClose={() => setPunchEmployee(null)} />
+      )}
+
+      {showBulkPunchModal && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+          <div className="bg-white dark:bg-zinc-900 rounded-2xl shadow-xl w-full max-w-sm p-6 border border-gray-200 dark:border-zinc-800">
+            <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-4">Preencher Presença em Lote</h3>
+            <p className="text-sm text-slate-500 mb-4">Selecione o intervalo de datas para preencher o ponto de todos os funcionários ativos.</p>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-600 dark:text-slate-400 mb-1">Data Inicial</label>
+                <input type="date" value={bulkDates.start} onChange={(e) => setBulkDates({ ...bulkDates, start: e.target.value })} className="w-full px-3 py-2 border dark:border-zinc-700 bg-white dark:bg-zinc-800 text-slate-900 dark:text-white rounded-lg" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-600 dark:text-slate-400 mb-1">Data Final</label>
+                <input type="date" value={bulkDates.end} onChange={(e) => setBulkDates({ ...bulkDates, end: e.target.value })} className="w-full px-3 py-2 border dark:border-zinc-700 bg-white dark:bg-zinc-800 text-slate-900 dark:text-white rounded-lg" />
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 mt-6">
+              <button onClick={() => setShowBulkPunchModal(false)} className="px-4 py-2 text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-zinc-800 rounded-lg hover:bg-slate-200 dark:hover:bg-zinc-700 font-medium">Cancelar</button>
+              <button onClick={async () => {
+                if (!window.confirm('Tem certeza que deseja preencher as presenças?')) return;
+                try {
+                  const start = new Date(bulkDates.start + 'T00:00:00');
+                  const end = new Date(bulkDates.end + 'T00:00:00');
+                  const activeEmployees = employees.filter(e => e.status === 'Ativo');
+                  let count = 0;
+                  
+                  for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+                    const currentDate = d.toISOString().split('T')[0];
+                    for (const emp of activeEmployees) {
+                      await addTimePunch({
+                        employee_id: emp.id,
+                        date: currentDate,
+                        entry_time: '07:00',
+                        exit_time: '17:00',
+                        hours_worked: 9,
+                        value_paid: Number(emp.dailyRate) || 0,
+                        note: 'Presença Automática'
+                      });
+                      count++;
+                    }
+                  }
+                  alert(`${count} presenças registradas com sucesso!`);
+                  setShowBulkPunchModal(false);
+                } catch (error: any) {
+                  alert('Erro ao registrar presenças: ' + error.message);
+                }
+              }} className="px-4 py-2 text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 font-medium">Confirmar</button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
