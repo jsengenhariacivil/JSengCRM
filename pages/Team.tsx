@@ -50,7 +50,8 @@ const Team: React.FC<TeamProps> = ({ view }) => {
   
   const [bulkPunchConfig, setBulkPunchConfig] = useState({ 
     start_date: new Date().toISOString().split('T')[0], 
-    end_date: new Date().toISOString().split('T')[0] 
+    end_date: new Date().toISOString().split('T')[0],
+    type: 'normal'
   });
 
   React.useEffect(() => {
@@ -137,6 +138,12 @@ const Team: React.FC<TeamProps> = ({ view }) => {
         const currentDate = d.toISOString().split('T')[0];
         const dayOfWeek = d.getDay(); // 0=Dom, 1=Seg, ..., 6=Sab
 
+        const isCondominio = bulkPunchConfig.type === 'condominio';
+        const entryTime = isCondominio ? '08:00' : '07:00';
+        const exitTime = isCondominio ? '17:00' : '16:30';
+        const hoursWorked = 8; // Ja descontado 1h no condominio e 1h30 no normal
+        const noteText = isCondominio ? 'Condomínio (08:00 - 17:00) - Automático' : 'Local (07:00 - 16:30) - Automático';
+
         for (const emp of activeEmployees) {
           const schedule = emp.work_schedule || 'seg_sex';
 
@@ -155,11 +162,11 @@ const Team: React.FC<TeamProps> = ({ view }) => {
           await addTimePunch({
             employee_id: emp.id,
             date: currentDate,
-            entry_time: '07:00',
-            exit_time: '17:00',
-            hours_worked: 9,
+            entry_time: entryTime,
+            exit_time: exitTime,
+            hours_worked: hoursWorked,
             value_paid: computedValue,
-            note: 'Presenca Automatica'
+            note: noteText
           });
           count++;
         }
@@ -958,22 +965,35 @@ const Team: React.FC<TeamProps> = ({ view }) => {
             
             <div className="space-y-4 mb-6">
               <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Data Início</label>
-                <input 
-                  type="date" 
-                  value={bulkPunchConfig.start_date}
-                  onChange={e => setBulkPunchConfig({...bulkPunchConfig, start_date: e.target.value})}
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Tipo de Horário</label>
+                <select
+                  value={bulkPunchConfig.type}
+                  onChange={e => setBulkPunchConfig({...bulkPunchConfig, type: e.target.value})}
                   className="w-full border border-slate-300 dark:border-zinc-700 rounded-lg p-2 bg-slate-50 dark:bg-zinc-800 dark:text-white"
-                />
+                >
+                  <option value="normal">Horário Normal (07:00 - 16:30 | 1h30 almoço)</option>
+                  <option value="condominio">Condomínio (08:00 - 17:00 | 1h almoço)</option>
+                </select>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Data Fim</label>
-                <input 
-                  type="date" 
-                  value={bulkPunchConfig.end_date}
-                  onChange={e => setBulkPunchConfig({...bulkPunchConfig, end_date: e.target.value})}
-                  className="w-full border border-slate-300 dark:border-zinc-700 rounded-lg p-2 bg-slate-50 dark:bg-zinc-800 dark:text-white"
-                />
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Data Início</label>
+                  <input 
+                    type="date" 
+                    value={bulkPunchConfig.start_date}
+                    onChange={e => setBulkPunchConfig({...bulkPunchConfig, start_date: e.target.value})}
+                    className="w-full border border-slate-300 dark:border-zinc-700 rounded-lg p-2 bg-slate-50 dark:bg-zinc-800 dark:text-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Data Fim</label>
+                  <input 
+                    type="date" 
+                    value={bulkPunchConfig.end_date}
+                    onChange={e => setBulkPunchConfig({...bulkPunchConfig, end_date: e.target.value})}
+                    className="w-full border border-slate-300 dark:border-zinc-700 rounded-lg p-2 bg-slate-50 dark:bg-zinc-800 dark:text-white"
+                  />
+                </div>
               </div>
             </div>
 
