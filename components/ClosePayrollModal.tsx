@@ -42,24 +42,21 @@ export default function ClosePayrollModal({ employees, onClose }: ClosePayrollMo
     const workingDaysInPeriod = workingPunches.length;
 
     let sum = 0;
+    
+    // Calcula pelos "dias de fato" trabalhados (conforme solicitado pelo usuário)
+    sum = workingPunches.reduce((acc, curr) => {
+      const val = Number(curr.value_paid);
+      return acc + (isNaN(val) ? 0 : val);
+    }, 0);
+
+    // Adiciona a cesta básica separadamente apenas para CLT/Salário Base
     if (
       ['CLT', 'Funcionário', 'FUNCIONARIO', 'clt'].includes(emp.type?.trim() || '') ||
       Number(emp.base_salary) > 0
     ) {
-      const salary    = Number(emp.base_salary) || 0;
-      const bonus     = Number(emp.bonus) || 0;
       const absencesCount = punches.length - workingDaysInPeriod;
-      const cesta     = absencesCount > 0 ? 0 : (Number(emp.cesta_basica) || 0);
-      const lunch     = Number(emp.lunch_allowance) || 0;
-      const breakfast = Number(emp.breakfast_allowance) || 0;
-
-      const fixedMonthly = salary + bonus + cesta;
-      sum = fixedMonthly + (lunch + breakfast) * workingDaysInPeriod;
-    } else {
-      sum = workingPunches.reduce((acc, curr) => {
-        const val = Number(curr.value_paid);
-        return acc + (isNaN(val) ? 0 : val);
-      }, 0);
+      const cesta = absencesCount > 0 ? 0 : (Number(emp.cesta_basica) || 0);
+      sum += cesta;
     }
 
     return { 

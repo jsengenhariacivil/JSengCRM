@@ -1719,15 +1719,21 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     // Atualizar registro financeiro correspondente
     const financialStatus = (payment.status === 'Agendado' ? Status.PENDING : payment.status) as Status;
-    await updateFinancialRecord({
-      id: payment.id,
-      type: 'Despesa',
-      description: `Pagamento: ${payment.name} - ${payment.reference}`,
-      amount: payment.value,
-      date: payment.date,
-      status: financialStatus,
-      category: 'Mão de Obra',
-    });
+    const descriptionMatch = `Pagamento: ${payment.name} - ${payment.reference}`;
+    
+    // Tenta encontrar pelo ID ou pela descrição (caso o Supabase tenha gerado um UUID diferente)
+    const existingFin = financials.find(f => f.id === payment.id || f.description === descriptionMatch);
+
+    if (existingFin) {
+      await updateFinancialRecord({
+        ...existingFin,
+        amount: payment.value,
+        status: financialStatus,
+      });
+    } else {
+      // Se não achar, não falha, apenas loga (pode ter sido excluído)
+      console.warn('Registro financeiro não encontrado para atualizar:', descriptionMatch);
+    }
   };
 
   const deletePayment = async (id: string) => {
@@ -2775,20 +2781,16 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           const workingDaysInPeriod = workingPunches.length;
 
           let sum = 0;
+          
+          sum = workingPunches.reduce((acc, curr) => {
+            const val = Number(curr.value_paid);
+            return acc + (isNaN(val) ? 0 : val);
+          }, 0);
+
           if (['CLT', 'Funcionário', 'FUNCIONARIO', 'clt'].includes(emp.type?.trim() || '') || Number(emp.base_salary) > 0) {
-            const salary = Number(emp.base_salary) || 0;
-            const bonus = Number(emp.bonus) || 0;
             const absencesCount = periodPunches.length - workingDaysInPeriod;
             const cesta = absencesCount > 0 ? 0 : (Number(emp.cesta_basica) || 0);
-            const lunch = Number(emp.lunch_allowance) || 0;
-            const breakfast = Number(emp.breakfast_allowance) || 0;
-            const fixedMonthly = salary + bonus + cesta;
-            sum = fixedMonthly + (lunch + breakfast) * workingDaysInPeriod;
-          } else {
-            sum = workingPunches.reduce((acc, curr) => {
-              const val = Number(curr.value_paid);
-              return acc + (isNaN(val) ? 0 : val);
-            }, 0);
+            sum += cesta;
           }
           
           const newTotal = Math.round(sum * 100) / 100;
