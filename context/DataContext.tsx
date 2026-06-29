@@ -2750,13 +2750,68 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   // --- RH PONTO ---
+  const syncEmployeePayroll = async (empId: string, punchDate: string, updatedPunches: TimePunch[]) => {
+    const emp = team.find(e => e.id === empId);
+    if (!emp) return;
+
+    // Busca folha de pagamento que envolva esse periodo
+    const empPayments = payments.filter(p => p.name === emp.name && p.reference.startsWith('Fechamento de Folha'));
+    for (const payment of empPayments) {
+      const match = payment.reference.match(/Fechamento de Folha \((\d{2})\/(\d{2})\/(\d{4}) a (\d{2})\/(\d{2})\/(\d{4})\)/);
+      if (match) {
+        const startDate = `${match[3]}-${match[2]}-${match[1]}`;
+        const endDate = `${match[6]}-${match[5]}-${match[4]}`;
+        
+        if (punchDate >= startDate && punchDate <= endDate) {
+          const periodPunches = updatedPunches.filter(p =>
+            p.employee_id === empId &&
+            p.date >= startDate &&
+            p.date <= endDate
+          );
+
+          const workingPunches = periodPunches.filter(
+            p => !(p.entry_time === '00:00' && p.exit_time === '00:00')
+          );
+          const workingDaysInPeriod = workingPunches.length;
+
+          let sum = 0;
+          if (['CLT', 'Funcionário', 'FUNCIONARIO', 'clt'].includes(emp.type?.trim() || '') || Number(emp.base_salary) > 0) {
+            const salary = Number(emp.base_salary) || 0;
+            const bonus = Number(emp.bonus) || 0;
+            const cesta = Number(emp.cesta_basica) || 0;
+            const lunch = Number(emp.lunch_allowance) || 0;
+            const breakfast = Number(emp.breakfast_allowance) || 0;
+            const fixedMonthly = salary + bonus + cesta;
+            sum = fixedMonthly + (lunch + breakfast) * workingDaysInPeriod;
+          } else {
+            sum = workingPunches.reduce((acc, curr) => {
+              const val = Number(curr.value_paid);
+              return acc + (isNaN(val) ? 0 : val);
+            }, 0);
+          }
+          
+          const newTotal = Math.round(sum * 100) / 100;
+          if (newTotal !== payment.value) {
+            await updatePayment(payment.id, { value: newTotal });
+          }
+        }
+      }
+    }
+  };
+
   const addTimePunch = async (punch: Omit<TimePunch, 'id'>) => {
     const { data, error } = await supabase.from('time_punches').insert([punch]).select().single();
     if (error) {
       console.error('Erro addTimePunch:', error);
       throw error;
     }
-    if (data) setTimePunches(prev => [...prev, data]);
+    if (data) {
+      setTimePunches(prev => {
+        const newArray = [...prev, data];
+        syncEmployeePayroll(punch.employee_id, punch.date, newArray).catch(console.error);
+        return newArray;
+      });
+    }
   };
   const updateTimePunch = async (id: string, punchData: Partial<TimePunch>) => {
     const { error } = await supabase.from('time_punches').update(punchData).eq('id', id);
@@ -2764,11 +2819,26 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       console.error('Erro updateTimePunch:', error);
       throw error;
     }
-    setTimePunches(prev => prev.map(p => p.id === id ? { ...p, ...punchData } : p));
+    const currentPunch = timePunches.find(p => p.id === id);
+    setTimePunches(prev => {
+      const newArray = prev.map(p => p.id === id ? { ...p, ...punchData } : p);
+      if (currentPunch) {
+        const d = punchData.date || currentPunch.date;
+        syncEmployeePayroll(currentPunch.employee_id, d, newArray).catch(console.error);
+      }
+      return newArray;
+    });
   };
   const deleteTimePunch = async (id: string) => {
     await supabase.from('time_punches').delete().eq('id', id);
-    setTimePunches(prev => prev.filter(p => p.id !== id));
+    const punch = timePunches.find(p => p.id === id);
+    setTimePunches(prev => {
+      const newArray = prev.filter(p => p.id !== id);
+      if (punch) {
+        syncEmployeePayroll(punch.employee_id, punch.date, newArray).catch(console.error);
+      }
+      return newArray;
+    });
   };
 
   return (
