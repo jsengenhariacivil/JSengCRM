@@ -95,6 +95,12 @@ export default function PontoModal({ employee, onClose }: PontoModalProps) {
     if (editingId) {
       await updateTimePunch(editingId, { ...form, hours_worked: hours });
     } else {
+      // Impede duplicata: mesmo funcionário + mesma data
+      const duplicate = punches.some(p => p.date === form.date);
+      if (duplicate) {
+        alert(`Já existe um registro de ponto para a data ${new Date(form.date + 'T00:00:00').toLocaleDateString('pt-BR')}. Edite o registro existente ou escolha outra data.`);
+        return;
+      }
       await addTimePunch({ ...form, hours_worked: hours });
     }
     

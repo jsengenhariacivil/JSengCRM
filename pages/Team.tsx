@@ -38,7 +38,7 @@ const DEFAULT_PAYMENT_REFS = [
 ];
 
 const Team: React.FC<TeamProps> = ({ view }) => {
-  const { teamMembers, suppliers, addTeamMember, updateTeamMember, deleteTeamMember, payments, addPayment, updatePayment, deletePayment, addTimePunch } = useData();
+  const { teamMembers, suppliers, addTeamMember, updateTeamMember, deleteTeamMember, payments, addPayment, updatePayment, deletePayment, addTimePunch, timePunches } = useData();
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
@@ -130,10 +130,19 @@ const Team: React.FC<TeamProps> = ({ view }) => {
       const end = new Date(bulkPunchConfig.end_date + 'T00:00:00');
       const activeEmployees = employees.filter(e => e.status === 'Ativo');
       let count = 0;
+      let skipped = 0;
       
       for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
         const currentDate = d.toISOString().split('T')[0];
         for (const emp of activeEmployees) {
+          // Impede duplicata: mesmo funcionário + mesma data
+          const alreadyExists = timePunches.some(
+            p => p.employee_id === emp.id && p.date === currentDate
+          );
+          if (alreadyExists) {
+            skipped++;
+            continue;
+          }
           const computedValue = calculateDailyValue(emp, currentDate);
           await addTimePunch({
             employee_id: emp.id,
@@ -147,7 +156,10 @@ const Team: React.FC<TeamProps> = ({ view }) => {
           count++;
         }
       }
-      alert(`${count} presenças registradas com sucesso!`);
+      const msg = skipped > 0
+        ? `${count} presenças registradas com sucesso! (${skipped} já existentes ignoradas)`
+        : `${count} presenças registradas com sucesso!`;
+      alert(msg);
       setShowBulkPunchModal(false);
     } catch (error: any) {
       alert('Erro ao registrar presenças: ' + error.message);
