@@ -110,9 +110,8 @@ const Team: React.FC<TeamProps> = ({ view }) => {
       
       const salary = Number(emp.base_salary) || 0;
       const bonus = Number(emp.bonus) || 0;
-      const cesta = Number(emp.cesta_basica) || 0;
       
-      const fixedMonthly = salary + bonus + cesta;
+      const fixedMonthly = salary + bonus;
       const dailySalary = workingDays > 0 ? (fixedMonthly / workingDays) : 0;
       
       const lunch = Number(emp.lunch_allowance) || 0;
