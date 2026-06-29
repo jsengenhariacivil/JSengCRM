@@ -24,74 +24,55 @@ export default function ClosePayrollModal({ employees, onClose }: ClosePayrollMo
   
   const [totalValue, setTotalValue] = useState(0);
   const [punchesFound, setPunchesFound] = useState(0);
-
-  const calcWorkingDaysInMonth = (year: number, month: number, schedule: string) => {
-    let count = 0;
-    const daysInMonth = new Date(year, month, 0).getDate();
-    for (let i = 1; i <= daysInMonth; i++) {
-      const d = new Date(year, month - 1, i);
-      const dayOfWeek = d.getDay();
-      if (dayOfWeek !== 0) {
-        if (schedule === 'seg_sex' && dayOfWeek === 6) continue;
-        count++;
-      }
-    }
-    return count;
-  };
-
-  const calculateDailyValue = (emp: TeamMember, dateStr: string) => {
-    // Se o funcionário tem salário base cadastrado ou é do tipo CLT
-    if (['CLT', 'Funcionário', 'FUNCIONARIO', 'clt'].includes(emp.type?.trim() || '') || Number(emp.base_salary) > 0) {
-      const dateObj = new Date(dateStr + 'T12:00:00');
-      const workingDays = calcWorkingDaysInMonth(dateObj.getFullYear(), dateObj.getMonth() + 1, emp.work_schedule || 'seg_sex');
-      
-      const salary = Number(emp.base_salary) || 0;
-      const bonus = Number(emp.bonus) || 0;
-      const cesta = Number(emp.cesta_basica) || 0;
-      
-      const fixedMonthly = salary + bonus + cesta;
-      const dailySalary = workingDays > 0 ? (fixedMonthly / workingDays) : 0;
-      
-      const lunch = Number(emp.lunch_allowance) || 0;
-      const breakfast = Number(emp.breakfast_allowance) || 0;
-      
-      const total = dailySalary + lunch + breakfast;
-      return Math.round(total * 100) / 100;
-    }
-    return Number(emp.dailyRate) || 0;
-  };
+  const [workingDaysCount, setWorkingDaysCount] = useState(0);
 
   // Calcula sempre que mudar a seleção
   useEffect(() => {
     if (employeeId && startDate && endDate) {
       const emp = employees.find(e => e.id === employeeId);
-      const punches = timePunches.filter(p => 
-        p.employee_id === employeeId && 
-        p.date >= startDate && 
+      const punches = timePunches.filter(p =>
+        p.employee_id === employeeId &&
+        p.date >= startDate &&
         p.date <= endDate
       );
       setPunchesFound(punches.length);
-      
-      const sum = punches.reduce((acc, curr) => {
-        // Se for falta, valor é 0.
-        if (curr.entry_time === '00:00' && curr.exit_time === '00:00') return acc;
-        
-        // Se valor gravado no banco está zero ou vazio, recalcula baseado no perfil atual
-        const recordedVal = Number(curr.value_paid);
-        if (isNaN(recordedVal) || recordedVal <= 0.01) {
-          if (emp) {
-            return acc + calculateDailyValue(emp, curr.date);
-          }
-        }
-        return acc + (isNaN(recordedVal) ? 0 : recordedVal);
-      }, 0);
-      
-      setTotalValue(sum);
+
+      // Dias efetivamente trabalhados (exclui faltas marcadas como 00:00)
+      const workingPunches = punches.filter(
+        p => !(p.entry_time === '00:00' && p.exit_time === '00:00')
+      );
+      const workingDaysInPeriod = workingPunches.length;
+      setWorkingDaysCount(workingDaysInPeriod);
+
+      let sum = 0;
+
+      if (emp && (
+        ['CLT', 'Funcionário', 'FUNCIONARIO', 'clt'].includes(emp.type?.trim() || '') ||
+        Number(emp.base_salary) > 0
+      )) {
+        // CLT: salário fixo pelo período + benefícios diários × dias trabalhados
+        const salary    = Number(emp.base_salary) || 0;
+        const bonus     = Number(emp.bonus) || 0;
+        const cesta     = Number(emp.cesta_basica) || 0;
+        const lunch     = Number(emp.lunch_allowance) || 0;
+        const breakfast = Number(emp.breakfast_allowance) || 0;
+
+        const fixedMonthly = salary + bonus + cesta;
+        sum = fixedMonthly + (lunch + breakfast) * workingDaysInPeriod;
+      } else {
+        // Diarista / Prestador: soma dos valores registrados por dia
+        sum = workingPunches.reduce((acc, curr) => {
+          const val = Number(curr.value_paid);
+          return acc + (isNaN(val) ? 0 : val);
+        }, 0);
+      }
+
+      setTotalValue(Math.round(sum * 100) / 100);
     } else {
       setTotalValue(0);
       setPunchesFound(0);
     }
-  }, [employeeId, startDate, endDate, timePunches]);
+  }, [employeeId, startDate, endDate, timePunches, employees]);
 
   const handleClose = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -176,12 +157,22 @@ export default function ClosePayrollModal({ employees, onClose }: ClosePayrollMo
             </div>
 
             <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-900/50 rounded-xl">
-              <h4 className="text-sm font-medium text-blue-800 dark:text-blue-300 mb-2">Resumo do Período</h4>
+              <h4 className="text-sm font-medium text-blue-800 dark:text-blue-300 mb-3">Resumo do Período</h4>
               <div className="flex justify-between items-center text-sm mb-1">
-                <span className="text-blue-600 dark:text-blue-400">Dias/Pontos Encontrados:</span>
-                <span className="font-bold text-blue-900 dark:text-blue-100">{punchesFound} registros</span>
+                <span className="text-blue-600 dark:text-blue-400">Total de registros:</span>
+                <span className="font-bold text-blue-900 dark:text-blue-100">{punchesFound} dias</span>
               </div>
-              <div className="flex justify-between items-center text-lg mt-2">
+              <div className="flex justify-between items-center text-sm mb-1">
+                <span className="text-blue-600 dark:text-blue-400">✅ Dias trabalhados:</span>
+                <span className="font-bold text-emerald-700 dark:text-emerald-400">{workingDaysCount} dias</span>
+              </div>
+              {punchesFound - workingDaysCount > 0 && (
+                <div className="flex justify-between items-center text-sm mb-1">
+                  <span className="text-blue-600 dark:text-blue-400">❌ Faltas:</span>
+                  <span className="font-bold text-red-600 dark:text-red-400">{punchesFound - workingDaysCount} dias</span>
+                </div>
+              )}
+              <div className="flex justify-between items-center text-lg mt-3 pt-3 border-t border-blue-200 dark:border-blue-800">
                 <span className="text-blue-600 dark:text-blue-400 font-bold">Total a Pagar:</span>
                 <span className="font-bold text-blue-900 dark:text-blue-100">
                   {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalValue)}
