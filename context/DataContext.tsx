@@ -1019,6 +1019,10 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         financial_entity: r.financial_entity || 'PJ'
       };
       
+      if (r.id) {
+        data.id = r.id;
+      }
+      
       return data;
     });
 

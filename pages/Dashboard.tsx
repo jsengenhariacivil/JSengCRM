@@ -189,6 +189,14 @@ const Dashboard: React.FC = () => {
 
   const activeProjects = projects.filter(p => p.status === Status.IN_PROGRESS).length;
 
+  const pendingPayables = useMemo(() => financials
+    .filter(f => f.type === 'Despesa' && f.status === Status.PENDING && (f.financial_entity === 'PJ' || !f.financial_entity))
+    .reduce((acc, curr) => acc + curr.amount, 0), [financials]);
+
+  const pendingReceivables = useMemo(() => financials
+    .filter(f => f.type === 'Receita' && f.status === Status.PENDING && (f.financial_entity === 'PJ' || !f.financial_entity))
+    .reduce((acc, curr) => acc + curr.amount, 0), [financials]);
+
   // --- ALERTA FUNIL DE VENDAS ---
   const { stagnantCount, stagnantValue } = useMemo(() => {
     const sevenDaysAgo = new Date();
@@ -261,13 +269,27 @@ const Dashboard: React.FC = () => {
       )}
 
       {/* LINHA 1: KPIs Principais */}
-      <div className="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-3 2xl:grid-cols-6 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-4 gap-6">
         <StatCard
           title="Faturamento Realizado"
           value={`R$ ${(totalRevenue || 0).toLocaleString()}`}
           subtext="Total medido nas obras"
           icon={TrendingUp}
           trend="up"
+        />
+        <StatCard
+          title="A Receber (Pendentes)"
+          value={`R$ ${pendingReceivables.toLocaleString()}`}
+          subtext="Receitas aguardando baixa"
+          icon={TrendingUp}
+          trend="up"
+        />
+        <StatCard
+          title="A Pagar (Pendentes)"
+          value={`R$ ${pendingPayables.toLocaleString()}`}
+          subtext="Despesas aguardando baixa"
+          icon={TrendingDown}
+          trend="down"
         />
         <StatCard
           title="Volume Contratado"
