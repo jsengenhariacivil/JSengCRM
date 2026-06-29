@@ -502,7 +502,15 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             address: t.address,
             emergency_contact: t.emergency_contact,
             bank_pix: t.bank_pix,
-            bank_info: t.bank_info
+            bank_info: t.bank_info,
+            dailyRate: parseFloat(t.dailyrate) || 0,
+            paymentType: t.paymenttype,
+            base_salary: parseFloat(t.base_salary) || 0,
+            bonus: parseFloat(t.bonus) || 0,
+            cesta_basica: parseFloat(t.cesta_basica) || 0,
+            lunch_allowance: parseFloat(t.lunch_allowance) || 0,
+            breakfast_allowance: parseFloat(t.breakfast_allowance) || 0,
+            work_schedule: t.work_schedule
           })));
         }
 
@@ -1617,8 +1625,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       emergency_contact: member.emergency_contact,
       bank_pix: member.bank_pix,
       bank_info: member.bank_info,
-      dailyRate: member.dailyRate,
-      paymentType: member.paymentType,
+      dailyrate: member.dailyRate,
+      paymenttype: member.paymentType,
       base_salary: member.base_salary,
       bonus: member.bonus,
       cesta_basica: member.cesta_basica,
@@ -1650,8 +1658,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       emergency_contact: member.emergency_contact,
       bank_pix: member.bank_pix,
       bank_info: member.bank_info,
-      dailyRate: member.dailyRate,
-      paymentType: member.paymentType,
+      dailyrate: member.dailyRate,
+      paymenttype: member.paymentType,
       base_salary: member.base_salary,
       bonus: member.bonus,
       cesta_basica: member.cesta_basica,
