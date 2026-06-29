@@ -9,7 +9,7 @@ interface ClosePayrollModalProps {
 }
 
 export default function ClosePayrollModal({ employees, onClose }: ClosePayrollModalProps) {
-  const { timePunches, addPayment } = useData();
+  const { timePunches, addPayment, payments } = useData();
   const [employeeId, setEmployeeId] = useState('');
   const [startDate, setStartDate] = useState(() => {
     const d = new Date();
@@ -107,32 +107,51 @@ export default function ClosePayrollModal({ employees, onClose }: ClosePayrollMo
     // Converte datas para criar uma referência bacana
     const startStr = startDate.split('-').reverse().join('/');
     const endStr = endDate.split('-').reverse().join('/');
+    const referenceText = `Fechamento de Folha (${startStr} a ${endStr})`;
 
     if (employeeId === 'all') {
       const activeEmps = employees.filter(e => e.status === 'Ativo');
+      let gerados = 0;
+      let pulados = 0;
+
       for (const emp of activeEmps) {
         const res = calculateEmployeePayroll(emp.id);
         if (res.sum > 0) {
+          const jaExiste = payments.some(p => p.name === emp.name && p.reference === referenceText);
+          if (jaExiste) {
+            pulados++;
+            continue;
+          }
+
           await addPayment({
             name: emp.name,
-            reference: `Fechamento de Folha (${startStr} a ${endStr})`,
+            reference: referenceText,
             date: endDate,
             value: res.sum,
             status: 'Pendente'
           } as any);
+          gerados++;
         }
       }
+      alert(`Processo concluído!\n\n✅ ${gerados} lançamentos criados.\n⚠️ ${pulados} ignorados (já existiam no financeiro para o período).`);
     } else {
       const emp = employees.find(e => e.id === employeeId);
       if (!emp) return;
 
+      const jaExiste = payments.some(p => p.name === emp.name && p.reference === referenceText);
+      if (jaExiste) {
+        alert(`Atenção: Já existe um lançamento de folha para ${emp.name} neste mesmo período no Financeiro! Ação cancelada.`);
+        return;
+      }
+
       await addPayment({
         name: emp.name,
-        reference: `Fechamento de Folha (${startStr} a ${endStr})`,
+        reference: referenceText,
         date: endDate,
         value: totalValue,
         status: 'Pendente'
       } as any);
+      alert('Lançamento criado com sucesso no Financeiro!');
     }
 
     onClose();
