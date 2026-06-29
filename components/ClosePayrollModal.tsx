@@ -25,9 +25,45 @@ export default function ClosePayrollModal({ employees, onClose }: ClosePayrollMo
   const [totalValue, setTotalValue] = useState(0);
   const [punchesFound, setPunchesFound] = useState(0);
 
+  const calcWorkingDaysInMonth = (year: number, month: number, schedule: string) => {
+    let count = 0;
+    const daysInMonth = new Date(year, month, 0).getDate();
+    for (let i = 1; i <= daysInMonth; i++) {
+      const d = new Date(year, month - 1, i);
+      const dayOfWeek = d.getDay();
+      if (dayOfWeek !== 0) {
+        if (schedule === 'seg_sex' && dayOfWeek === 6) continue;
+        count++;
+      }
+    }
+    return count;
+  };
+
+  const calculateDailyValue = (emp: TeamMember, dateStr: string) => {
+    if (['CLT', 'Funcionário'].includes(emp.type || '')) {
+      const dateObj = new Date(dateStr + 'T12:00:00');
+      const workingDays = calcWorkingDaysInMonth(dateObj.getFullYear(), dateObj.getMonth() + 1, emp.work_schedule || 'seg_sex');
+      
+      const salary = emp.base_salary || 0;
+      const bonus = emp.bonus || 0;
+      const cesta = emp.cesta_basica || 0;
+      
+      const fixedMonthly = salary + bonus + cesta;
+      const dailySalary = workingDays > 0 ? (fixedMonthly / workingDays) : 0;
+      
+      const lunch = emp.lunch_allowance || 0;
+      const breakfast = emp.breakfast_allowance || 0;
+      
+      const total = dailySalary + lunch + breakfast;
+      return Math.round(total * 100) / 100;
+    }
+    return Number(emp.dailyRate) || 0;
+  };
+
   // Calcula sempre que mudar a seleção
   useEffect(() => {
     if (employeeId && startDate && endDate) {
+      const emp = employees.find(e => e.id === employeeId);
       const punches = timePunches.filter(p => 
         p.employee_id === employeeId && 
         p.date >= startDate && 
@@ -35,7 +71,18 @@ export default function ClosePayrollModal({ employees, onClose }: ClosePayrollMo
       );
       setPunchesFound(punches.length);
       
-      const sum = punches.reduce((acc, curr) => acc + (curr.value_paid || 0), 0);
+      const sum = punches.reduce((acc, curr) => {
+        // Se for falta, valor é 0.
+        if (curr.entry_time === '00:00' && curr.exit_time === '00:00') return acc;
+        
+        // Se valor gravado no banco está zero ou vazio, recalcula baseado no perfil atual
+        const recordedVal = Number(curr.value_paid || 0);
+        if (recordedVal <= 0 && emp) {
+          return acc + calculateDailyValue(emp, curr.date);
+        }
+        return acc + recordedVal;
+      }, 0);
+      
       setTotalValue(sum);
     } else {
       setTotalValue(0);
@@ -93,11 +140,11 @@ export default function ClosePayrollModal({ employees, onClose }: ClosePayrollMo
                 required
                 value={employeeId} 
                 onChange={e => setEmployeeId(e.target.value)} 
-                className="w-full border border-slate-300 dark:border-zinc-700 rounded-lg p-3 bg-slate-50 dark:bg-zinc-800 dark:text-white focus:bg-white focus:ring-2 focus:ring-[#c79229] outline-none"
+                className="w-full border border-slate-300 dark:border-zinc-700 rounded-lg p-3 bg-white dark:bg-zinc-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-[#c79229] outline-none"
               >
-                <option value="">Selecione...</option>
+                <option value="" className="bg-white text-slate-900 dark:bg-zinc-800 dark:text-white">Selecione...</option>
                 {employees.map(emp => (
-                  <option key={emp.id} value={emp.id}>{emp.name}</option>
+                  <option key={emp.id} value={emp.id} className="bg-white text-slate-900 dark:bg-zinc-800 dark:text-white">{emp.name}</option>
                 ))}
               </select>
             </div>
