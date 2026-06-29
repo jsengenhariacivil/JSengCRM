@@ -2778,7 +2778,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           if (['CLT', 'Funcionário', 'FUNCIONARIO', 'clt'].includes(emp.type?.trim() || '') || Number(emp.base_salary) > 0) {
             const salary = Number(emp.base_salary) || 0;
             const bonus = Number(emp.bonus) || 0;
-            const cesta = Number(emp.cesta_basica) || 0;
+            const absencesCount = periodPunches.length - workingDaysInPeriod;
+            const cesta = absencesCount > 0 ? 0 : (Number(emp.cesta_basica) || 0);
             const lunch = Number(emp.lunch_allowance) || 0;
             const breakfast = Number(emp.breakfast_allowance) || 0;
             const fixedMonthly = salary + bonus + cesta;
@@ -2792,7 +2793,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           
           const newTotal = Math.round(sum * 100) / 100;
           if (newTotal !== payment.value) {
-            await updatePayment(payment.id, { value: newTotal });
+            await updatePayment({ ...payment, value: newTotal });
           }
         }
       }
