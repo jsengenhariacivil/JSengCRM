@@ -1,10 +1,10 @@
-
 import React, { useState } from 'react';
-import { User, UserCog, Calendar, Banknote, Plus, Search, MoreVertical, Phone, Mail, X, Save, Trash2, Edit } from 'lucide-react';
+import { User, UserCog, Calendar, Banknote, Plus, Search, MoreVertical, Phone, Mail, X, Save, Trash2, Edit, Clock, Printer, FileCheck } from 'lucide-react';
 import { useData } from '../context/DataContext';
 import { TeamMember, PaymentRecord, Status } from '../types';
 import PontoModal from '../components/PontoModal';
-import { Clock } from 'lucide-react';
+import ClosePayrollModal from '../components/ClosePayrollModal';
+import PayslipModal from '../components/PayslipModal';
 
 interface TeamProps {
   view: 'employees' | 'contractors' | 'payments';
@@ -45,9 +45,12 @@ const Team: React.FC<TeamProps> = ({ view }) => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [punchEmployee, setPunchEmployee] = useState<TeamMember | null>(null);
   const [showBulkPunchModal, setShowBulkPunchModal] = useState(false);
-  const [bulkDates, setBulkDates] = useState({ 
-    start: new Date().toISOString().split('T')[0], 
-    end: new Date().toISOString().split('T')[0] 
+  const [showClosePayrollModal, setShowClosePayrollModal] = useState(false);
+  const [printPayment, setPrintPayment] = useState<PaymentRecord | null>(null);
+  
+  const [bulkPunchConfig, setBulkPunchConfig] = useState({ 
+    start_date: new Date().toISOString().split('T')[0], 
+    end_date: new Date().toISOString().split('T')[0] 
   });
 
   React.useEffect(() => {
@@ -115,6 +118,37 @@ const Team: React.FC<TeamProps> = ({ view }) => {
       return Math.round(total * 100) / 100;
     }
     return Number(emp.dailyRate) || 0;
+  };
+
+  const handleBulkPunch = async () => {
+    if (!window.confirm('Tem certeza que deseja preencher as presenças?')) return;
+    try {
+      const start = new Date(bulkPunchConfig.start_date + 'T00:00:00');
+      const end = new Date(bulkPunchConfig.end_date + 'T00:00:00');
+      const activeEmployees = employees.filter(e => e.status === 'Ativo');
+      let count = 0;
+      
+      for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+        const currentDate = d.toISOString().split('T')[0];
+        for (const emp of activeEmployees) {
+          const computedValue = calculateDailyValue(emp, currentDate);
+          await addTimePunch({
+            employee_id: emp.id,
+            date: currentDate,
+            entry_time: '07:00',
+            exit_time: '17:00',
+            hours_worked: 9,
+            value_paid: computedValue,
+            note: 'Presença Automática'
+          });
+          count++;
+        }
+      }
+      alert(`${count} presenças registradas com sucesso!`);
+      setShowBulkPunchModal(false);
+    } catch (error: any) {
+      alert('Erro ao registrar presenças: ' + error.message);
+    }
   };
 
   const getHeader = () => {
@@ -233,11 +267,6 @@ const Team: React.FC<TeamProps> = ({ view }) => {
       }
     }
     setOpenMenuId(null);
-  };
-
-  const toggleMenu = (id: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    setOpenMenuId(openMenuId === id ? null : id);
   };
 
   // --- RENDER CONTENT ---
@@ -368,6 +397,15 @@ const Team: React.FC<TeamProps> = ({ view }) => {
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex justify-end gap-2">
+                        {employees.find(e => e.name === payment.name) && (
+                          <button 
+                            onClick={() => setPrintPayment(payment)} 
+                            title="Imprimir Recibo / Contra-cheque"
+                            className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                          >
+                            <Printer size={18} />
+                          </button>
+                        )}
                         <button onClick={() => handleEditClick(payment)} className="p-2 text-slate-400 hover:text-[#c79229] hover:bg-[#c79229]/10 rounded-lg transition-colors">
                           <Edit size={18} />
                         </button>
@@ -408,6 +446,15 @@ const Team: React.FC<TeamProps> = ({ view }) => {
               <Clock size={18} />
               <span>Preencher Presença Todos</span>
             </button>
+          )}
+          {view === 'payments' && (
+             <button
+                onClick={() => setShowClosePayrollModal(true)}
+                className="flex items-center space-x-2 px-4 py-2 bg-blue-100 text-blue-800 font-bold rounded-lg hover:bg-blue-200 shadow-sm transition-colors"
+             >
+                <FileCheck size={18} />
+                <span>Fechar Folha</span>
+             </button>
           )}
           <button
             onClick={handleOpenNew}
@@ -869,61 +916,70 @@ const Team: React.FC<TeamProps> = ({ view }) => {
         </div>
       )}
 
-{punchEmployee && (
+      {punchEmployee && (
         <PontoModal employee={punchEmployee} onClose={() => setPunchEmployee(null)} />
       )}
 
       {showBulkPunchModal && (
         <div className="fixed inset-0 z-[60] flex items-start justify-center p-4 py-8 bg-black/40 backdrop-blur-sm overflow-y-auto">
-          <div className="bg-white dark:bg-zinc-900 rounded-2xl shadow-xl w-full max-w-sm p-6 border border-gray-200 dark:border-zinc-800">
+          <div className="bg-white dark:bg-zinc-900 rounded-2xl shadow-xl w-full max-w-sm p-6 border border-gray-200 dark:border-zinc-800 mt-0 sm:mt-10">
             <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-4">Preencher Presença em Lote</h3>
             <p className="text-sm text-slate-500 mb-4">Selecione o intervalo de datas para preencher o ponto de todos os funcionários ativos.</p>
-            <div className="space-y-4">
+            
+            <div className="space-y-4 mb-6">
               <div>
-                <label className="block text-sm font-medium text-slate-600 dark:text-slate-400 mb-1">Data Inicial</label>
-                <input type="date" value={bulkDates.start} onChange={(e) => setBulkDates({ ...bulkDates, start: e.target.value })} className="w-full px-3 py-2 border dark:border-zinc-700 bg-white dark:bg-zinc-800 text-slate-900 dark:text-white rounded-lg" />
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Data Início</label>
+                <input 
+                  type="date" 
+                  value={bulkPunchConfig.start_date}
+                  onChange={e => setBulkPunchConfig({...bulkPunchConfig, start_date: e.target.value})}
+                  className="w-full border border-slate-300 dark:border-zinc-700 rounded-lg p-2 bg-slate-50 dark:bg-zinc-800 dark:text-white"
+                />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-600 dark:text-slate-400 mb-1">Data Final</label>
-                <input type="date" value={bulkDates.end} onChange={(e) => setBulkDates({ ...bulkDates, end: e.target.value })} className="w-full px-3 py-2 border dark:border-zinc-700 bg-white dark:bg-zinc-800 text-slate-900 dark:text-white rounded-lg" />
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Data Fim</label>
+                <input 
+                  type="date" 
+                  value={bulkPunchConfig.end_date}
+                  onChange={e => setBulkPunchConfig({...bulkPunchConfig, end_date: e.target.value})}
+                  className="w-full border border-slate-300 dark:border-zinc-700 rounded-lg p-2 bg-slate-50 dark:bg-zinc-800 dark:text-white"
+                />
               </div>
             </div>
-            <div className="flex justify-end gap-2 mt-6">
-              <button onClick={() => setShowBulkPunchModal(false)} className="px-4 py-2 text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-zinc-800 rounded-lg hover:bg-slate-200 dark:hover:bg-zinc-700 font-medium">Cancelar</button>
-              <button onClick={async () => {
-                if (!window.confirm('Tem certeza que deseja preencher as presenças?')) return;
-                try {
-                  const start = new Date(bulkDates.start + 'T00:00:00');
-                  const end = new Date(bulkDates.end + 'T00:00:00');
-                  const activeEmployees = employees.filter(e => e.status === 'Ativo');
-                  let count = 0;
-                  
-                  for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-                    const currentDate = d.toISOString().split('T')[0];
-                    for (const emp of activeEmployees) {
-                      const computedValue = calculateDailyValue(emp, currentDate);
-                      await addTimePunch({
-                        employee_id: emp.id,
-                        date: currentDate,
-                        entry_time: '07:00',
-                        exit_time: '17:00',
-                        hours_worked: 9,
-                        value_paid: computedValue,
-                        note: 'Presença Automática'
-                      });
-                      count++;
-                    }
-                  }
-                  alert(`${count} presenças registradas com sucesso!`);
-                  setShowBulkPunchModal(false);
-                } catch (error: any) {
-                  alert('Erro ao registrar presenças: ' + error.message);
-                }
-              }} className="px-4 py-2 text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 font-medium">Confirmar</button>
+
+            <div className="flex justify-end gap-3">
+              <button 
+                onClick={() => setShowBulkPunchModal(false)}
+                className="px-4 py-2 text-sm font-medium text-slate-600 hover:text-slate-800"
+              >
+                Cancelar
+              </button>
+              <button 
+                onClick={handleBulkPunch}
+                className="px-4 py-2 bg-[#c79229] hover:bg-[#a67922] text-[#181418] text-sm font-bold rounded-lg"
+              >
+                Gerar Presenças
+              </button>
             </div>
           </div>
         </div>
       )}
+
+      {showClosePayrollModal && (
+        <ClosePayrollModal 
+          employees={employees} 
+          onClose={() => setShowClosePayrollModal(false)} 
+        />
+      )}
+
+      {printPayment && employees.find(e => e.name === printPayment.name) && (
+        <PayslipModal 
+          employee={employees.find(e => e.name === printPayment.name)!} 
+          payment={printPayment} 
+          onClose={() => setPrintPayment(null)} 
+        />
+      )}
+
     </div>
   );
 };
