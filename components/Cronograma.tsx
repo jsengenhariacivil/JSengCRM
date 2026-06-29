@@ -5,7 +5,7 @@ import {
   X, TrendingUp, Calendar, DollarSign, CheckCircle2, AlertCircle, Clock, Plus, ChevronDown, ChevronRight, Trash2, Download, Upload
 } from 'lucide-react';
 import GanttChart from './GanttChart';
-import { downloadCsvTemplate, parseCsvContent } from '../lib/csvHelper';
+import { downloadCsvTemplate, parseCsvContent } from '../utils/csvHelper';
 
 interface CronogramaProps {
   obra: Obra;
@@ -33,7 +33,7 @@ const fmtDate = (d: string) =>
   new Date(d + 'T00:00:00').toLocaleDateString('pt-BR');
 
 export default function Cronograma({ obra, onClose }: CronogramaProps) {
-  const { updateProjectStage, addProjectStage, addProjectSubStage: addSubStage, updateProjectSubStage: updateSubStage, deleteProjectSubStage: deleteSubStage } = useData();
+  const { updateProjectStage: updateStage, addProjectStage, addProjectSubStage: addSubStage, updateProjectSubStage: updateSubStage, deleteProjectSubStage: deleteSubStage } = useData();
   const [editing, setEditing] = useState<string | null>(null);
   const [tempProgress, setTempProgress] = useState(0);
 
@@ -78,7 +78,7 @@ export default function Cronograma({ obra, onClose }: CronogramaProps) {
   };
 
   const handleEditSave = (stageId: string) => {
-    updateProjectStage(stageId, { progress: Math.min(100, Math.max(0, tempProgress)) });
+    updateStage(stageId, { progress: Math.min(100, Math.max(0, tempProgress)) });
     setEditing(null);
   };
 
@@ -101,8 +101,8 @@ export default function Cronograma({ obra, onClose }: CronogramaProps) {
         obra_id: obra.id,
         name: newService.name,
         value: newService.value,
-        start_date: newService.startDate,
-        end_date: newService.endDate,
+        startDate: newService.startDate,
+        endDate: newService.endDate,
         weight: 0,
         progress: 0
       });
@@ -126,7 +126,7 @@ export default function Cronograma({ obra, onClose }: CronogramaProps) {
             <h2 className="text-xl font-bold text-zinc-900 dark:text-white">
               Cronograma FÃ­sico-Financeiro
             </h2>
-            <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-0.5">{obra.name}</p>
+            <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-0.5">{obra.title}</p>
           </div>
           <div className="flex items-center gap-3">
             <button
@@ -324,7 +324,7 @@ export default function Cronograma({ obra, onClose }: CronogramaProps) {
                             <input
                               type="text"
                               value={stage.name}
-                              onChange={(e) => updateStage(obra.id, stage.id, { name: e.target.value })}
+                              onChange={(e) => updateStage(stage.id, { name: e.target.value })}
                               onClick={(e) => e.stopPropagation()}
                               className="font-medium text-zinc-900 dark:text-white truncate bg-transparent border border-transparent hover:border-gray-200 dark:hover:border-zinc-700 focus:border-blue-500 rounded px-1 py-0.5 outline-none flex-1 min-w-[150px] transition-colors"
                             />
@@ -346,7 +346,7 @@ export default function Cronograma({ obra, onClose }: CronogramaProps) {
                             min="0"
                             step="0.1"
                             value={stage.weight}
-                            onChange={(e) => updateStage(obra.id, stage.id, { weight: Number(e.target.value) })}
+                            onChange={(e) => updateStage(stage.id, { weight: Number(e.target.value) })}
                             className="w-16 font-semibold text-zinc-800 dark:text-zinc-200 text-sm text-right bg-transparent border border-transparent hover:border-gray-200 dark:hover:border-zinc-700 focus:border-blue-500 rounded px-1 outline-none transition-colors"
                           />
                         </div>
@@ -420,7 +420,7 @@ export default function Cronograma({ obra, onClose }: CronogramaProps) {
                                   <input
                                     type="text"
                                     value={sub.name}
-                                    onChange={(e) => updateSubStage(obra.id, stage.id, sub.id, { name: e.target.value })}
+                                    onChange={(e) => updateSubStage(sub.id, { name: e.target.value })}
                                     className="text-sm font-medium text-gray-800 dark:text-gray-200 bg-transparent border border-transparent hover:border-gray-200 dark:hover:border-zinc-700 focus:border-blue-500 rounded px-1 py-0.5 outline-none flex-1 min-w-[150px] transition-colors"
                                   />
                               </div>
@@ -431,7 +431,7 @@ export default function Cronograma({ obra, onClose }: CronogramaProps) {
                                     type="number"
                                     min="0" max="100"
                                     value={sub.weight || 0}
-                                    onChange={(e) => updateSubStage(obra.id, stage.id, sub.id, { weight: Number(e.target.value) })}
+                                    onChange={(e) => updateSubStage(sub.id, { weight: Number(e.target.value) })}
                                     className="w-16 px-2 py-1 text-sm bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white text-right"
                                   />
                                 </div>
@@ -449,13 +449,13 @@ export default function Cronograma({ obra, onClose }: CronogramaProps) {
                                     type="number"
                                     min="0" max="100"
                                     value={sub.progress}
-                                    onChange={(e) => updateSubStage(obra.id, stage.id, sub.id, { progress: Number(e.target.value) })}
+                                    onChange={(e) => updateSubStage(sub.id, { progress: Number(e.target.value) })}
                                     className="w-16 px-2 py-1 text-sm bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white text-right"
                                   />
                                   <span className="text-xs text-gray-500">%</span>
                                 </div>
                                 <button
-                                  onClick={() => deleteSubStage(obra.id, stage.id, sub.id)}
+                                  onClick={() => deleteSubStage(sub.id)}
                                   className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded transition-colors"
                                   title="Remover Subetapa"
                                 >

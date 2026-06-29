@@ -29,6 +29,7 @@ const PlanningPage: React.FC = () => {
 
         await addProjectTask({
             ...newTask,
+            id: crypto.randomUUID(),
             projectId: selectedProjectId
         });
 
@@ -42,6 +43,7 @@ const PlanningPage: React.FC = () => {
 
         await addProjectMilestone({
             ...newMilestone,
+            id: crypto.randomUUID(),
             projectId: selectedProjectId
         });
 

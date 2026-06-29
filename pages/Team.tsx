@@ -38,7 +38,7 @@ const DEFAULT_PAYMENT_REFS = [
 ];
 
 const Team: React.FC<TeamProps> = ({ view }) => {
-  const { teamMembers, suppliers, addTeamMember, updateTeamMember, deleteTeamMember, payments, addPayment, updatePayment, deletePayment } = useData();
+  const { teamMembers, suppliers, addTeamMember, updateTeamMember, deleteTeamMember, payments, addPayment, updatePayment, deletePayment, addTimePunch } = useData();
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
@@ -67,7 +67,9 @@ const Team: React.FC<TeamProps> = ({ view }) => {
     // Payment specific fields
     reference: '',
     date: '',
-    value: 0
+    value: 0,
+    paymentType: 'mensal',
+    dailyRate: 0
   });
 
   // --- HELPERS ---
@@ -353,13 +355,46 @@ const Team: React.FC<TeamProps> = ({ view }) => {
           </h1>
           <p className="text-slate-500">{headerInfo.desc}</p>
         </div>
-        <button
-          onClick={handleOpenNew}
-          className="flex items-center space-x-2 px-4 py-2 bg-[#c79229] text-[#181418] font-bold rounded-lg hover:bg-[#a67922] shadow-sm transition-colors"
-        >
-          <Plus size={18} />
-          <span>{headerInfo.btn}</span>
-        </button>
+        <div className="flex gap-2">
+          {view === 'employees' && (
+            <button
+              onClick={async () => {
+                if (!window.confirm('Deseja preencher a presença para todos os funcionários ativos hoje?')) return;
+                try {
+                  const today = new Date().toISOString().split('T')[0];
+                  const activeEmployees = employees.filter(e => e.status === 'Ativo');
+                  let count = 0;
+                  for (const emp of activeEmployees) {
+                    await addTimePunch({
+                      employee_id: emp.id,
+                      date: today,
+                      entry_time: '07:00',
+                      exit_time: '17:00',
+                      hours_worked: 9,
+                      value_paid: Number(emp.dailyRate) || 0,
+                      note: 'Presença Automática'
+                    });
+                    count++;
+                  }
+                  alert(`${count} presenças registradas com sucesso!`);
+                } catch (error: any) {
+                  alert('Erro ao registrar presenças: ' + error.message);
+                }
+              }}
+              className="flex items-center space-x-2 px-4 py-2 bg-emerald-100 text-emerald-800 font-bold rounded-lg hover:bg-emerald-200 shadow-sm transition-colors"
+            >
+              <Clock size={18} />
+              <span>Preencher Presença Todos</span>
+            </button>
+          )}
+          <button
+            onClick={handleOpenNew}
+            className="flex items-center space-x-2 px-4 py-2 bg-[#c79229] text-[#181418] font-bold rounded-lg hover:bg-[#a67922] shadow-sm transition-colors"
+          >
+            <Plus size={18} />
+            <span>{headerInfo.btn}</span>
+          </button>
+        </div>
       </div>
 
       <div className="relative">
@@ -607,6 +642,38 @@ const Team: React.FC<TeamProps> = ({ view }) => {
                               </>
                             )}
                           </select>
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-center gap-2 border-b border-slate-100 pb-2 mt-6">
+                        <div className="w-1 h-4 bg-[#c79229] rounded-full" />
+                        <h4 className="text-sm font-bold text-slate-900 uppercase tracking-wider">Vínculo e Pagamento</h4>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-slate-700 mb-1">Tipo Pagamento</label>
+                          <select
+                            value={formData.paymentType || 'mensal'}
+                            onChange={(e) => setFormData({ ...formData, paymentType: e.target.value })}
+                            className="w-full border border-slate-300 rounded-lg p-3 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-[#c79229] outline-none"
+                          >
+                            <option value="mensal">Mensal (Salário)</option>
+                            <option value="quinzenal">Quinzenal</option>
+                            <option value="diaria">Diária</option>
+                            <option value="hora">Por Hora</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-slate-700 mb-1">Valor do Vínculo (R$)</label>
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={formData.dailyRate || ''}
+                            onChange={(e) => setFormData({ ...formData, dailyRate: Number(e.target.value) })}
+                            className="w-full border border-slate-300 rounded-lg p-3 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-[#c79229] outline-none"
+                            placeholder="Ex: 2500.00, 150.00"
+                          />
                         </div>
                       </div>
                     </div>

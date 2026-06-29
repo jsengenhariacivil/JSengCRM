@@ -38,7 +38,8 @@ export default function QuickClientSupplierForm({ type, onSuccess, onCancel }: Q
                     phone: '',
                     address: '',
                     status: 'Ativo',
-                    createdAt: new Date().toISOString()
+                    createdAt: new Date().toISOString(),
+                    category: ''
                 };
                 if (addSupplier) {
                     await addSupplier(newSupplier as Supplier);

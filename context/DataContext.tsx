@@ -114,10 +114,11 @@ interface DataContextType {
 
   // --- INVENTORY ---
   inventoryItems: InventoryItem[];
+  inventoryMovements: InventoryMovement[];
   addInventoryItem: (item: InventoryItem) => Promise<void>;
   updateInventoryItem: (item: InventoryItem) => Promise<void>;
   deleteInventoryItem: (id: string) => Promise<void>;
-  addInventoryMovement: (movement: Omit<InventoryMovement, 'id' | 'date'>) => Promise<void>;
+  addInventoryMovement: (movement: Omit<InventoryMovement, 'id'>) => Promise<void>;
 
   // --- GOALS ---
   goals: Goal[];
@@ -818,12 +819,12 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         setInventoryMovements(movementsData.map(m => ({
           id: m.id,
           itemId: m.item_id,
-          type: m.type as 'IN' | 'OUT',
+          type: m.type as 'Entrada' | 'Saída' | 'Ajuste',
           quantity: parseFloat(m.quantity),
           date: m.date,
           projectId: m.project_id,
-          responsible: m.responsible,
-          notes: m.notes
+          userName: m.responsible || m.user_name || '',
+          reason: m.notes || m.reason || ''
         })));
       }
 
@@ -2256,8 +2257,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       quantity: movement.quantity,
       date: movement.date,
       project_id: movement.projectId || null,
-      responsible: movement.responsible,
-      notes: movement.notes
+      responsible: movement.userName,
+      notes: movement.reason
     }]).select().single();
 
     if (error) {
@@ -2269,18 +2270,18 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       setInventoryMovements(prev => [{
         id: data.id,
         itemId: data.item_id,
-        type: data.type as 'IN' | 'OUT',
+        type: data.type as 'Entrada' | 'Saída' | 'Ajuste',
         quantity: parseFloat(data.quantity),
         date: data.date,
         projectId: data.project_id,
-        responsible: data.responsible,
-        notes: data.notes
+        userName: data.responsible || data.user_name || '',
+        reason: data.notes || data.reason || ''
       }, ...prev]);
 
       // Atualizar quantidade no estado local
       setInventoryItems(prev => prev.map(i => {
         if (i.id === movement.itemId) {
-          const newQty = movement.type === 'IN' ? i.quantity + movement.quantity : i.quantity - movement.quantity;
+          const newQty = movement.type === 'Entrada' ? i.quantity + movement.quantity : i.quantity - movement.quantity;
           return { ...i, quantity: newQty };
         }
         return i;

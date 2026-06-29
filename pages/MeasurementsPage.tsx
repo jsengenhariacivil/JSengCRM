@@ -81,7 +81,7 @@ const MeasurementsPage: React.FC = () => {
                     category: financeType === 'Receita' ? 'Medição Recebida' : 'Medição Paga',
                     status: Status.PENDING,
                     date: newMeasure.date,
-                    clientSupplier: project.clientId
+                    projectId: project.id
                 }]);
             }
 

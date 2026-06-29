@@ -442,14 +442,14 @@ const Inventory: React.FC = () => {
                                                 <tr key={m.id} className="hover:bg-slate-50">
                                                     <td className="px-4 py-3">{new Date(m.date + 'T00:00:00').toLocaleDateString('pt-BR')}</td>
                                                     <td className="px-4 py-3">
-                                                        <span className={`px-2 py-1 rounded text-xs font-bold ${m.type === 'IN' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                                                            {m.type === 'IN' ? 'Entrada' : 'Saída'}
+                                                        <span className={`px-2 py-1 rounded text-xs font-bold ${m.type === 'Entrada' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                                                            {m.type === 'Entrada' ? 'Entrada' : m.type}
                                                         </span>
                                                     </td>
                                                     <td className="px-4 py-3 font-medium">{item?.name || 'Item Removido'}</td>
                                                     <td className="px-4 py-3">{m.quantity} {item?.unit}</td>
-                                                    <td className="px-4 py-3">{m.responsible || '---'}</td>
-                                                    <td className="px-4 py-3 text-slate-500">{m.notes || '---'}</td>
+                                                    <td className="px-4 py-3">{m.userName || '---'}</td>
+                                                    <td className="px-4 py-3 text-slate-500">{m.reason || '---'}</td>
                                                 </tr>
                                             );
                                         })}
