@@ -2902,7 +2902,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       engineeringDocuments, addEngineeringDocument, deleteEngineeringDocument, uploadFile,
       qualityInspections, addQualityInspection, updateQualityInspection, deleteQualityInspection,
       projectStages, addProjectStage, updateProjectStage, deleteProjectStage, addProjectSubStage, updateProjectSubStage, deleteProjectSubStage,
-      timePunches, addTimePunch, updateTimePunch, deleteTimePunch,
+      timePunches, addTimePunch, addTimePunches, updateTimePunch, deleteTimePunch,
       loading,
       refreshData
     }}>
