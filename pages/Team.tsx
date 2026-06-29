@@ -869,12 +869,12 @@ const Team: React.FC<TeamProps> = ({ view }) => {
         </div>
       )}
 
-      {punchEmployee && (
+{punchEmployee && (
         <PontoModal employee={punchEmployee} onClose={() => setPunchEmployee(null)} />
       )}
 
       {showBulkPunchModal && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+        <div className="fixed inset-0 z-[60] flex items-start justify-center p-4 py-8 bg-black/40 backdrop-blur-sm overflow-y-auto">
           <div className="bg-white dark:bg-zinc-900 rounded-2xl shadow-xl w-full max-w-sm p-6 border border-gray-200 dark:border-zinc-800">
             <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-4">Preencher Presença em Lote</h3>
             <p className="text-sm text-slate-500 mb-4">Selecione o intervalo de datas para preencher o ponto de todos os funcionários ativos.</p>
