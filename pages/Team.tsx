@@ -243,7 +243,13 @@ const Team: React.FC<TeamProps> = ({ view }) => {
           bank_pix: formData.bank_pix || '',
           bank_info: formData.bank_info || '',
           dailyRate: Number(formData.dailyRate) || 0,
-          paymentType: formData.paymentType || 'mensal'
+          paymentType: formData.paymentType || 'mensal',
+          base_salary: Number(formData.base_salary) || 0,
+          bonus: Number(formData.bonus) || 0,
+          cesta_basica: Number(formData.cesta_basica) || 0,
+          lunch_allowance: Number(formData.lunch_allowance) || 0,
+          breakfast_allowance: Number(formData.breakfast_allowance) || 0,
+          work_schedule: formData.work_schedule || 'seg_sex',
         };
         if (editingId) memberData.id = editingId;
 
