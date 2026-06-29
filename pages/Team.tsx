@@ -102,17 +102,20 @@ const Team: React.FC<TeamProps> = ({ view }) => {
   };
 
   const calculateDailyValue = (emp: TeamMember, dateStr: string) => {
-    if (['CLT', 'Funcionário'].includes(emp.type)) {
+    // Se o funcionário tem salário base cadastrado ou é do tipo CLT
+    if (['CLT', 'Funcionário', 'FUNCIONARIO', 'clt'].includes(emp.type?.trim() || '') || Number(emp.base_salary) > 0) {
       const dateObj = new Date(dateStr + 'T12:00:00');
       const workingDays = calcWorkingDaysInMonth(dateObj.getFullYear(), dateObj.getMonth() + 1, emp.work_schedule || 'seg_sex');
-      const salary = emp.base_salary || 0;
-      const bonus = emp.bonus || 0;
-      const cesta = emp.cesta_basica || 0; 
+      
+      const salary = Number(emp.base_salary) || 0;
+      const bonus = Number(emp.bonus) || 0;
+      const cesta = Number(emp.cesta_basica) || 0;
+      
       const fixedMonthly = salary + bonus + cesta;
       const dailySalary = workingDays > 0 ? (fixedMonthly / workingDays) : 0;
       
-      const lunch = emp.lunch_allowance || 0;
-      const breakfast = emp.breakfast_allowance || 0;
+      const lunch = Number(emp.lunch_allowance) || 0;
+      const breakfast = Number(emp.breakfast_allowance) || 0;
       
       const total = dailySalary + lunch + breakfast;
       return Math.round(total * 100) / 100;
