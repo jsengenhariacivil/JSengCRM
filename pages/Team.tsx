@@ -131,18 +131,26 @@ const Team: React.FC<TeamProps> = ({ view }) => {
       const activeEmployees = employees.filter(e => e.status === 'Ativo');
       let count = 0;
       let skipped = 0;
-      
+      let weekendSkipped = 0;
+
       for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
         const currentDate = d.toISOString().split('T')[0];
+        const dayOfWeek = d.getDay(); // 0=Dom, 1=Seg, ..., 6=Sab
+
         for (const emp of activeEmployees) {
-          // Impede duplicata: mesmo funcionário + mesma data
+          const schedule = emp.work_schedule || 'seg_sex';
+
+          // Pula domingo para todos
+          if (dayOfWeek === 0) { weekendSkipped++; continue; }
+          // Pula sabado para quem trabalha seg-sex
+          if (schedule === 'seg_sex' && dayOfWeek === 6) { weekendSkipped++; continue; }
+
+          // Impede duplicata: mesmo funcionario + mesma data
           const alreadyExists = timePunches.some(
             p => p.employee_id === emp.id && p.date === currentDate
           );
-          if (alreadyExists) {
-            skipped++;
-            continue;
-          }
+          if (alreadyExists) { skipped++; continue; }
+
           const computedValue = calculateDailyValue(emp, currentDate);
           await addTimePunch({
             employee_id: emp.id,
@@ -151,15 +159,16 @@ const Team: React.FC<TeamProps> = ({ view }) => {
             exit_time: '17:00',
             hours_worked: 9,
             value_paid: computedValue,
-            note: 'Presença Automática'
+            note: 'Presenca Automatica'
           });
           count++;
         }
       }
-      const msg = skipped > 0
-        ? `${count} presenças registradas com sucesso! (${skipped} já existentes ignoradas)`
-        : `${count} presenças registradas com sucesso!`;
-      alert(msg);
+
+      const parts: string[] = [`${count} presenças registradas com sucesso!`];
+      if (skipped > 0) parts.push(`${skipped} já existentes ignoradas`);
+      if (weekendSkipped > 0) parts.push(`${weekendSkipped} fins de semana pulados`);
+      alert(parts.join('\n'));
       setShowBulkPunchModal(false);
     } catch (error: any) {
       alert('Erro ao registrar presenças: ' + error.message);
