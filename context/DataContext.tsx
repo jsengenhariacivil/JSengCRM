@@ -1099,7 +1099,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       financial_entity: record.financial_entity || 'PJ'
     }).eq('id', record.id);
 
-    setFinancials(prev => prev.map(f => f.id === record.id ? record : f));
+    setFinancials(prev => prev.map(f => f.id === record.id ? { ...f, ...record } : f));
   };
 
   const deleteFinancialRecord = async (id: string) => {
@@ -2807,11 +2807,9 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       throw error;
     }
     if (data) {
-      setTimePunches(prev => {
-        const newArray = [...prev, data];
-        syncEmployeePayroll(punch.employee_id, punch.date, newArray).catch(console.error);
-        return newArray;
-      });
+      const newArray = [...timePunches, data];
+      setTimePunches(newArray);
+      await syncEmployeePayroll(punch.employee_id, punch.date, newArray);
     }
   };
   const updateTimePunch = async (id: string, punchData: Partial<TimePunch>) => {
@@ -2821,25 +2819,23 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       throw error;
     }
     const currentPunch = timePunches.find(p => p.id === id);
-    setTimePunches(prev => {
-      const newArray = prev.map(p => p.id === id ? { ...p, ...punchData } : p);
-      if (currentPunch) {
-        const d = punchData.date || currentPunch.date;
-        syncEmployeePayroll(currentPunch.employee_id, d, newArray).catch(console.error);
-      }
-      return newArray;
-    });
+    const newArray = timePunches.map(p => p.id === id ? { ...p, ...punchData } : p);
+    setTimePunches(newArray);
+    
+    if (currentPunch) {
+      const d = punchData.date || currentPunch.date;
+      await syncEmployeePayroll(currentPunch.employee_id, d, newArray);
+    }
   };
   const deleteTimePunch = async (id: string) => {
     await supabase.from('time_punches').delete().eq('id', id);
     const punch = timePunches.find(p => p.id === id);
-    setTimePunches(prev => {
-      const newArray = prev.filter(p => p.id !== id);
-      if (punch) {
-        syncEmployeePayroll(punch.employee_id, punch.date, newArray).catch(console.error);
-      }
-      return newArray;
-    });
+    const newArray = timePunches.filter(p => p.id !== id);
+    setTimePunches(newArray);
+
+    if (punch) {
+      await syncEmployeePayroll(punch.employee_id, punch.date, newArray);
+    }
   };
 
   return (
