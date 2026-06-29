@@ -77,10 +77,10 @@ export default function PontoModal({ employee, onClose }: PontoModalProps) {
   const [form, setForm] = useState(emptyPunch);
 
   React.useEffect(() => {
-    if (!editingId && form.date) {
+    if (form.date) {
       if (form.entry_time === '00:00' && form.exit_time === '00:00') {
-        setForm(prev => ({ ...prev, value_paid: 0 }));
-      } else {
+        setForm(prev => prev.value_paid !== 0 ? { ...prev, value_paid: 0 } : prev);
+      } else if (!editingId) {
         setForm(prev => ({ ...prev, value_paid: calculateDailyValue(employee, form.date) }));
       }
     }
@@ -194,7 +194,7 @@ export default function PontoModal({ employee, onClose }: PontoModalProps) {
             <div className="flex gap-3 items-end">
               <div className="flex-1">
                 <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Valor (R$)</label>
-                <input required type="number" min="0" step="0.01" value={form.value_paid || ''} onChange={e => setForm({...form, value_paid: Number(e.target.value)})} className="w-full px-3 py-1.5 text-sm bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 rounded-lg text-zinc-900 dark:text-white" />
+                <input required type="number" min="0" step="0.01" value={form.value_paid ?? ''} onChange={e => setForm({...form, value_paid: Number(e.target.value)})} className="w-full px-3 py-1.5 text-sm bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 rounded-lg text-zinc-900 dark:text-white" />
               </div>
               <button type="submit" className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg">
                 Salvar
