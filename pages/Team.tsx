@@ -74,10 +74,48 @@ const Team: React.FC<TeamProps> = ({ view }) => {
     date: '',
     value: 0,
     paymentType: 'mensal',
-    dailyRate: 0
+    dailyRate: 0,
+    base_salary: 0,
+    bonus: 0,
+    cesta_basica: 0,
+    lunch_allowance: 0,
+    breakfast_allowance: 0,
+    work_schedule: 'seg_sex'
   });
 
   // --- HELPERS ---
+  const calcWorkingDaysInMonth = (year: number, month: number, schedule: string) => {
+    let count = 0;
+    const daysInMonth = new Date(year, month, 0).getDate();
+    for (let i = 1; i <= daysInMonth; i++) {
+      const d = new Date(year, month - 1, i);
+      const dayOfWeek = d.getDay();
+      if (dayOfWeek !== 0) { // Not Sunday
+        if (schedule === 'seg_sex' && dayOfWeek === 6) continue;
+        count++;
+      }
+    }
+    return count;
+  };
+
+  const calculateDailyValue = (emp: TeamMember, dateStr: string) => {
+    if (['CLT', 'Funcionário'].includes(emp.type)) {
+      const dateObj = new Date(dateStr + 'T12:00:00');
+      const workingDays = calcWorkingDaysInMonth(dateObj.getFullYear(), dateObj.getMonth() + 1, emp.work_schedule || 'seg_sex');
+      const salary = emp.base_salary || 0;
+      const bonus = emp.bonus || 0;
+      const cesta = emp.cesta_basica || 0; 
+      const fixedMonthly = salary + bonus + cesta;
+      const dailySalary = workingDays > 0 ? (fixedMonthly / workingDays) : 0;
+      
+      const lunch = emp.lunch_allowance || 0;
+      const breakfast = emp.breakfast_allowance || 0;
+      
+      return dailySalary + lunch + breakfast;
+    }
+    return Number(emp.dailyRate) || 0;
+  };
+
   const getHeader = () => {
     switch (view) {
       case 'employees': return { title: 'Funcionários', desc: 'Gestão da equipe interna', icon: User, btn: 'Novo Funcionário' };
@@ -632,33 +670,72 @@ const Team: React.FC<TeamProps> = ({ view }) => {
                         <div className="w-1 h-4 bg-[#c79229] rounded-full" />
                         <h4 className="text-sm font-bold text-slate-900 uppercase tracking-wider">Vínculo e Pagamento</h4>
                       </div>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <label className="block text-sm font-medium text-slate-700 mb-1">Tipo Pagamento</label>
-                          <select
-                            value={formData.paymentType || 'mensal'}
-                            onChange={(e) => setFormData({ ...formData, paymentType: e.target.value })}
-                            className="w-full border border-slate-300 rounded-lg p-3 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-[#c79229] outline-none"
-                          >
-                            <option value="mensal">Mensal (Salário)</option>
-                            <option value="quinzenal">Quinzenal</option>
-                            <option value="diaria">Diária</option>
-                            <option value="hora">Por Hora</option>
-                          </select>
+                      
+                      {['CLT', 'Funcionário'].includes(formData.type) ? (
+                        <div className="space-y-4">
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                              <label className="block text-sm font-medium text-slate-700 mb-1">Salário Fixo Mensal (R$)</label>
+                              <input type="number" min="0" step="0.01" value={formData.base_salary || ''} onChange={(e) => setFormData({ ...formData, base_salary: Number(e.target.value) })} className="w-full border border-slate-300 rounded-lg p-3 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-[#c79229] outline-none" />
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-slate-700 mb-1">Jornada de Trabalho</label>
+                              <select value={formData.work_schedule || 'seg_sex'} onChange={(e) => setFormData({ ...formData, work_schedule: e.target.value })} className="w-full border border-slate-300 rounded-lg p-3 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-[#c79229] outline-none">
+                                <option value="seg_sex">Segunda a Sexta</option>
+                                <option value="seg_sab">Segunda a Sábado</option>
+                              </select>
+                            </div>
+                          </div>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                              <label className="block text-sm font-medium text-slate-700 mb-1">Valor Diário do Almoço (R$)</label>
+                              <input type="number" min="0" step="0.01" value={formData.lunch_allowance || ''} onChange={(e) => setFormData({ ...formData, lunch_allowance: Number(e.target.value) })} className="w-full border border-slate-300 rounded-lg p-3 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-[#c79229] outline-none" />
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-slate-700 mb-1">Valor Diário do Café (R$)</label>
+                              <input type="number" min="0" step="0.01" value={formData.breakfast_allowance || ''} onChange={(e) => setFormData({ ...formData, breakfast_allowance: Number(e.target.value) })} className="w-full border border-slate-300 rounded-lg p-3 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-[#c79229] outline-none" />
+                            </div>
+                          </div>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                              <label className="block text-sm font-medium text-slate-700 mb-1">Cesta Básica Mensal (R$)</label>
+                              <input type="number" min="0" step="0.01" value={formData.cesta_basica || ''} onChange={(e) => setFormData({ ...formData, cesta_basica: Number(e.target.value) })} className="w-full border border-slate-300 rounded-lg p-3 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-[#c79229] outline-none" />
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-slate-700 mb-1">Bônus/Prêmio Mensal (R$)</label>
+                              <input type="number" min="0" step="0.01" value={formData.bonus || ''} onChange={(e) => setFormData({ ...formData, bonus: Number(e.target.value) })} className="w-full border border-slate-300 rounded-lg p-3 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-[#c79229] outline-none" />
+                            </div>
+                          </div>
                         </div>
-                        <div>
-                          <label className="block text-sm font-medium text-slate-700 mb-1">Valor do Vínculo (R$)</label>
-                          <input
-                            type="number"
-                            min="0"
-                            step="0.01"
-                            value={formData.dailyRate || ''}
-                            onChange={(e) => setFormData({ ...formData, dailyRate: Number(e.target.value) })}
-                            className="w-full border border-slate-300 rounded-lg p-3 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-[#c79229] outline-none"
-                            placeholder="Ex: 2500.00, 150.00"
-                          />
+                      ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">Tipo Pagamento</label>
+                            <select
+                              value={formData.paymentType || 'mensal'}
+                              onChange={(e) => setFormData({ ...formData, paymentType: e.target.value })}
+                              className="w-full border border-slate-300 rounded-lg p-3 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-[#c79229] outline-none"
+                            >
+                              <option value="mensal">Mensal (Salário)</option>
+                              <option value="quinzenal">Quinzenal</option>
+                              <option value="diaria">Diária</option>
+                              <option value="hora">Por Hora</option>
+                            </select>
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">Valor do Vínculo (R$)</label>
+                            <input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              value={formData.dailyRate || ''}
+                              onChange={(e) => setFormData({ ...formData, dailyRate: Number(e.target.value) })}
+                              className="w-full border border-slate-300 rounded-lg p-3 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-[#c79229] outline-none"
+                              placeholder="Ex: 2500.00, 150.00"
+                            />
+                          </div>
                         </div>
-                      </div>
+                      )}
                     </div>
 
                     {/* Seção: Pagamento */}
@@ -823,13 +900,14 @@ const Team: React.FC<TeamProps> = ({ view }) => {
                   for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
                     const currentDate = d.toISOString().split('T')[0];
                     for (const emp of activeEmployees) {
+                      const computedValue = calculateDailyValue(emp, currentDate);
                       await addTimePunch({
                         employee_id: emp.id,
                         date: currentDate,
                         entry_time: '07:00',
                         exit_time: '17:00',
                         hours_worked: 9,
-                        value_paid: Number(emp.dailyRate) || 0,
+                        value_paid: computedValue,
                         note: 'Presença Automática'
                       });
                       count++;

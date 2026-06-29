@@ -200,6 +200,12 @@ export interface TeamMember {
   bank_info?: string;
   dailyRate?: number; // Valor da diária para RH
   paymentType?: 'diaria' | 'quinzenal' | 'mensal' | 'hora';
+  base_salary?: number;
+  bonus?: number;
+  cesta_basica?: number;
+  lunch_allowance?: number;
+  breakfast_allowance?: number;
+  work_schedule?: string; // 'seg_sex' ou 'seg_sab'
 }
 
 export interface TimePunch {

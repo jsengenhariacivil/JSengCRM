@@ -24,6 +24,38 @@ function calcHours(entry: string, exit: string): number {
   return Math.max(0, total);
 }
 
+function calcWorkingDaysInMonth(year: number, month: number, schedule: string) {
+  let count = 0;
+  const daysInMonth = new Date(year, month, 0).getDate();
+  for (let i = 1; i <= daysInMonth; i++) {
+    const d = new Date(year, month - 1, i);
+    const dayOfWeek = d.getDay();
+    if (dayOfWeek !== 0) { // Not Sunday
+      if (schedule === 'seg_sex' && dayOfWeek === 6) continue;
+      count++;
+    }
+  }
+  return count;
+}
+
+function calculateDailyValue(emp: TeamMember, dateStr: string) {
+  if (['CLT', 'Funcionário'].includes(emp.type || '')) {
+    const dateObj = new Date(dateStr + 'T12:00:00');
+    const workingDays = calcWorkingDaysInMonth(dateObj.getFullYear(), dateObj.getMonth() + 1, emp.work_schedule || 'seg_sex');
+    const salary = emp.base_salary || 0;
+    const bonus = emp.bonus || 0;
+    const cesta = emp.cesta_basica || 0; 
+    const fixedMonthly = salary + bonus + cesta;
+    const dailySalary = workingDays > 0 ? (fixedMonthly / workingDays) : 0;
+    
+    const lunch = emp.lunch_allowance || 0;
+    const breakfast = emp.breakfast_allowance || 0;
+    
+    return dailySalary + lunch + breakfast;
+  }
+  return Number(emp.dailyRate) || 0;
+}
+
 export default function PontoModal({ employee, onClose }: PontoModalProps) {
   const { timePunches, addTimePunch, updateTimePunch, deleteTimePunch } = useData();
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -34,11 +66,21 @@ export default function PontoModal({ employee, onClose }: PontoModalProps) {
     entry_time: '07:00',
     exit_time: '17:00',
     hours_worked: 10,
-    value_paid: 0, // employee.dailyRate could be used if it existed in TeamMember
+    value_paid: calculateDailyValue(employee, new Date().toISOString().split('T')[0]),
     note: '',
   };
 
   const [form, setForm] = useState(emptyPunch);
+
+  React.useEffect(() => {
+    if (!editingId && form.date) {
+      if (form.entry_time === '00:00' && form.exit_time === '00:00') {
+        setForm(prev => ({ ...prev, value_paid: 0 }));
+      } else {
+        setForm(prev => ({ ...prev, value_paid: calculateDailyValue(employee, form.date) }));
+      }
+    }
+  }, [form.date, form.entry_time, form.exit_time, editingId, employee]);
 
   const punches = timePunches.filter(p => p.employee_id === employee.id).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
@@ -132,7 +174,7 @@ export default function PontoModal({ employee, onClose }: PontoModalProps) {
               </button>
               <button 
                 type="button" 
-                onClick={() => setForm({...form, entry_time: '00:00', exit_time: '00:00', note: 'FALTA'})}
+                onClick={() => setForm({...form, entry_time: '00:00', exit_time: '00:00', note: 'FALTA', value_paid: 0})}
                 className="px-3 py-1 text-xs font-medium bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 rounded-lg hover:bg-red-200 transition-colors"
               >
                 Marcar Falta

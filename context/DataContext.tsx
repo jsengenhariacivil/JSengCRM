@@ -1616,7 +1616,15 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       address: member.address,
       emergency_contact: member.emergency_contact,
       bank_pix: member.bank_pix,
-      bank_info: member.bank_info
+      bank_info: member.bank_info,
+      dailyRate: member.dailyRate,
+      paymentType: member.paymentType,
+      base_salary: member.base_salary,
+      bonus: member.bonus,
+      cesta_basica: member.cesta_basica,
+      lunch_allowance: member.lunch_allowance,
+      breakfast_allowance: member.breakfast_allowance,
+      work_schedule: member.work_schedule
     }]).select().single();
 
     if (error) throw new Error(error.message);
@@ -1641,7 +1649,15 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       address: member.address,
       emergency_contact: member.emergency_contact,
       bank_pix: member.bank_pix,
-      bank_info: member.bank_info
+      bank_info: member.bank_info,
+      dailyRate: member.dailyRate,
+      paymentType: member.paymentType,
+      base_salary: member.base_salary,
+      bonus: member.bonus,
+      cesta_basica: member.cesta_basica,
+      lunch_allowance: member.lunch_allowance,
+      breakfast_allowance: member.breakfast_allowance,
+      work_schedule: member.work_schedule
     }).eq('id', member.id);
 
     if (error) throw new Error(error.message);
