@@ -2757,7 +2757,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   // --- RH PONTO ---
   const syncEmployeePayroll = async (empId: string, punchDate: string, updatedPunches: TimePunch[]) => {
-    const emp = employees.find(e => e.id === empId);
+    const emp = teamMembers.find(e => e.id === empId);
     if (!emp) return;
 
     // Busca folha de pagamento que envolva esse periodo
