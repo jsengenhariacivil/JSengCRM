@@ -26,51 +26,77 @@ export default function ClosePayrollModal({ employees, onClose }: ClosePayrollMo
   const [punchesFound, setPunchesFound] = useState(0);
   const [workingDaysCount, setWorkingDaysCount] = useState(0);
 
+  const calculateEmployeePayroll = (empId: string) => {
+    const emp = employees.find(e => e.id === empId);
+    if (!emp) return { sum: 0, punchesFound: 0, workingDaysCount: 0 };
+
+    const punches = timePunches.filter(p =>
+      p.employee_id === empId &&
+      p.date >= startDate &&
+      p.date <= endDate
+    );
+
+    const workingPunches = punches.filter(
+      p => !(p.entry_time === '00:00' && p.exit_time === '00:00')
+    );
+    const workingDaysInPeriod = workingPunches.length;
+
+    let sum = 0;
+    if (
+      ['CLT', 'Funcionário', 'FUNCIONARIO', 'clt'].includes(emp.type?.trim() || '') ||
+      Number(emp.base_salary) > 0
+    ) {
+      const salary    = Number(emp.base_salary) || 0;
+      const bonus     = Number(emp.bonus) || 0;
+      const cesta     = Number(emp.cesta_basica) || 0;
+      const lunch     = Number(emp.lunch_allowance) || 0;
+      const breakfast = Number(emp.breakfast_allowance) || 0;
+
+      const fixedMonthly = salary + bonus + cesta;
+      sum = fixedMonthly + (lunch + breakfast) * workingDaysInPeriod;
+    } else {
+      sum = workingPunches.reduce((acc, curr) => {
+        const val = Number(curr.value_paid);
+        return acc + (isNaN(val) ? 0 : val);
+      }, 0);
+    }
+
+    return { 
+      sum: Math.round(sum * 100) / 100, 
+      punchesFound: punches.length, 
+      workingDaysCount: workingDaysInPeriod 
+    };
+  };
+
   // Calcula sempre que mudar a seleção
   useEffect(() => {
     if (employeeId && startDate && endDate) {
-      const emp = employees.find(e => e.id === employeeId);
-      const punches = timePunches.filter(p =>
-        p.employee_id === employeeId &&
-        p.date >= startDate &&
-        p.date <= endDate
-      );
-      setPunchesFound(punches.length);
-
-      // Dias efetivamente trabalhados (exclui faltas marcadas como 00:00)
-      const workingPunches = punches.filter(
-        p => !(p.entry_time === '00:00' && p.exit_time === '00:00')
-      );
-      const workingDaysInPeriod = workingPunches.length;
-      setWorkingDaysCount(workingDaysInPeriod);
-
-      let sum = 0;
-
-      if (emp && (
-        ['CLT', 'Funcionário', 'FUNCIONARIO', 'clt'].includes(emp.type?.trim() || '') ||
-        Number(emp.base_salary) > 0
-      )) {
-        // CLT: salário fixo pelo período + benefícios diários × dias trabalhados
-        const salary    = Number(emp.base_salary) || 0;
-        const bonus     = Number(emp.bonus) || 0;
-        const cesta     = Number(emp.cesta_basica) || 0;
-        const lunch     = Number(emp.lunch_allowance) || 0;
-        const breakfast = Number(emp.breakfast_allowance) || 0;
-
-        const fixedMonthly = salary + bonus + cesta;
-        sum = fixedMonthly + (lunch + breakfast) * workingDaysInPeriod;
+      if (employeeId === 'all') {
+        const activeEmps = employees.filter(e => e.status === 'Ativo');
+        let totalSum = 0;
+        let totalPunches = 0;
+        let totalWorkingDays = 0;
+        
+        activeEmps.forEach(emp => {
+          const res = calculateEmployeePayroll(emp.id);
+          totalSum += res.sum;
+          totalPunches += res.punchesFound;
+          totalWorkingDays += res.workingDaysCount;
+        });
+        
+        setTotalValue(Math.round(totalSum * 100) / 100);
+        setPunchesFound(totalPunches);
+        setWorkingDaysCount(totalWorkingDays);
       } else {
-        // Diarista / Prestador: soma dos valores registrados por dia
-        sum = workingPunches.reduce((acc, curr) => {
-          const val = Number(curr.value_paid);
-          return acc + (isNaN(val) ? 0 : val);
-        }, 0);
+        const res = calculateEmployeePayroll(employeeId);
+        setTotalValue(res.sum);
+        setPunchesFound(res.punchesFound);
+        setWorkingDaysCount(res.workingDaysCount);
       }
-
-      setTotalValue(Math.round(sum * 100) / 100);
     } else {
       setTotalValue(0);
       setPunchesFound(0);
+      setWorkingDaysCount(0);
     }
   }, [employeeId, startDate, endDate, timePunches, employees]);
 
@@ -78,20 +104,36 @@ export default function ClosePayrollModal({ employees, onClose }: ClosePayrollMo
     e.preventDefault();
     if (!employeeId || totalValue <= 0) return;
     
-    const emp = employees.find(e => e.id === employeeId);
-    if (!emp) return;
-
     // Converte datas para criar uma referência bacana
     const startStr = startDate.split('-').reverse().join('/');
     const endStr = endDate.split('-').reverse().join('/');
 
-    await addPayment({
-      name: emp.name,
-      reference: `Fechamento de Folha (${startStr} a ${endStr})`,
-      date: endDate,
-      value: totalValue,
-      status: 'Pendente'
-    } as any);
+    if (employeeId === 'all') {
+      const activeEmps = employees.filter(e => e.status === 'Ativo');
+      for (const emp of activeEmps) {
+        const res = calculateEmployeePayroll(emp.id);
+        if (res.sum > 0) {
+          await addPayment({
+            name: emp.name,
+            reference: `Fechamento de Folha (${startStr} a ${endStr})`,
+            date: endDate,
+            value: res.sum,
+            status: 'Pendente'
+          } as any);
+        }
+      }
+    } else {
+      const emp = employees.find(e => e.id === employeeId);
+      if (!emp) return;
+
+      await addPayment({
+        name: emp.name,
+        reference: `Fechamento de Folha (${startStr} a ${endStr})`,
+        date: endDate,
+        value: totalValue,
+        status: 'Pendente'
+      } as any);
+    }
 
     onClose();
   };
@@ -127,6 +169,7 @@ export default function ClosePayrollModal({ employees, onClose }: ClosePayrollMo
                 className="w-full border border-slate-300 dark:border-zinc-700 rounded-lg p-3 bg-white dark:bg-zinc-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-[#c79229] outline-none"
               >
                 <option value="" className="bg-white text-slate-900 dark:bg-zinc-800 dark:text-white">Selecione...</option>
+                <option value="all" className="bg-emerald-50 text-emerald-900 dark:bg-emerald-900/30 dark:text-emerald-400 font-bold">🌟 Todos os Ativos (Lote)</option>
                 {employees.map(emp => (
                   <option key={emp.id} value={emp.id} className="bg-white text-slate-900 dark:bg-zinc-800 dark:text-white">{emp.name}</option>
                 ))}
@@ -157,7 +200,9 @@ export default function ClosePayrollModal({ employees, onClose }: ClosePayrollMo
             </div>
 
             <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-900/50 rounded-xl">
-              <h4 className="text-sm font-medium text-blue-800 dark:text-blue-300 mb-3">Resumo do Período</h4>
+              <h4 className="text-sm font-medium text-blue-800 dark:text-blue-300 mb-3">
+                {employeeId === 'all' ? 'Resumo Geral (Lote de Todos)' : 'Resumo do Período'}
+              </h4>
               <div className="flex justify-between items-center text-sm mb-1">
                 <span className="text-blue-600 dark:text-blue-400">Total de registros:</span>
                 <span className="font-bold text-blue-900 dark:text-blue-100">{punchesFound} dias</span>
@@ -185,7 +230,7 @@ export default function ClosePayrollModal({ employees, onClose }: ClosePayrollMo
               disabled={totalValue <= 0 || !employeeId}
               className="w-full py-3 bg-[#c79229] hover:bg-[#a67922] disabled:opacity-50 text-[#181418] font-bold rounded-lg transition-colors mt-6"
             >
-              Confirmar e Enviar p/ Financeiro
+              {employeeId === 'all' ? 'Gerar Lote p/ Financeiro' : 'Confirmar e Enviar p/ Financeiro'}
             </button>
             
           </div>
