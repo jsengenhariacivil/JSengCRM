@@ -51,7 +51,8 @@ function calculateDailyValue(emp: TeamMember, dateStr: string) {
     const lunch = emp.lunch_allowance || 0;
     const breakfast = emp.breakfast_allowance || 0;
     
-    return dailySalary + lunch + breakfast;
+    const total = dailySalary + lunch + breakfast;
+    return Math.round(total * 100) / 100;
   }
   return Number(emp.dailyRate) || 0;
 }
