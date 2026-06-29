@@ -38,7 +38,7 @@ const DEFAULT_PAYMENT_REFS = [
 ];
 
 const Team: React.FC<TeamProps> = ({ view }) => {
-  const { teamMembers, suppliers, addTeamMember, updateTeamMember, deleteTeamMember, payments, addPayment, updatePayment, deletePayment, addTimePunch, timePunches } = useData();
+  const { teamMembers, suppliers, addTeamMember, updateTeamMember, deleteTeamMember, payments, addPayment, updatePayment, deletePayment, addTimePunch, addTimePunches, timePunches } = useData();
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
@@ -134,6 +134,8 @@ const Team: React.FC<TeamProps> = ({ view }) => {
       let skipped = 0;
       let weekendSkipped = 0;
 
+      const punchesToInsert: any[] = [];
+
       for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
         const currentDate = d.toISOString().split('T')[0];
         const dayOfWeek = d.getDay(); // 0=Dom, 1=Seg, ..., 6=Sab
@@ -155,11 +157,13 @@ const Team: React.FC<TeamProps> = ({ view }) => {
           // Impede duplicata: mesmo funcionario + mesma data
           const alreadyExists = timePunches.some(
             p => p.employee_id === emp.id && p.date === currentDate
+          ) || punchesToInsert.some(
+            p => p.employee_id === emp.id && p.date === currentDate
           );
           if (alreadyExists) { skipped++; continue; }
 
           const computedValue = calculateDailyValue(emp, currentDate);
-          await addTimePunch({
+          punchesToInsert.push({
             employee_id: emp.id,
             date: currentDate,
             entry_time: entryTime,
@@ -168,8 +172,12 @@ const Team: React.FC<TeamProps> = ({ view }) => {
             value_paid: computedValue,
             note: noteText
           });
-          count++;
         }
+      }
+
+      if (punchesToInsert.length > 0) {
+        await addTimePunches(punchesToInsert);
+        count = punchesToInsert.length;
       }
 
       const parts: string[] = [`${count} presenças registradas com sucesso!`];

@@ -167,6 +167,7 @@ interface DataContextType {
   // --- RH PONTO ---
   timePunches: TimePunch[];
   addTimePunch: (punch: Omit<TimePunch, 'id'>) => Promise<void>;
+  addTimePunches: (punches: Omit<TimePunch, 'id'>[]) => Promise<void>;
   updateTimePunch: (id: string, data: Partial<TimePunch>) => Promise<void>;
   deleteTimePunch: (id: string) => Promise<void>;
 }
@@ -2814,6 +2815,29 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       await syncEmployeePayroll(punch.employee_id, punch.date, newArray);
     }
   };
+  const addTimePunches = async (punches: Omit<TimePunch, 'id'>[]) => {
+    if (punches.length === 0) return;
+    const { data, error } = await supabase.from('time_punches').insert(punches).select();
+    if (error) {
+      console.error('Erro addTimePunches:', error);
+      throw error;
+    }
+    if (data && data.length > 0) {
+      const newArray = [...timePunches, ...data];
+      setTimePunches(newArray);
+      
+      // Agrupa por funcionário para sincronizar a folha de pagamento de forma eficiente
+      const employeesToSync = new Set(data.map(p => p.employee_id));
+      for (const empId of employeesToSync) {
+        // Encontra a data de um dos pontos para enviar como referencia
+        const punchForEmp = data.find(p => p.employee_id === empId);
+        if (punchForEmp) {
+          await syncEmployeePayroll(empId, punchForEmp.date, newArray);
+        }
+      }
+    }
+  };
+
   const updateTimePunch = async (id: string, punchData: Partial<TimePunch>) => {
     const { error } = await supabase.from('time_punches').update(punchData).eq('id', id);
     if (error) {
