@@ -6,8 +6,11 @@ import PontoModal from '../components/PontoModal';
 import ClosePayrollModal from '../components/ClosePayrollModal';
 import PayslipModal from '../components/PayslipModal';
 
+import { usePayroll } from '../context/PayrollContext';
+import { WorkScheduleManager } from '../components/payroll/WorkScheduleManager';
+
 interface TeamProps {
-  view: 'employees' | 'contractors' | 'payments';
+  view: 'employees' | 'contractors' | 'payments' | 'work_schedules';
 }
 
 // Listas de cargos pré-definidos para sugestão
@@ -39,6 +42,7 @@ const DEFAULT_PAYMENT_REFS = [
 
 const Team: React.FC<TeamProps> = ({ view }) => {
   const { teamMembers, suppliers, addTeamMember, updateTeamMember, deleteTeamMember, payments, addPayment, updatePayment, deletePayment, addTimePunch, addTimePunches, timePunches } = useData();
+  const { workSchedules } = usePayroll();
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
@@ -525,6 +529,7 @@ const Team: React.FC<TeamProps> = ({ view }) => {
 
       {(view === 'employees' || view === 'contractors') && renderList()}
       {(view === 'payments') && renderOtherViews()}
+      {(view === 'work_schedules') && <WorkScheduleManager />}
 
       {/* PAINEL LATERAL (RIGHT DRAWER) */}
       {isModalOpen && (
@@ -771,10 +776,16 @@ const Team: React.FC<TeamProps> = ({ view }) => {
                               <input type="number" min="0" step="0.01" value={formData.base_salary || ''} onChange={(e) => setFormData({ ...formData, base_salary: Number(e.target.value) })} className="w-full border border-slate-300 rounded-lg p-3 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-[#c79229] outline-none" />
                             </div>
                             <div>
-                              <label className="block text-sm font-medium text-slate-700 mb-1">Jornada de Trabalho</label>
-                              <select value={formData.work_schedule || 'seg_sex'} onChange={(e) => setFormData({ ...formData, work_schedule: e.target.value })} className="w-full border border-slate-300 rounded-lg p-3 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-[#c79229] outline-none">
-                                <option value="seg_sex">Segunda a Sexta</option>
-                                <option value="seg_sab">Segunda a Sábado</option>
+                              <label className="block text-sm font-medium text-slate-700 mb-1">Escala de Trabalho</label>
+                              <select 
+                                value={formData.schedule_id || ''} 
+                                onChange={(e) => setFormData({ ...formData, schedule_id: e.target.value })} 
+                                className="w-full border border-slate-300 rounded-lg p-3 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-[#c79229] outline-none"
+                              >
+                                <option value="">Selecione uma Escala</option>
+                                {workSchedules.map(ws => (
+                                  <option key={ws.id} value={ws.id}>{ws.name} ({ws.start_time} - {ws.end_time})</option>
+                                ))}
                               </select>
                             </div>
                           </div>

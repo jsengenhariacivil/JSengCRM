@@ -187,6 +187,8 @@ const NavContent = ({
               <SidebarItem to="/equipe/funcionarios" icon={UserCog} label="Funcionários" isSubItem onClick={mobile ? toggleMenu : undefined} />
               <SidebarItem to="/equipe/prestadores" icon={Users} label="Prestadores" isSubItem onClick={mobile ? toggleMenu : undefined} />
               <SidebarItem to="/equipe/pagamentos" icon={Banknote} label="Pagamentos" isSubItem onClick={mobile ? toggleMenu : undefined} />
+              <SidebarItem to="/equipe/escalas" icon={Calendar} label="Escalas de Trabalho" isSubItem onClick={mobile ? toggleMenu : undefined} />
+              <SidebarItem to="/folha" icon={ClipboardList} label="Folha de Pagamento" isSubItem onClick={mobile ? toggleMenu : undefined} />
             </div>
           )}
         </div>

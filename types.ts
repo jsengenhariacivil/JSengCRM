@@ -205,7 +205,8 @@ export interface TeamMember {
   cesta_basica?: number;
   lunch_allowance?: number;
   breakfast_allowance?: number;
-  work_schedule?: string; // 'seg_sex' ou 'seg_sab'
+  work_schedule?: string; // legível 'seg_sex' ou 'seg_sab' (legado)
+  schedule_id?: string; // Relacionamento com tabela de WorkSchedule
 }
 
 export interface TimePunch {
@@ -428,3 +429,84 @@ export interface QualityInspection {
   notes?: string;
   createdAt: string;
 }
+
+// --- MÓDULO DE FOLHA DE PAGAMENTO ---
+
+export interface WorkSchedule {
+  id: string;
+  name: string;
+  description: string;
+  is_active: boolean;
+  consider_holidays_as_workdays: boolean;
+  // Dias trabalhados
+  work_monday: boolean;
+  work_tuesday: boolean;
+  work_wednesday: boolean;
+  work_thursday: boolean;
+  work_friday: boolean;
+  work_saturday: boolean;
+  work_sunday: boolean;
+  
+  start_time: string; // Ex: '08:00'
+  end_time: string;   // Ex: '18:00'
+  break_duration: number; // Em minutos
+  created_at: string;
+}
+
+export type AttendanceStatus = 'Presente' | 'Falta' | 'Falta Justificada' | 'Atestado' | 'Férias' | 'Licença' | 'Folga' | 'Compensação' | 'Banco de Horas';
+
+export interface AttendanceRecord {
+  id: string;
+  employee_id: string;
+  date: string; // YYYY-MM-DD
+  status: AttendanceStatus;
+  note?: string;
+  created_at?: string;
+}
+
+export interface PayrollItem {
+  description: string;
+  type: 'Provento' | 'Desconto';
+  amount: number;
+}
+
+export interface PayrollResult {
+  employee_id: string;
+  employee_name: string;
+  role: string;
+  period_start: string;
+  period_end: string;
+  schedule_name: string;
+  
+  // Resumo de dias
+  expected_days: number;
+  worked_days: number;
+  absences: number;
+  justified_absences: number;
+  medical_certificates: number;
+  saturdays: number;
+  sundays: number;
+  holidays: number;
+
+  // Benefícios Brutos
+  base_salary: number;
+  bonus: number;
+  food_allowance: number; // alimentação total
+  coffee_allowance: number; // café total
+  basic_basket: number; // cesta básica
+  gross_remuneration: number; // Bruto
+  daily_rate: number; // Valor Diário
+
+  // Descontos
+  discount_absences: number;
+  discount_food: number;
+  discount_coffee: number;
+  discount_basket: number;
+  total_discounts: number;
+
+  // Líquido
+  net_value: number;
+
+  items: PayrollItem[]; // Para exibição detalhada
+}
+

@@ -1,7 +1,7 @@
-
 import React from 'react';
 import { HashRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { DataProvider } from './context/DataContext';
+import { PayrollProvider } from './context/PayrollContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import Layout from './components/Layout';
 import Dashboard from './pages/Dashboard';
@@ -30,6 +30,7 @@ import UnderConstruction from './pages/UnderConstruction';
 import PlanningPage from './pages/PlanningPage';
 import DailyReportsPage from './pages/DailyReportsPage';
 import MeasurementsPage from './pages/MeasurementsPage';
+import Payroll from './pages/Payroll';
 import { Status, UserPermissions } from './types';
 
 // Componente para proteger rotas
@@ -76,8 +77,9 @@ const RequirePermission = ({ permission, children }: { permission: keyof UserPer
 const App: React.FC = () => {
   return (
     <DataProvider>
-      <AuthProvider>
-        <HashRouter>
+      <PayrollProvider>
+        <AuthProvider>
+          <HashRouter>
           <Routes>
             {/* Rota Pública */}
             <Route path="/login" element={<Login />} />
@@ -143,14 +145,25 @@ const App: React.FC = () => {
                   <Team view="employees" />
                 </RequirePermission>
               } />
+              
+              <Route path="folha" element={
+                <RequirePermission permission="viewTeam">
+                  <Payroll />
+                </RequirePermission>
+              } />
               <Route path="equipe/prestadores" element={
                 <RequirePermission permission="viewTeam">
                   <Team view="contractors" />
                 </RequirePermission>
               } />
               <Route path="equipe/pagamentos" element={
-                <RequirePermission permission="viewFinancial">
+                <RequirePermission permission="viewTeam">
                   <Team view="payments" />
+                </RequirePermission>
+              } />
+              <Route path="equipe/escalas" element={
+                <RequirePermission permission="viewTeam">
+                  <Team view="work_schedules" />
                 </RequirePermission>
               } />
 
@@ -200,7 +213,8 @@ const App: React.FC = () => {
             </Route>
           </Routes>
         </HashRouter>
-      </AuthProvider>
+        </AuthProvider>
+      </PayrollProvider>
     </DataProvider>
   );
 };
