@@ -673,6 +673,16 @@ const Projects: React.FC = () => {
           </div>
         </div>
       )}
+
+      {cronogramaProject && (
+        <Cronograma
+          obra={{
+            ...cronogramaProject,
+            stages: projectStages.filter(s => s.obra_id === cronogramaProject.id)
+          }}
+          onClose={() => setCronogramaProject(null)}
+        />
+      )}
     </div >
   );
 };
