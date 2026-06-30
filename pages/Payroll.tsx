@@ -244,8 +244,18 @@ export const Payroll: React.FC = () => {
                       <span className="text-slate-500 font-medium">Total Descontos:</span>
                       <span className="text-red-600 font-semibold">- R$ {result.total_discounts.toFixed(2)}</span>
                     </div>
-                    <div className="flex justify-between items-center text-lg">
-                      <span className="text-slate-800 font-bold">Valor Líquido:</span>
+
+                    <div className="flex justify-between items-center mt-4 mb-1">
+                      <span className="text-blue-600 font-medium">Adiantamento (Dia 20):</span>
+                      <span className="text-slate-800 font-semibold">R$ {result.adiantamento_value.toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between items-center mb-3">
+                      <span className="text-blue-600 font-medium">Fechamento (Dia 05):</span>
+                      <span className="text-slate-800 font-semibold">R$ {result.fechamento_value.toFixed(2)}</span>
+                    </div>
+
+                    <div className="flex justify-between items-center text-lg mt-3 pt-3 border-t border-slate-200">
+                      <span className="text-slate-800 font-bold">Valor Líquido a Pagar:</span>
                       <span className="text-[#c79229] font-bold text-xl">R$ {result.net_value.toFixed(2)}</span>
                     </div>
                   </div>

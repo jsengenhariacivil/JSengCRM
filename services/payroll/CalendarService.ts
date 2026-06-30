@@ -58,4 +58,19 @@ export class CalendarService {
   static countHolidays(dates: string[]): number {
     return dates.filter(d => this.isHoliday(d)).length;
   }
+
+  static splitDatesByDay(dates: string[], splitDay: number): { p1Dates: string[], p2Dates: string[] } {
+    if (dates.length === 0) return { p1Dates: [], p2Dates: [] };
+    
+    const splitIndex = dates.findIndex(d => parseInt(d.split('-')[2], 10) === splitDay);
+    
+    if (splitIndex === -1) {
+      return { p1Dates: dates, p2Dates: [] };
+    }
+
+    const p1Dates = dates.slice(0, splitIndex + 1);
+    const p2Dates = dates.slice(splitIndex + 1);
+    
+    return { p1Dates, p2Dates };
+  }
 }

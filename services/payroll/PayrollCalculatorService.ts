@@ -14,22 +14,32 @@ export class PayrollCalculatorService {
   ): PayrollResult {
     const dates = CalendarService.getDatesInRange(startDate, endDate);
     
-    // Contagens de calendário
+    // Contagens de calendário totais
     const saturdays = CalendarService.countSaturdays(dates);
     const sundays = CalendarService.countSundays(dates);
     const holidays = CalendarService.countHolidays(dates);
 
-    // Contagens de escala
-    const expectedDays = WorkScheduleService.getExpectedWorkDaysCount(startDate, endDate, schedule);
-    
-    // Contagens de frequência
-    const absences = AttendanceService.countAbsences(attendanceGrid, schedule);
+    // Divisão de períodos (P1: até dia 20, P2: dia 21 em diante)
+    const { p1Dates, p2Dates } = CalendarService.splitDatesByDay(dates, 20);
+
+    // Contagens de escala e frequência para P1
+    const p1ExpectedDays = WorkScheduleService.getExpectedWorkDaysCountFromDates(p1Dates, schedule);
+    const p1Grid = attendanceGrid.filter(a => p1Dates.includes(a.date));
+    const p1Absences = AttendanceService.countAbsences(p1Grid, schedule);
+    const p1WorkedDays = Math.max(0, p1ExpectedDays - p1Absences); // simplificado, assumindo que falta reduz dia trabalhado
+
+    // Contagens de escala e frequência para P2
+    const p2ExpectedDays = WorkScheduleService.getExpectedWorkDaysCountFromDates(p2Dates, schedule);
+    const p2Grid = attendanceGrid.filter(a => p2Dates.includes(a.date));
+    const p2Absences = AttendanceService.countAbsences(p2Grid, schedule);
+    const p2WorkedDays = Math.max(0, p2ExpectedDays - p2Absences);
+
+    // Totais
+    const totalExpectedDays = p1ExpectedDays + p2ExpectedDays;
+    const totalAbsences = p1Absences + p2Absences;
     const justifiedAbsences = AttendanceService.countJustifiedAbsences(attendanceGrid, schedule);
     const medicalCertificates = AttendanceService.countMedicalCertificates(attendanceGrid, schedule);
-    // Dias trabalhados na prática = esperados - faltas - justificadas - atestados (assumindo que justificadas abonam a falta, mas não são trabalhados)
-    // Para a folha: dias para calcular benefícios
-    // Vamos usar a contagem direta de 'Presente' em dia de trabalho
-    const workedDays = AttendanceService.countActualWorkedDays(attendanceGrid, schedule);
+    const totalWorkedDays = p1WorkedDays + p2WorkedDays; // ou AttendanceService.countActualWorkedDays
 
     // Valores Base do Funcionário
     const baseSalary = employee.base_salary || 0;
@@ -38,64 +48,47 @@ export class PayrollCalculatorService {
     const dailyCoffeeValue = employee.breakfast_allowance || 0;
     const basketValue = employee.cesta_basica || 0;
 
-    // Proventos / Benefícios
-    const foodAllowance = BenefitsService.calculateFoodAllowance(dailyFoodValue, workedDays);
-    const coffeeAllowance = BenefitsService.calculateCoffeeAllowance(dailyCoffeeValue, workedDays);
-    const basicBasket = BenefitsService.calculateBasicBasket(basketValue, absences);
+    // Regra da Cesta Básica: perde tudo se >= 1 falta
+    const finalBasketValue = totalAbsences > 0 ? 0 : basketValue;
 
-    const grossRemuneration = baseSalary + bonus + foodAllowance + coffeeAllowance + basicBasket;
+    // --- OPÇÃO A (Bruto Cheio -> Valor Diário Perfeito) ---
+    // Calculamos o Bruto Inicial como se tivesse trabalhado todos os dias previstos
+    const baseFood = dailyFoodValue * totalExpectedDays;
+    const baseCoffee = dailyCoffeeValue * totalExpectedDays;
+    
+    // Remuneração Bruta Cheia (para achar o valor diário)
+    // A cesta básica entra no valor diário? A regra #5 diz "Cesta (caso não tenha perdido)". 
+    // Para manter a cesta como um benefício fixo que não é proporcionalizado (pois não sofre desconto proporcional), 
+    // a matemática mais limpa é calcular a Diária SEM a cesta, e depois somar a Cesta no final.
+    // Mas o usuário pediu "Valor Bruto = Salário + Prêmio + Almoço + Café + Cesta". 
+    // Se a cesta estiver na diária, faltar 1 dia descontará "1/20" da cesta além da perda total, o que seria duplo desconto também.
+    // Solução da Opção A: O Bruto para o cálculo da diária contém apenas salário e benefícios variáveis.
+    const grossForDailyRate = baseSalary + bonus + baseFood + baseCoffee;
+    const dailyRate = totalExpectedDays > 0 ? grossForDailyRate / totalExpectedDays : 0;
 
-    // Valor Diário = Remuneração Bruta / Dias Previstos para Trabalho (conforme regra #6: Remuneração Bruta ÷ Dias trabalhados [previstos na escala para o período])
-    // Se expectedDays for 0 (ex: tirou folga o período todo), dailyRate é 0 para evitar Infinity.
-    // Pela regra #6: "Valor Diário = Remuneração Bruta ÷ Dias trabalhados. Nunca utilizar 30 ou 31 dias. Sempre utilizar a quantidade real de dias trabalhados naquele período conforme a escala."
-    // Entende-se "dias trabalhados conforme a escala" como os dias previstos.
-    const dailyRate = expectedDays > 0 ? grossRemuneration / expectedDays : 0;
+    // --- VALORES DOS PERÍODOS ---
+    const adiantamento = dailyRate * p1WorkedDays;
+    const fechamento = dailyRate * p2WorkedDays;
 
-    // Descontos
-    const discountAbsences = dailyRate * absences;
-    const discountFood = dailyFoodValue * absences;
-    const discountCoffee = dailyCoffeeValue * absences;
+    // Remuneração Bruta Total (O que ele realmente ganha)
+    // = Adiantamento + Fechamento + Cesta (se tiver)
+    const actualGrossRemuneration = adiantamento + fechamento + finalBasketValue;
+
+    // Para fins descritivos no holerite, vamos decompor o que foi pago:
+    // Ele efetivamente recebe proporcionalmente aos dias trabalhados
+    const actualFood = dailyFoodValue * totalWorkedDays;
+    const actualCoffee = dailyCoffeeValue * totalWorkedDays;
+    // O Salário Base Efetivo = (Base / TotalExpected) * TotalWorked
+    // Isso garante que o desconto ocorra corretamente no salário base também.
     
-    // A cesta é perdida integralmente se tiver falta, mas o valor da cesta já não entrou no Bruto?
-    // "Caso exista pelo menos uma falta: Descontar integralmente a cesta básica."
-    // Se ela entra no Bruto quando não tem falta e nós somamos, então o Desconto da Cesta é 0.
-    // Mas a regra #5 diz: Remuneração Bruta = Salário + Bonificação + Alimentação Total + Café Total + Cesta Básica
-    // E a regra #9 diz: Valor Líquido = Remuneração Bruta - Desconto Diárias - Desconto Alimentação - Desconto Café - Desconto Cesta.
-    // Se somarmos a cesta fixa no bruto, o "Desconto Cesta" será igual ao valor da cesta caso haja falta.
-    // Vamos ajustar: o Bruto sempre soma a cesta cheia, e o desconto retira se tiver falta.
-    const grossRemunerationForCalculation = baseSalary + bonus + foodAllowance + coffeeAllowance + basketValue;
-    const newDailyRate = expectedDays > 0 ? grossRemunerationForCalculation / expectedDays : 0;
-    
-    const discountBasket = absences > 0 ? basketValue : 0;
-    const newDiscountAbsences = newDailyRate * absences;
-    const newDiscountFood = dailyFoodValue * absences; // Pode ter redundância se o foodAllowance for (workedDays * daily).
-    // Espera, a regra #8 "Descontar alimentação: Valor diário * Quantidade de faltas"
-    // Se já calculamos foodAllowance = daily * workedDays, então o desconto seria duplicado se calcularmos o Bruto com (daily * workedDays) e depois descontarmos.
-    // Regra #5: Alimentação Total = Valor diário * Dias trabalhados.
-    // Vamos seguir estritamente o texto:
-    // Alimentação Total (bruto) = daily * expectedDays (para poder descontar depois) ou daily * workedDays?
-    // "Alimentação Total = Valor diário da alimentação × Dias trabalhados"
-    // Se Bruto = Salário + Bonificação + (Valor * Trabalhados)
-    // E o Desconto = Valor * Faltas
-    // O valor líquido abateria a falta DUAS VEZES!
-    // A melhor interpretação para o ERP:
-    // Alimentação Base = Valor diário * Dias Previstos (Expected)
-    // Bruto = Salário + Bonus + Alimentação Base + Café Base + Cesta Base
-    // Descontos = Faltas * (DailyRate + ValorDiárioAlim + ValorDiárioCafe) + DescontoCesta
-    
-    const baseFood = dailyFoodValue * expectedDays;
-    const baseCoffee = dailyCoffeeValue * expectedDays;
-    const gross = baseSalary + bonus + baseFood + baseCoffee + basketValue;
-    
-    const rate = expectedDays > 0 ? gross / expectedDays : 0;
-    
-    const dAbsences = rate * absences;
-    const dFood = dailyFoodValue * absences;
-    const dCoffee = dailyCoffeeValue * absences;
-    const dBasket = absences > 0 ? basketValue : 0;
+    // Para encaixar na lógica visual anterior sem assustar o usuário, calculamos os "Descontos":
+    // Desconto = Valor Esperado - Valor Efetivo
+    const dAbsences = totalExpectedDays > 0 ? (baseSalary / totalExpectedDays) * totalAbsences : 0;
+    const dFood = dailyFoodValue * totalAbsences;
+    const dCoffee = dailyCoffeeValue * totalAbsences;
+    const dBasket = totalAbsences > 0 ? basketValue : 0;
 
     const totalDiscounts = dAbsences + dFood + dCoffee + dBasket;
-    const netValue = gross - totalDiscounts;
 
     const items: PayrollItem[] = [
       { description: 'Salário Base', type: 'Provento', amount: baseSalary },
@@ -105,10 +98,10 @@ export class PayrollCalculatorService {
       { description: 'Cesta Básica', type: 'Provento', amount: basketValue }
     ];
 
-    if (dAbsences > 0) items.push({ description: 'Desconto de Faltas (Dias)', type: 'Desconto', amount: dAbsences });
+    if (dAbsences > 0) items.push({ description: 'Desconto de Faltas (Salário Base)', type: 'Desconto', amount: dAbsences });
     if (dFood > 0) items.push({ description: 'Desconto Alimentação (Faltas)', type: 'Desconto', amount: dFood });
     if (dCoffee > 0) items.push({ description: 'Desconto Café (Faltas)', type: 'Desconto', amount: dCoffee });
-    if (dBasket > 0) items.push({ description: 'Desconto Cesta Básica (Faltas)', type: 'Desconto', amount: dBasket });
+    if (dBasket > 0) items.push({ description: 'Desconto Cesta Básica (Perda por Falta)', type: 'Desconto', amount: dBasket });
 
     return {
       employee_id: employee.id,
@@ -118,9 +111,9 @@ export class PayrollCalculatorService {
       period_end: endDate,
       schedule_name: schedule.name,
 
-      expected_days: expectedDays,
-      worked_days: workedDays,
-      absences: absences,
+      expected_days: totalExpectedDays,
+      worked_days: totalWorkedDays,
+      absences: totalAbsences,
       justified_absences: justifiedAbsences,
       medical_certificates: medicalCertificates,
       saturdays: saturdays,
@@ -132,8 +125,16 @@ export class PayrollCalculatorService {
       food_allowance: baseFood,
       coffee_allowance: baseCoffee,
       basic_basket: basketValue,
-      gross_remuneration: gross,
-      daily_rate: rate,
+      gross_remuneration: actualGrossRemuneration,
+      daily_rate: dailyRate,
+
+      p1_expected_days: p1ExpectedDays,
+      p1_worked_days: p1WorkedDays,
+      adiantamento_value: adiantamento,
+      
+      p2_expected_days: p2ExpectedDays,
+      p2_worked_days: p2WorkedDays,
+      fechamento_value: fechamento + finalBasketValue, // O fechamento carrega a cesta básica se não foi perdida
 
       discount_absences: dAbsences,
       discount_food: dFood,
@@ -141,7 +142,7 @@ export class PayrollCalculatorService {
       discount_basket: dBasket,
       total_discounts: totalDiscounts,
 
-      net_value: netValue,
+      net_value: actualGrossRemuneration,
       items: items
     };
   }

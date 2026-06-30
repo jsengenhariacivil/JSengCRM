@@ -30,6 +30,10 @@ export class WorkScheduleService {
    */
   static getExpectedWorkDaysCount(startDate: string, endDate: string, schedule: WorkSchedule): number {
     const dates = CalendarService.getDatesInRange(startDate, endDate);
+    return this.getExpectedWorkDaysCountFromDates(dates, schedule);
+  }
+
+  static getExpectedWorkDaysCountFromDates(dates: string[], schedule: WorkSchedule): number {
     return dates.filter(date => this.isWorkDay(date, schedule)).length;
   }
 }

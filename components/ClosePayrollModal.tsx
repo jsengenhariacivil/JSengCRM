@@ -1,7 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { X, Calculator } from 'lucide-react';
-import { TeamMember, TimePunch } from '../types';
+import { TeamMember } from '../types';
 import { useData } from '../context/DataContext';
+import { usePayroll } from '../context/PayrollContext';
+import { PayrollCalculatorService } from '../services/payroll/PayrollCalculatorService';
+import { AttendanceService } from '../services/payroll/AttendanceService';
 
 interface ClosePayrollModalProps {
   employees: TeamMember[];
@@ -9,103 +12,94 @@ interface ClosePayrollModalProps {
 }
 
 export default function ClosePayrollModal({ employees, onClose }: ClosePayrollModalProps) {
-  const { timePunches, addPayment, payments } = useData();
+  const { addPayment, payments } = useData();
+  const { workSchedules, attendanceRecords } = usePayroll();
+  
   const [employeeId, setEmployeeId] = useState('');
   const [startDate, setStartDate] = useState(() => {
     const d = new Date();
-    d.setDate(1);
+    d.setDate(5);
     return d.toISOString().split('T')[0];
   });
   const [endDate, setEndDate] = useState(() => {
     const d = new Date();
-    d.setMonth(d.getMonth() + 1, 0);
+    d.setMonth(d.getMonth() + 1, 4);
     return d.toISOString().split('T')[0];
   });
   
-  const [totalValue, setTotalValue] = useState(0);
-  const [punchesFound, setPunchesFound] = useState(0);
-  const [workingDaysCount, setWorkingDaysCount] = useState(0);
+  const [totals, setTotals] = useState({
+    bruto: 0,
+    adiantamento: 0,
+    fechamento: 0,
+    trabalhados: 0,
+    faltas: 0
+  });
 
   const calculateEmployeePayroll = (empId: string) => {
     const emp = employees.find(e => e.id === empId);
-    if (!emp) return { sum: 0, punchesFound: 0, workingDaysCount: 0 };
-
-    const punches = timePunches.filter(p =>
-      p.employee_id === empId &&
-      p.date >= startDate &&
-      p.date <= endDate
-    );
-
-    const workingPunches = punches.filter(
-      p => !(p.entry_time === '00:00' && p.exit_time === '00:00')
-    );
-    const workingDaysInPeriod = workingPunches.length;
-
-    let sum = 0;
+    if (!emp || !emp.schedule_id) return null;
     
-    // Calcula pelos "dias de fato" trabalhados (conforme solicitado pelo usuário)
-    sum = workingPunches.reduce((acc, curr) => {
-      const val = Number(curr.value_paid);
-      return acc + (isNaN(val) ? 0 : val);
-    }, 0);
+    const schedule = workSchedules.find(s => s.id === emp.schedule_id);
+    if (!schedule) return null;
 
-    // Adiciona a cesta básica separadamente apenas para CLT/Salário Base
-    if (
-      ['CLT', 'Funcionário', 'FUNCIONARIO', 'clt'].includes(emp.type?.trim() || '') ||
-      Number(emp.base_salary) > 0
-    ) {
-      const absencesCount = punches.length - workingDaysInPeriod;
-      const cesta = absencesCount > 0 ? 0 : (Number(emp.cesta_basica) || 0);
-      sum += cesta;
-    }
-
-    return { 
-      sum: Math.round(sum * 100) / 100, 
-      punchesFound: punches.length, 
-      workingDaysCount: workingDaysInPeriod 
-    };
+    const recordsInRange = attendanceRecords.filter(r => 
+      r.employee_id === emp.id && 
+      r.date >= startDate && 
+      r.date <= endDate
+    );
+    
+    const grid = AttendanceService.generateAttendanceGrid(emp.id, startDate, endDate, schedule, recordsInRange);
+    return PayrollCalculatorService.calculate(emp, schedule, startDate, endDate, grid);
   };
 
-  // Calcula sempre que mudar a seleção
   useEffect(() => {
     if (employeeId && startDate && endDate) {
       if (employeeId === 'all') {
         const activeEmps = employees.filter(e => e.status === 'Ativo');
-        let totalSum = 0;
-        let totalPunches = 0;
-        let totalWorkingDays = 0;
+        let tBruto = 0, tAdiantamento = 0, tFechamento = 0, tTrabalhados = 0, tFaltas = 0;
         
         activeEmps.forEach(emp => {
           const res = calculateEmployeePayroll(emp.id);
-          totalSum += res.sum;
-          totalPunches += res.punchesFound;
-          totalWorkingDays += res.workingDaysCount;
+          if (res) {
+            tBruto += res.gross_remuneration;
+            tAdiantamento += res.adiantamento_value;
+            tFechamento += res.fechamento_value;
+            tTrabalhados += res.worked_days;
+            tFaltas += res.absences;
+          }
         });
         
-        setTotalValue(Math.round(totalSum * 100) / 100);
-        setPunchesFound(totalPunches);
-        setWorkingDaysCount(totalWorkingDays);
+        setTotals({ bruto: tBruto, adiantamento: tAdiantamento, fechamento: tFechamento, trabalhados: tTrabalhados, faltas: tFaltas });
       } else {
         const res = calculateEmployeePayroll(employeeId);
-        setTotalValue(res.sum);
-        setPunchesFound(res.punchesFound);
-        setWorkingDaysCount(res.workingDaysCount);
+        if (res) {
+          setTotals({ 
+            bruto: res.gross_remuneration, 
+            adiantamento: res.adiantamento_value, 
+            fechamento: res.fechamento_value, 
+            trabalhados: res.worked_days, 
+            faltas: res.absences 
+          });
+        } else {
+          setTotals({ bruto: 0, adiantamento: 0, fechamento: 0, trabalhados: 0, faltas: 0 });
+        }
       }
     } else {
-      setTotalValue(0);
-      setPunchesFound(0);
-      setWorkingDaysCount(0);
+      setTotals({ bruto: 0, adiantamento: 0, fechamento: 0, trabalhados: 0, faltas: 0 });
     }
-  }, [employeeId, startDate, endDate, timePunches, employees]);
+  }, [employeeId, startDate, endDate, workSchedules, attendanceRecords, employees]);
 
   const handleClose = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!employeeId || totalValue <= 0) return;
+    if (!employeeId || totals.bruto <= 0) return;
     
-    // Converte datas para criar uma referência bacana
     const startStr = startDate.split('-').reverse().join('/');
     const endStr = endDate.split('-').reverse().join('/');
-    const referenceText = `Fechamento de Folha (${startStr} a ${endStr})`;
+    
+    const startObj = new Date(`${startDate}T00:00:00`);
+    
+    const adiantamentoDate = new Date(startObj.getFullYear(), startObj.getMonth(), 20).toISOString().split('T')[0];
+    const fechamentoDate = new Date(startObj.getFullYear(), startObj.getMonth() + 1, 5).toISOString().split('T')[0];
 
     if (employeeId === 'all') {
       const activeEmps = employees.filter(e => e.status === 'Ativo');
@@ -114,42 +108,81 @@ export default function ClosePayrollModal({ employees, onClose }: ClosePayrollMo
 
       for (const emp of activeEmps) {
         const res = calculateEmployeePayroll(emp.id);
-        if (res.sum > 0) {
-          const jaExiste = payments.some(p => p.name === emp.name && p.reference === referenceText);
-          if (jaExiste) {
+        if (res && res.gross_remuneration > 0) {
+          const refAdiantamento = `Adiantamento Folha (${startStr} a ${endStr})`;
+          const refFechamento = `Fechamento Folha (${startStr} a ${endStr})`;
+          
+          const existeAdiantamento = payments.some(p => p.name === emp.name && p.reference === refAdiantamento);
+          const existeFechamento = payments.some(p => p.name === emp.name && p.reference === refFechamento);
+          
+          if (existeAdiantamento && existeFechamento) {
             pulados++;
             continue;
           }
 
-          await addPayment({
-            name: emp.name,
-            reference: referenceText,
-            date: endDate,
-            value: res.sum,
-            status: 'Pendente'
-          } as any);
+          if (res.adiantamento_value > 0 && !existeAdiantamento) {
+            await addPayment({
+              name: emp.name,
+              reference: refAdiantamento,
+              date: adiantamentoDate,
+              value: res.adiantamento_value,
+              status: 'Agendado'
+            } as any);
+          }
+
+          if (res.fechamento_value > 0 && !existeFechamento) {
+            await addPayment({
+              name: emp.name,
+              reference: refFechamento,
+              date: fechamentoDate,
+              value: res.fechamento_value,
+              status: 'Agendado'
+            } as any);
+          }
+          
           gerados++;
         }
       }
-      alert(`Processo concluído!\n\n✅ ${gerados} lançamentos criados.\n⚠️ ${pulados} ignorados (já existiam no financeiro para o período).`);
+      alert(`Processo concluído!\n\n✅ ${gerados} funcionários processados com adiantamento e fechamento.\n⚠️ ${pulados} ignorados (já existiam no financeiro).`);
     } else {
       const emp = employees.find(e => e.id === employeeId);
       if (!emp) return;
 
-      const jaExiste = payments.some(p => p.name === emp.name && p.reference === referenceText);
-      if (jaExiste) {
-        alert(`Atenção: Já existe um lançamento de folha para ${emp.name} neste mesmo período no Financeiro! Ação cancelada.`);
+      const res = calculateEmployeePayroll(emp.id);
+      if (!res) return;
+
+      const refAdiantamento = `Adiantamento Folha (${startStr} a ${endStr})`;
+      const refFechamento = `Fechamento Folha (${startStr} a ${endStr})`;
+
+      const existeAdiantamento = payments.some(p => p.name === emp.name && p.reference === refAdiantamento);
+      const existeFechamento = payments.some(p => p.name === emp.name && p.reference === refFechamento);
+
+      if (existeAdiantamento && existeFechamento) {
+        alert(`Atenção: Já existem lançamentos para ${emp.name} neste período!`);
         return;
       }
 
-      await addPayment({
-        name: emp.name,
-        reference: referenceText,
-        date: endDate,
-        value: totalValue,
-        status: 'Pendente'
-      } as any);
-      alert('Lançamento criado com sucesso no Financeiro!');
+      if (res.adiantamento_value > 0 && !existeAdiantamento) {
+        await addPayment({
+          name: emp.name,
+          reference: refAdiantamento,
+          date: adiantamentoDate,
+          value: res.adiantamento_value,
+          status: 'Agendado'
+        } as any);
+      }
+
+      if (res.fechamento_value > 0 && !existeFechamento) {
+        await addPayment({
+          name: emp.name,
+          reference: refFechamento,
+          date: fechamentoDate,
+          value: res.fechamento_value,
+          status: 'Agendado'
+        } as any);
+      }
+
+      alert('Lançamentos de Adiantamento e Fechamento criados com sucesso no Financeiro!');
     }
 
     onClose();
@@ -166,7 +199,7 @@ export default function ClosePayrollModal({ employees, onClose }: ClosePayrollMo
             </div>
             <div>
               <h2 className="text-lg font-bold text-zinc-900 dark:text-white">Fechar Folha</h2>
-              <p className="text-xs text-zinc-500">Gera um contas a pagar no Financeiro</p>
+              <p className="text-xs text-zinc-500">Gera lançamentos no Financeiro</p>
             </div>
           </div>
           <button onClick={onClose} className="p-2 text-gray-400 hover:text-gray-700 dark:hover:text-white transition-colors">
@@ -221,30 +254,42 @@ export default function ClosePayrollModal({ employees, onClose }: ClosePayrollMo
                 {employeeId === 'all' ? 'Resumo Geral (Lote de Todos)' : 'Resumo do Período'}
               </h4>
               <div className="flex justify-between items-center text-sm mb-1">
-                <span className="text-blue-600 dark:text-blue-400">Total de registros:</span>
-                <span className="font-bold text-blue-900 dark:text-blue-100">{punchesFound} dias</span>
+                <span className="text-blue-600 dark:text-blue-400">Dias trabalhados:</span>
+                <span className="font-bold text-emerald-700 dark:text-emerald-400">{totals.trabalhados} dias</span>
               </div>
-              <div className="flex justify-between items-center text-sm mb-1">
-                <span className="text-blue-600 dark:text-blue-400">✅ Dias trabalhados:</span>
-                <span className="font-bold text-emerald-700 dark:text-emerald-400">{workingDaysCount} dias</span>
-              </div>
-              {punchesFound - workingDaysCount > 0 && (
+              {totals.faltas > 0 && (
                 <div className="flex justify-between items-center text-sm mb-1">
-                  <span className="text-blue-600 dark:text-blue-400">❌ Faltas:</span>
-                  <span className="font-bold text-red-600 dark:text-red-400">{punchesFound - workingDaysCount} dias</span>
+                  <span className="text-blue-600 dark:text-blue-400">Faltas:</span>
+                  <span className="font-bold text-red-600 dark:text-red-400">{totals.faltas} dias</span>
                 </div>
               )}
-              <div className="flex justify-between items-center text-lg mt-3 pt-3 border-t border-blue-200 dark:border-blue-800">
-                <span className="text-blue-600 dark:text-blue-400 font-bold">Total a Pagar:</span>
-                <span className="font-bold text-blue-900 dark:text-blue-100">
-                  {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalValue)}
-                </span>
+              
+              <div className="mt-3 pt-3 border-t border-blue-200 dark:border-blue-800/50">
+                <div className="flex justify-between items-center text-sm mb-1">
+                  <span className="text-slate-600 dark:text-slate-400">Adiantamento (Dia 20):</span>
+                  <span className="font-bold text-slate-800 dark:text-white">
+                    {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totals.adiantamento)}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center text-sm mb-2">
+                  <span className="text-slate-600 dark:text-slate-400">Fechamento (Dia 05):</span>
+                  <span className="font-bold text-slate-800 dark:text-white">
+                    {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totals.fechamento)}
+                  </span>
+                </div>
+                
+                <div className="flex justify-between items-center text-lg pt-2 border-t border-blue-300 dark:border-blue-800">
+                  <span className="text-blue-700 dark:text-blue-400 font-bold">Total a Pagar:</span>
+                  <span className="font-bold text-blue-900 dark:text-blue-100">
+                    {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totals.bruto)}
+                  </span>
+                </div>
               </div>
             </div>
 
             <button 
               type="submit" 
-              disabled={totalValue <= 0 || !employeeId}
+              disabled={totals.bruto <= 0 || !employeeId}
               className="w-full py-3 bg-[#c79229] hover:bg-[#a67922] disabled:opacity-50 text-[#181418] font-bold rounded-lg transition-colors mt-6"
             >
               {employeeId === 'all' ? 'Gerar Lote p/ Financeiro' : 'Confirmar e Enviar p/ Financeiro'}

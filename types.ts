@@ -494,8 +494,17 @@ export interface PayrollResult {
   food_allowance: number; // alimentação total
   coffee_allowance: number; // café total
   basic_basket: number; // cesta básica
-  gross_remuneration: number; // Bruto
+  gross_remuneration: number; // Bruto (como se tivesse trabalhado tudo)
   daily_rate: number; // Valor Diário
+
+  // Separação Adiantamento (Dia 20) e Fechamento (Dia 05)
+  p1_expected_days: number;
+  p1_worked_days: number;
+  adiantamento_value: number;
+  
+  p2_expected_days: number;
+  p2_worked_days: number;
+  fechamento_value: number;
 
   // Descontos
   discount_absences: number;
