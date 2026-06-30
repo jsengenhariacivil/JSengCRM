@@ -1102,6 +1102,53 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }).eq('id', record.id);
 
     setFinancials(prev => prev.map(f => f.id === record.id ? { ...f, ...record } : f));
+
+    // --- REVERSE SYNC: Atualizar status nos módulos originais ---
+    try {
+      // 1. Pagamentos de RH (verifica pelo mesmo ID)
+      const linkedPayment = payments.find(p => p.id === record.id);
+      if (linkedPayment) {
+        const paymentStatus = (record.status === Status.PAID || record.status === Status.COMPLETED) ? 'Pago' : 
+                              (record.status === Status.PENDING ? 'Pendente' : record.status);
+        if (linkedPayment.status !== paymentStatus) {
+          await supabase.from('payment_records').update({ status: paymentStatus }).eq('id', linkedPayment.id);
+          setPayments(prev => prev.map(p => p.id === linkedPayment.id ? { ...p, status: paymentStatus } : p));
+        }
+      }
+
+      // 2. Medições de Obra (Verifica pela tag [MID:id])
+      if (record.description?.includes('[MID:')) {
+        const match = record.description.match(/\[MID:(.+?)\]/);
+        if (match && match[1]) {
+          const mid = match[1];
+          const linkedMeasurement = measurements.find(m => m.id === mid);
+          if (linkedMeasurement && linkedMeasurement.status !== record.status) {
+            await supabase.from('measurements').update({ status: record.status }).eq('id', mid);
+            setMeasurements(prev => prev.map(m => m.id === mid ? { ...m, status: record.status } : m));
+          }
+        }
+      }
+      
+      // 3. Ordens de Compra (Verifica pelo mesmo ID ou tag [POID:id])
+      let poId = record.id;
+      if (record.description?.includes('[POID:')) {
+        const match = record.description.match(/\[POID:(.+?)\]/);
+        if (match && match[1]) poId = match[1];
+      }
+      const linkedPO = purchaseOrders.find(p => p.id === poId);
+      if (linkedPO) {
+        // Pedidos de Compra têm um lifecycle diferente (Pendente, Aprovado, Enviado, Entregue, Cancelado)
+        // Mas se a despesa financeira for 'Paga', e a PO for 'Pendente', mudamos para 'Aprovado' ou mantemos se já for 'Entregue'
+        if (record.status === Status.PAID || record.status === Status.COMPLETED) {
+          if (linkedPO.status === 'Pendente') {
+            await supabase.from('purchase_orders').update({ status: 'Aprovado' }).eq('id', poId);
+            setPurchaseOrders(prev => prev.map(p => p.id === poId ? { ...p, status: 'Aprovado' } : p));
+          }
+        }
+      }
+    } catch (syncErr) {
+      console.error('Erro na sincronização reversa do financeiro:', syncErr);
+    }
   };
 
   const deleteFinancialRecord = async (id: string) => {
@@ -2484,6 +2531,18 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           }
         }
         setPurchaseOrders(prev => [{ ...po, id: data.id, createdAt: data.created_at }, ...prev]);
+
+        // INTEGRAÇÃO FINANCEIRA
+        await addFinancialRecord({
+          id: data.id,
+          type: 'Despesa',
+          description: `Compra: ${po.description} [POID:${data.id}]`,
+          amount: po.totalValue,
+          date: po.date,
+          status: Status.PENDING,
+          category: 'Materiais',
+          projectId: po.projectId
+        });
       }
     } catch (err) {
       console.error('Catch error in addPurchaseOrder:', err);
@@ -2508,6 +2567,18 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       if (error) throw error;
 
       setPurchaseOrders(prev => prev.map(p => p.id === po.id ? po : p));
+
+      // Atualizar financeiro
+      const existingFin = financials.find(f => f.id === po.id || f.description.includes(`[POID:${po.id}]`));
+      if (existingFin) {
+        await updateFinancialRecord({
+          ...existingFin,
+          amount: po.totalValue,
+          date: po.date,
+          // Não atualizamos o status automaticamente de PO para Financeiro, pois status de PO é físico (Enviado/Entregue), 
+          // O status de pagamento é gerido no Financeiro.
+        });
+      }
     } catch (err) {
       console.error('Erro em updatePurchaseOrder:', err);
       throw err;
