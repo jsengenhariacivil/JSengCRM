@@ -289,6 +289,7 @@ const Team: React.FC<TeamProps> = ({ view }) => {
           lunch_allowance: Number(formData.lunch_allowance) || 0,
           breakfast_allowance: Number(formData.breakfast_allowance) || 0,
           work_schedule: formData.work_schedule || 'seg_sex',
+          schedule_id: formData.schedule_id || undefined,
         };
         if (editingId) memberData.id = editingId;
 
