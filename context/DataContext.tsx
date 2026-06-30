@@ -511,7 +511,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             cesta_basica: parseFloat(t.cesta_basica) || 0,
             lunch_allowance: parseFloat(t.lunch_allowance) || 0,
             breakfast_allowance: parseFloat(t.breakfast_allowance) || 0,
-            work_schedule: t.work_schedule
+            work_schedule: t.work_schedule,
+            schedule_id: t.schedule_id || undefined
           })));
         }
 
@@ -1633,7 +1634,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       cesta_basica: member.cesta_basica,
       lunch_allowance: member.lunch_allowance,
       breakfast_allowance: member.breakfast_allowance,
-      work_schedule: member.work_schedule
+      work_schedule: member.work_schedule,
+      schedule_id: member.schedule_id || null
     }]).select().single();
 
     if (error) throw new Error(error.message);
@@ -1666,7 +1668,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       cesta_basica: member.cesta_basica,
       lunch_allowance: member.lunch_allowance,
       breakfast_allowance: member.breakfast_allowance,
-      work_schedule: member.work_schedule
+      work_schedule: member.work_schedule,
+      schedule_id: member.schedule_id || null
     }).eq('id', member.id);
 
     if (error) throw new Error(error.message);
