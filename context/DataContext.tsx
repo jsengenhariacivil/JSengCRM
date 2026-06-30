@@ -136,6 +136,7 @@ interface DataContextType {
   addPurchaseOrder: (po: PurchaseOrder) => Promise<void>;
   updatePurchaseOrder: (po: PurchaseOrder) => Promise<void>;
   deletePurchaseOrder: (id: string) => Promise<void>;
+  approvePurchaseOrderToInventory: (po: PurchaseOrder) => Promise<void>;
 
   safetyRecords: SafetyRecord[];
   addSafetyRecord: (record: SafetyRecord) => Promise<void>;
@@ -2590,6 +2591,78 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setPurchaseOrders(prev => prev.filter(p => p.id !== id));
   };
 
+  const approvePurchaseOrderToInventory = async (po: PurchaseOrder) => {
+    try {
+      const approvedPo = { ...po, status: 'Aprovado' as const };
+      await updatePurchaseOrder(approvedPo);
+
+      for (const item of po.items) {
+        let existingItem = inventoryItems.find(i => i.name.toLowerCase() === item.description.toLowerCase());
+        
+        let itemIdToUse = '';
+        if (existingItem) {
+          const updatedQuantity = existingItem.quantity + item.quantity;
+          await updateInventoryItem({
+            ...existingItem,
+            quantity: updatedQuantity,
+            unitPrice: item.unitPrice,
+            lastRestocked: po.date
+          });
+          itemIdToUse = existingItem.id;
+        } else {
+          const newItem: InventoryItem = {
+            id: '',
+            name: item.description,
+            category: 'Geral',
+            unit: item.unit,
+            quantity: item.quantity,
+            minQuantity: 5,
+            unitPrice: item.unitPrice,
+            supplierId: po.supplierId,
+            status: 'Em Estoque',
+            lastRestocked: po.date
+          };
+          const { data, error } = await supabase.from('inventory_items').insert([{
+            name: newItem.name,
+            category: newItem.category,
+            unit: newItem.unit,
+            quantity: newItem.quantity,
+            min_quantity: newItem.minQuantity,
+            location: '',
+            unit_price: newItem.unitPrice,
+            supplier_id: newItem.supplierId || null,
+            status: newItem.status,
+            last_restocked: newItem.lastRestocked
+          }]).select().single();
+
+          if (error) throw error;
+          if (data) {
+            itemIdToUse = data.id;
+            setInventoryItems(prev => [...prev, {
+              ...newItem,
+              id: data.id,
+            }]);
+          }
+        }
+
+        if (itemIdToUse) {
+          await addInventoryMovement({
+            itemId: itemIdToUse,
+            type: 'Entrada',
+            quantity: item.quantity,
+            date: po.date,
+            projectId: po.projectId,
+            userName: 'Sistema (Aprovação de Compra)',
+            reason: `Entrada via aprovação de Pedido #${po.id.substring(0,6)}`
+          });
+        }
+      }
+    } catch (err) {
+      console.error('Erro ao aprovar pedido e integrar ao estoque:', err);
+      throw err;
+    }
+  };
+
   // --- SAFETY RECORDS ---
   const addSafetyRecord = async (record: SafetyRecord) => {
     try {
@@ -2971,7 +3044,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       inventoryItems, addInventoryItem, updateInventoryItem, deleteInventoryItem, addInventoryMovement, inventoryMovements,
       goals, addGoal, updateGoal, deleteGoal,
       contracts, addContract, updateContract, deleteContract,
-      purchaseOrders, addPurchaseOrder, updatePurchaseOrder, deletePurchaseOrder,
+      purchaseOrders, addPurchaseOrder, updatePurchaseOrder, deletePurchaseOrder, approvePurchaseOrderToInventory,
       safetyRecords, addSafetyRecord, updateSafetyRecord, deleteSafetyRecord,
       engineeringDocuments, addEngineeringDocument, deleteEngineeringDocument, uploadFile,
       qualityInspections, addQualityInspection, updateQualityInspection, deleteQualityInspection,

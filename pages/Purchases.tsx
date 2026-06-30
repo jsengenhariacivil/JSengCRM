@@ -5,7 +5,7 @@ import { PurchaseOrder, PurchaseOrderItem, Status } from '../types';
 import QuickClientSupplierForm from '../components/QuickClientSupplierForm';
 
 const Purchases: React.FC = () => {
-    const { purchaseOrders, addPurchaseOrder, updatePurchaseOrder, deletePurchaseOrder, suppliers, projects } = useData();
+    const { purchaseOrders, addPurchaseOrder, updatePurchaseOrder, deletePurchaseOrder, approvePurchaseOrderToInventory, suppliers, projects } = useData();
     const [searchTerm, setSearchTerm] = useState('');
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingPO, setEditingPO] = useState<PurchaseOrder | null>(null);
@@ -162,6 +162,19 @@ const Purchases: React.FC = () => {
                                     <td className="px-6 py-4">{getStatusBadge(po.status)}</td>
                                     <td className="px-6 py-4 text-right">
                                         <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                            {po.status === 'Pendente' && (
+                                                <button 
+                                                    onClick={() => {
+                                                        if (window.confirm('Deseja aprovar este pedido? Seus itens entrarão automaticamente no Estoque.')) {
+                                                            approvePurchaseOrderToInventory(po);
+                                                        }
+                                                    }} 
+                                                    className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg flex items-center gap-1 font-bold text-xs"
+                                                    title="Aprovar e enviar para o estoque"
+                                                >
+                                                    <CheckCircle size={16} /> Aprovar
+                                                </button>
+                                            )}
                                             <button onClick={() => handleOpenModal(po)} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg"><Edit2 size={16} /></button>
                                             <button onClick={() => deletePurchaseOrder(po.id)} className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg"><Trash2 size={16} /></button>
                                         </div>
