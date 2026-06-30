@@ -1,4 +1,4 @@
-
+﻿
 import { Project as Obra } from '../types';
 
 interface GanttChartProps {
@@ -11,12 +11,12 @@ export default function GanttChart({ obra }: GanttChartProps) {
   if (stages.length === 0) {
     return (
       <div className="p-8 text-center text-gray-500">
-        Nenhuma etapa cadastrada para gerar o grÃ¡fico de Gantt.
+        Nenhuma etapa cadastrada para gerar o gráfico de Gantt.
       </div>
     );
   }
 
-  // Encontra a menor data de inÃ­cio e a maior data de fim
+  // Encontra a menor data de início e a maior data de fim
   let minDateStr = stages[0].startDate;
   let maxDateStr = stages[0].endDate;
 
@@ -35,7 +35,7 @@ export default function GanttChart({ obra }: GanttChartProps) {
 
   const totalDays = Math.ceil((maxDate.getTime() - minDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
 
-  // Gerar array de meses/anos para o cabeÃ§alho superior
+  // Gerar array de meses/anos para o cabeçalho superior
   const months: { label: string; days: number; startDayIndex: number }[] = [];
   for (let i = 0; i < totalDays; i++) {
     const d = new Date(minDate);
@@ -53,7 +53,7 @@ export default function GanttChart({ obra }: GanttChartProps) {
     <div className="p-6 overflow-x-auto custom-scrollbar">
       <div className="min-w-[800px] border border-gray-200 dark:border-zinc-800 rounded-xl overflow-hidden bg-white dark:bg-zinc-900/50">
         
-        {/* CabeÃ§alho de Meses */}
+        {/* Cabeçalho de Meses */}
         <div className="flex border-b border-gray-200 dark:border-zinc-800 bg-gray-50 dark:bg-zinc-800/80">
           <div className="w-64 shrink-0 border-r border-gray-200 dark:border-zinc-800 p-3 font-semibold text-xs text-gray-500 uppercase flex items-center">
             Etapas da Obra
@@ -73,7 +73,7 @@ export default function GanttChart({ obra }: GanttChartProps) {
 
         {/* Linhas das Etapas */}
         <div className="divide-y divide-gray-100 dark:divide-zinc-800/50 relative">
-          {/* Grid de Fundo (opcional, sÃ³ visual) */}
+          {/* Grid de Fundo (opcional, só visual) */}
           <div className="absolute inset-0 flex ml-64 pointer-events-none opacity-20">
              {Array.from({ length: totalDays }).map((_, i) => (
                <div key={i} className="border-r border-gray-200 dark:border-zinc-700 h-full" style={{ width: `${100 / totalDays}%` }}></div>
@@ -103,7 +103,7 @@ export default function GanttChart({ obra }: GanttChartProps) {
                     {stage.name}
                   </span>
                   <span className="text-[10px] text-gray-400">
-                    {sStart.toLocaleDateString('pt-BR')} atÃ© {sEnd.toLocaleDateString('pt-BR')}
+                    {sStart.toLocaleDateString('pt-BR')} até {sEnd.toLocaleDateString('pt-BR')}
                   </span>
                 </div>
                 
@@ -117,7 +117,7 @@ export default function GanttChart({ obra }: GanttChartProps) {
                     
                     {/* Tooltip */}
                     <div className="opacity-0 group-hover:opacity-100 absolute bottom-full left-1/2 -translate-x-1/2 mb-2 bg-zinc-900 text-white text-xs py-1 px-2 rounded whitespace-nowrap pointer-events-none transition-opacity z-50">
-                      {stage.progress}% concluÃ­do
+                      {stage.progress}% concluído
                       <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-zinc-900"></div>
                     </div>
                   </div>
@@ -131,4 +131,6 @@ export default function GanttChart({ obra }: GanttChartProps) {
     </div>
   );
 }
+
+
 

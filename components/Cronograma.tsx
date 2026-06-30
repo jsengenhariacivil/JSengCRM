@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import { useData } from '../context/DataContext';
 import { Project as Obra, ProjectStage as Stage } from '../types';
 import {
@@ -57,7 +57,7 @@ export default function Cronograma({ obra, onClose }: CronogramaProps) {
       const text = ev.target?.result as string;
       const parsed = parseCsvContent(text);
       if (parsed.length > 0) {
-        if (window.confirm(`VocÃª estÃ¡ importando ${parsed.length} linhas. Isso irÃ¡ substituir as etapas atuais desta obra. Deseja continuar?`)) {
+        if (window.confirm(`Você está importando ${parsed.length} linhas. Isso irá substituir as etapas atuais desta obra. Deseja continuar?`)) {
           // await useStore.getState().importCronograma(obra.id, parsed);
           // Note: importCronograma logic should be implemented here or in DataContext
         }
@@ -124,7 +124,7 @@ export default function Cronograma({ obra, onClose }: CronogramaProps) {
         <div className="px-8 py-5 border-b border-gray-200 dark:border-zinc-800 flex items-center justify-between flex-wrap gap-4">
           <div>
             <h2 className="text-xl font-bold text-zinc-900 dark:text-white">
-              Cronograma FÃ­sico-Financeiro
+              Cronograma Físico-Financeiro
             </h2>
             <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-0.5">{obra.title}</p>
           </div>
@@ -155,13 +155,13 @@ export default function Cronograma({ obra, onClose }: CronogramaProps) {
           {[
             {
               icon: <TrendingUp size={18} className="text-blue-500" />,
-              label: 'Progresso FÃ­sico',
+              label: 'Progresso Físico',
               value: `${progressFisico}%`,
-              sub: 'execuÃ§Ã£o geral',
+              sub: 'execução geral',
             },
             {
               icon: <DollarSign size={18} className="text-emerald-500" />,
-              label: 'OrÃ§amento Total',
+              label: 'Orçamento Total',
               value: fmtCurrency(obra.budget),
               sub: '100% da obra',
             },
@@ -195,13 +195,13 @@ export default function Cronograma({ obra, onClose }: CronogramaProps) {
             onClick={() => setActiveTab('detalhes')}
             className={`py-3 px-1 border-b-2 text-sm font-medium transition-colors ${activeTab === 'detalhes' ? 'border-blue-500 text-blue-600 dark:text-blue-400' : 'border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
           >
-            Detalhes FÃ­sico-Financeiro
+            Detalhes Físico-Financeiro
           </button>
           <button
             onClick={() => setActiveTab('gantt')}
             className={`py-3 px-1 border-b-2 text-sm font-medium transition-colors ${activeTab === 'gantt' ? 'border-blue-500 text-blue-600 dark:text-blue-400' : 'border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
           >
-            GrÃ¡fico de Gantt
+            Gráfico de Gantt
           </button>
         </div>
 
@@ -230,22 +230,22 @@ export default function Cronograma({ obra, onClose }: CronogramaProps) {
         {/* â”€â”€ Tabela de Etapas â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
         <div className="px-6 py-4">
           <div className="flex justify-between items-center mb-3">
-            <h3 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">Etapas de ExecuÃ§Ã£o</h3>
+            <h3 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">Etapas de Execução</h3>
             <button 
               onClick={() => setShowAddService(!showAddService)}
               className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 dark:text-blue-400 dark:bg-blue-900/30 dark:hover:bg-blue-900/50 rounded-lg transition-colors"
             >
               <Plus size={14} />
-              {showAddService ? 'Cancelar' : 'Adicionar ServiÃ§o Extra'}
+              {showAddService ? 'Cancelar' : 'Adicionar Serviço Extra'}
             </button>
           </div>
 
           {showAddService && (
             <div className="mb-4 bg-gray-50 dark:bg-zinc-800/50 border border-gray-200 dark:border-zinc-700 rounded-xl p-4">
-              <h4 className="text-sm font-medium text-zinc-900 dark:text-white mb-3">Novo ServiÃ§o Extra (Aditivo)</h4>
+              <h4 className="text-sm font-medium text-zinc-900 dark:text-white mb-3">Novo Serviço Extra (Aditivo)</h4>
               <form onSubmit={handleAddServiceSave} className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
                 <div className="md:col-span-4">
-                  <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Nome do ServiÃ§o (ex: Piscina)</label>
+                  <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Nome do Serviço (ex: Piscina)</label>
                   <input 
                     required 
                     type="text" 
@@ -267,7 +267,7 @@ export default function Cronograma({ obra, onClose }: CronogramaProps) {
                   />
                 </div>
                 <div className="md:col-span-2">
-                  <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Data InÃ­cio</label>
+                  <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Data Início</label>
                   <input 
                     required 
                     type="date" 
@@ -310,7 +310,7 @@ export default function Cronograma({ obra, onClose }: CronogramaProps) {
                 <div key={stage.id} className="bg-gray-50 dark:bg-zinc-800/40 rounded-xl border border-gray-100 dark:border-zinc-800 overflow-hidden hover:border-blue-200 dark:hover:border-blue-900 transition-colors">
                   <div className="p-4">
                     <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-                      {/* NÃºmero e Nome */}
+                      {/* Número e Nome */}
                       <div className="flex items-center gap-3 flex-1 min-w-0">
                         <button onClick={() => toggleExpand(stage.id)} className="text-gray-400 hover:text-zinc-600 dark:hover:text-zinc-300">
                           {isExpanded ? <ChevronDown size={20} /> : <ChevronRight size={20} />}
@@ -351,7 +351,7 @@ export default function Cronograma({ obra, onClose }: CronogramaProps) {
                           />
                         </div>
                         <div>
-                          <p className="text-xs text-gray-500 dark:text-gray-400">OrÃ§ado</p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">Orçado</p>
                           <p className="font-semibold text-zinc-600 dark:text-zinc-400 text-sm">{fmtCurrency(valorEtapa)}</p>
                         </div>
                         <div>
@@ -436,7 +436,7 @@ export default function Cronograma({ obra, onClose }: CronogramaProps) {
                                   />
                                 </div>
                                   <div className="hidden sm:block min-w-[80px]">
-                                    <p className="text-xs text-gray-500">OrÃ§ado</p>
+                                    <p className="text-xs text-gray-500">Orçado</p>
                                     <p className="font-semibold text-zinc-600 dark:text-zinc-400 text-xs">{fmtCurrency(subValor)}</p>
                                   </div>
                                   <div className="hidden sm:block min-w-[80px]">
@@ -502,8 +502,8 @@ export default function Cronograma({ obra, onClose }: CronogramaProps) {
                         
                         {hasSubStages && (
                           <div className="mt-2 flex items-center justify-between px-2 text-xs text-gray-500">
-                            <span>Soma dos pesos: {subStages.reduce((acc, sub) => acc + (sub.weight || 0), 0)}% (O ideal Ã© fechar em 100%)</span>
-                            <span className="italic">O progresso da etapa pai Ã© automÃ¡tico.</span>
+                            <span>Soma dos pesos: {subStages.reduce((acc, sub) => acc + (sub.weight || 0), 0)}% (O ideal é fechar em 100%)</span>
+                            <span className="italic">O progresso da etapa pai é automático.</span>
                           </div>
                         )}
                       </div>
@@ -518,11 +518,11 @@ export default function Cronograma({ obra, onClose }: CronogramaProps) {
         {/* â”€â”€ Legenda â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
         <div className="px-6 pb-6">
           <div className="flex flex-wrap gap-4 text-xs text-gray-500 dark:text-gray-400 pt-2">
-            <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-emerald-500 inline-block" /> ConcluÃ­do (100%)</span>
-            <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-blue-500 inline-block" /> AvanÃ§ado (â‰¥60%)</span>
-            <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-amber-500 inline-block" /> Em Progresso (â‰¥20%)</span>
+            <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-emerald-500 inline-block" /> Concluído (100%)</span>
+            <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-blue-500 inline-block" /> Avançado (≥60%)</span>
+            <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-amber-500 inline-block" /> Em Progresso (≥20%)</span>
             <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-orange-400 inline-block" /> Iniciado (&lt;20%)</span>
-            <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-gray-300 dark:bg-zinc-600 inline-block" /> NÃ£o Iniciado</span>
+            <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-gray-300 dark:bg-zinc-600 inline-block" /> Não Iniciado</span>
             <span className="ml-auto italic">Clique no % para editar o progresso de cada etapa</span>
           </div>
         </div>
@@ -532,4 +532,6 @@ export default function Cronograma({ obra, onClose }: CronogramaProps) {
     </div>
   );
 }
+
+
 
