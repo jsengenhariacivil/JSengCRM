@@ -38,7 +38,7 @@ export const WorkScheduleManager: React.FC = () => {
   const handleSave = async () => {
     if (!formData.name) return alert('Nome da escala é obrigatório');
 
-    if (editingId) {
+    if (editingId && editingId !== 'new') {
       await updateWorkSchedule({ ...formData, id: editingId } as WorkSchedule);
     } else {
       await addWorkSchedule({
