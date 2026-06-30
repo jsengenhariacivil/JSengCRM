@@ -126,7 +126,7 @@ export default function ClosePayrollModal({ employees, onClose }: ClosePayrollMo
               reference: refAdiantamento,
               date: adiantamentoDate,
               value: res.adiantamento_value,
-              status: 'Agendado'
+              status: 'Pendente'
             } as any);
           }
 
@@ -136,7 +136,7 @@ export default function ClosePayrollModal({ employees, onClose }: ClosePayrollMo
               reference: refFechamento,
               date: fechamentoDate,
               value: res.fechamento_value,
-              status: 'Agendado'
+              status: 'Pendente'
             } as any);
           }
           
@@ -168,7 +168,7 @@ export default function ClosePayrollModal({ employees, onClose }: ClosePayrollMo
           reference: refAdiantamento,
           date: adiantamentoDate,
           value: res.adiantamento_value,
-          status: 'Agendado'
+          status: 'Pendente'
         } as any);
       }
 
@@ -178,7 +178,7 @@ export default function ClosePayrollModal({ employees, onClose }: ClosePayrollMo
           reference: refFechamento,
           date: fechamentoDate,
           value: res.fechamento_value,
-          status: 'Agendado'
+          status: 'Pendente'
         } as any);
       }
 
